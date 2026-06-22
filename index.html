@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPRED</title>
+    <link rel="stylesheet" href="./styles/app.css">
+</head>
+<body>
+    <main class="app-shell" aria-label="SPRED score app">
+        <input class="mode-toggle" id="edit-mode-toggle" type="checkbox" aria-hidden="true">
+
+        <!-- Menu Area -->
+        <header class="menu-area">
+            <nav class="left-tool-group" aria-label="Tool menus">
+                <div class="tool-menu-row">
+                    <div class="menu-dropdown">
+                        <button class="menu-trigger" type="button">File</button>
+                        <div class="menu-panel">
+                            <button type="button" class="json-load-button">JSON Load</button>
+                            <button type="button" class="json-download-button">JSON Download</button>
+                            <button type="button" class="local-save-button">Local Save</button>
+                            <button type="button" class="local-load-button">Local Load</button>
+                            <input class="json-load-input" type="file" accept="application/json,.json" hidden>
+                        </div>
+                    </div>
+                    <div class="menu-dropdown">
+                        <button class="menu-trigger" type="button">View</button>
+                        <div class="menu-panel">
+                            <label class="compact-field">
+                                Zoom
+                                <input type="range" min="25" max="200" value="100">
+                            </label>
+                            <label class="compact-field">
+                                Text Scale
+                                <input type="range" min="75" max="150" value="100" disabled>
+                            </label>
+                            <label class="compact-field">
+                                Speed
+                                <input type="range" min="50" max="150" value="100" disabled>
+                            </label>
+                            <button type="button" class="fullscreen-button">Fullscreen</button>
+                            <button type="button" class="fit-height-button">Fit Height</button>
+                            <button type="button" class="reverse-button">Normal</button>
+                            <button type="button" class="theme-button">Light</button>
+                            <label class="switch-field">
+                                <input type="checkbox" disabled>
+                                Text off
+                            </label>
+                        </div>
+                    </div>
+                    <div class="menu-dropdown">
+                        <button class="menu-trigger" type="button">Loop</button>
+                        <div class="menu-panel loop-panel">
+                            <div class="edit-control-row">
+                                <span class="micro-label">Loop</span>
+                                <button type="button" class="pill-toggle off" disabled>Off</button>
+                            </div>
+                            <label class="inline-field">
+                                Start
+                                <select disabled>
+                                    <option>First</option>
+                                    <option>Select Start Column</option>
+                                </select>
+                                <span class="preview-pill">--</span>
+                            </label>
+                            <label class="inline-field">
+                                End
+                                <select disabled>
+                                    <option>Last</option>
+                                    <option>Select End Column</option>
+                                </select>
+                                <span class="preview-pill">--</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="menu-dropdown">
+                        <button class="menu-trigger" type="button">Help</button>
+                        <div class="menu-panel">
+                            <button type="button" onclick="document.getElementById('legal-info').showModal()">Info</button>
+                            <button type="button" disabled>Manual</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tool-action-row">
+                    <label class="toggle-button" for="edit-mode-toggle">Edit Mode</label>
+                    <div class="menu-dropdown">
+                        <button class="menu-trigger" type="button">Track</button>
+                        <div class="menu-panel track-panel">
+                            <button type="button" class="pill-toggle track-toggle on" data-track-id="basic" aria-pressed="true">Basic</button>
+                            <button type="button" class="pill-toggle track-toggle off" data-track-id="optional" aria-pressed="false">Optional</button>
+                            <button type="button" class="pill-toggle track-toggle off" data-track-id="extra" aria-pressed="false">Extra</button>
+                        </div>
+                    </div>
+                    <div class="menu-dropdown">
+                        <button class="menu-trigger" type="button">Expand</button>
+                        <div class="menu-panel expand-panel">
+                            <span class="micro-label">Columns</span>
+                            <input class="expand-column-input" type="number" min="1" max="960" step="1" placeholder="cols">
+                            <button type="button" class="expand-right-button">Expand right</button>
+                            <button type="button" class="trim-right-button">Trim Right</button>
+                            <p class="expand-warning">Large scores may lag or render incorrectly in this preview build.</p>
+                        </div>
+                    </div>
+                    <button class="menu-trigger clear-all-button" type="button">Clear All</button>
+                </div>
+                <div class="left-status-line" role="status" aria-live="polite">Loaded. cols --</div>
+            </nav>
+
+            <section class="player-group" aria-label="Playback controls">
+                <span class="status-pill playback-status">stopped</span>
+                <button type="button" class="details-button">Details</button>
+                <div class="music-meta">
+                    <span class="artist">unknown</span>
+                    <span aria-hidden="true">-</span>
+                    <strong class="title">unknown</strong>
+                </div>
+                <div class="transport-row">
+                    <button type="button" class="transport-button" aria-label="Play or pause">▶</button>
+                    <button type="button" class="transport-button" aria-label="Stop">■</button>
+                    <label class="seek-field">
+                        <span class="seek-current-label">0</span>
+                        <input class="seek-input" type="range" min="0" max="0" value="0" step="1">
+                        <span class="seek-duration-label">0</span>
+                    </label>
+                </div>
+                <div class="audio-row">
+                    <label class="compact-field">
+                        Volume
+                        <input type="range" min="0" max="100" value="70">
+                    </label>
+                    <label class="compact-field">
+                        Wave
+                        <select>
+                            <option>sine</option>
+                            <option>square</option>
+                            <option>triangle</option>
+                            <option>sawtooth</option>
+                        </select>
+                    </label>
+                    <span class="status-pill step-info">BPM: --</span>
+                </div>
+            </section>
+
+            <section class="youtube-group" aria-label="YouTube mode">
+                <input class="youtube-toggle" id="youtube-toggle" type="checkbox">
+                <label class="switch-field youtube-switch" for="youtube-toggle">YouTube</label>
+                <div class="youtube-controls">
+                    <label class="compact-field">
+                        Video
+                        <input class="youtube-video-input" type="text" maxlength="128" placeholder="URL or ID">
+                    </label>
+                    <label class="compact-field">
+                        Offset (ms)
+                        <input class="youtube-offset-input" type="number" value="0" min="-60000" max="60000" step="100">
+                    </label>
+                    <button class="youtube-reload-button" type="button">Reload</button>
+                    <span class="status-pill youtube-status">No video</span>
+                </div>
+                <div class="youtube-player-shell" aria-label="YouTube player">
+                    <div class="youtube-player"></div>
+                </div>
+            </section>
+        </header>
+
+        <!-- Edit Panel -->
+        <section class="edit-panel" aria-label="Edit panel">
+            <div class="edit-row">
+                <section class="edit-card number-card" aria-label="Number edit tools">
+                    <div class="edit-card-title">Number</div>
+                    <div class="edit-control-row">
+                        <input class="number-raw-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" placeholder="num">
+                        <div class="tempo-mark-group">
+                            <span class="micro-label">Tempo mark</span>
+                            <div class="pill-row">
+                                <button type="button" class="pill-toggle number-ramp-button on" data-ramp="none" aria-pressed="true">Instant</button>
+                                <button type="button" class="pill-toggle number-ramp-button off" data-ramp="start" aria-pressed="false">start&lt;</button>
+                                <button type="button" class="pill-toggle number-ramp-button off" data-ramp="end" aria-pressed="false">End &gt;</button>
+                                <button type="button" class="pill-toggle number-ramp-button off" data-ramp="endStart" aria-pressed="false">End+Start &gt;&lt;</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="edit-card default-card" aria-label="Default note tools">
+                    <div class="edit-card-title-row">
+                        <span class="edit-card-title">Default</span>
+                        <span class="preview-pill current-raw-text-preview">current: empty</span>
+                    </div>
+                    <div class="edit-control-row">
+                        <select class="default-mode-select" disabled>
+                            <option value="autoSharp" selected>AUTO♯</option>
+                            <option value="autoFlat">AUTO♭</option>
+                            <option value="custom">CUSTOM</option>
+                            <option value="comment">comment</option>
+                            <option value="eraser">ERASER</option>
+                        </select>
+                        <input class="custom-text-input" type="text" maxlength="10" placeholder="custom text" disabled>
+                    </div>
+                </section>
+
+                <section class="edit-card narrow-card" aria-label="Long note tools">
+                    <div class="edit-card-title">Long</div>
+                    <div class="edit-control-row">
+                        <select class="hold-token-select" disabled>
+                            <option value="">(none)</option>
+                            <option value="-">-</option>
+                            <option value="~">~</option>
+                        </select>
+                    </div>
+                </section>
+
+                <section class="edit-card narrow-card" aria-label="Glissando tools">
+                    <div class="edit-card-title">Gliss.</div>
+                    <div class="edit-control-row">
+                        <select class="gliss-kind-select" disabled>
+                            <option value="">(none)</option>
+                            <option value="S">start</option>
+                            <option value="M">curve</option>
+                            <option value="E">end</option>
+                        </select>
+                        <label class="stacked-field compact-stack">
+                            <span>id</span>
+                            <select class="gliss-id-select" disabled>
+                                <option value="a" selected>a</option>
+                                <option value="b">b</option>
+                                <option value="c">c</option>
+                                <option value="d">d</option>
+                                <option value="e">e</option>
+                                <option value="f">f</option>
+                                <option value="g">g</option>
+                                <option value="h">h</option>
+                                <option value="i">i</option>
+                                <option value="j">j</option>
+                                <option value="k">k</option>
+                                <option value="l">l</option>
+                                <option value="m">m</option>
+                                <option value="n">n</option>
+                                <option value="o">o</option>
+                                <option value="p">p</option>
+                                <option value="q">q</option>
+                                <option value="r">r</option>
+                                <option value="s">s</option>
+                                <option value="t">t</option>
+                                <option value="u">u</option>
+                                <option value="v">v</option>
+                                <option value="w">w</option>
+                                <option value="x">x</option>
+                                <option value="y">y</option>
+                                <option value="z">z</option>
+                            </select>
+                        </label>
+                    </div>
+                </section>
+
+                <section class="edit-card narrow-card" aria-label="Tremolo tools">
+                    <div class="edit-card-title">Trem.</div>
+                    <div class="edit-control-row">
+                        <select class="trem-division-select" disabled>
+                            <option value="">(none)</option>
+                            <option value="2">trem 2</option>
+                            <option value="3">trem 3</option>
+                            <option value="4">trem 4</option>
+                        </select>
+                    </div>
+                </section>
+
+                <section class="edit-card pitch-card" aria-label="Pitch modifier tools">
+                    <div class="edit-card-title">Pitch</div>
+                    <div class="edit-control-row">
+                        <label class="stacked-field">
+                            <span>absolutePitch</span>
+                            <select class="absolute-pitch-select" disabled>
+                                <option value="" selected>(none)</option>
+                            </select>
+                        </label>
+                        <label class="stacked-field">
+                            <span>microPitch</span>
+                            <input class="micro-pitch-input" type="number" min="-100" max="100" step="0.1" disabled>
+                        </label>
+                    </div>
+                </section>
+
+                <section class="edit-card tuplet-card" aria-label="Tuplet tools">
+                    <div class="edit-card-title">Tuplet</div>
+                    <div class="tuplet-toolbar">
+                        <button type="button" class="pill-toggle off tuplet-mode-toggle" disabled>Off</button>
+                        <label class="inline-field">
+                            plets
+                            <select class="tuplet-division-select" disabled>
+                                <option>2</option>
+                                <option selected>3</option>
+                                <option>4</option>
+                                <option>5</option>
+                                <option>6</option>
+                                <option>7</option>
+                            </select>
+                        </label>
+                        <label class="inline-field">
+                            Insert Mode
+                            <select class="tuplet-insert-mode-select" disabled>
+                                <option>SELECT MODE</option>
+                                <option>SELECT ROW</option>
+                                <option>DIRECT INPUT</option>
+                                <option value="extend">EXTEND</option>
+                            </select>
+                        </label>
+                        <button type="button" class="pill-toggle off tuplet-finalize-button" disabled>Finalize Value</button>
+                    </div>
+                    <div class="tuplet-slots" aria-label="Tuplet slot inputs">
+                        <input class="tuplet-slot-input" type="text" maxlength="30" placeholder="slot 1" disabled>
+                        <input class="tuplet-slot-input" type="text" maxlength="30" placeholder="slot 2" disabled>
+                        <input class="tuplet-slot-input" type="text" maxlength="30" placeholder="slot 3" disabled>
+                        <input class="tuplet-slot-input" type="text" maxlength="30" placeholder="slot 4" disabled>
+                        <input class="tuplet-slot-input" type="text" maxlength="30" placeholder="slot 5" disabled>
+                        <input class="tuplet-slot-input" type="text" maxlength="30" placeholder="slot 6" disabled>
+                        <input class="tuplet-slot-input" type="text" maxlength="30" placeholder="slot 7" disabled>
+                    </div>
+                    <div class="edit-help">Select a slot, choose an insert mode, then finalize the tuplet value.</div>
+                </section>
+
+                <section class="edit-card actions-card" aria-label="Edit action tools">
+                    <div class="edit-card-title">Edit Actions</div>
+                    <span class="preview-pill pending-pill">Pending: 0</span>
+                    <div class="edit-control-row">
+                        <button type="button" disabled>Undo</button>
+                        <button type="button" disabled>Save</button>
+                        <button type="button" disabled>Reset</button>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <!-- Score Viewer -->
+        <section class="score-viewer" aria-label="Score viewer">
+            <aside class="layout-area">
+                <div class="layout-toolbar">
+                    <select class="layout-preset-toolbar-select" aria-label="Layout preset">
+                        <option>Default Layout</option>
+                    </select>
+                    <button class="layout-modify-button" type="button">Settings</button>
+                </div>
+                <div class="layout-canvas-stage" aria-label="Row labels">
+                    <canvas class="layout-layer label-layer" width="208" height="1400"></canvas>
+                </div>
+            </aside>
+
+            <section class="score-area" aria-label="Score canvas">
+                <div class="score-canvas-stage" aria-hidden="true">
+                    <canvas class="score-layer base-layer" width="2400" height="1400"></canvas>
+                    <canvas class="score-layer marker-layer" width="2400" height="1400"></canvas>
+                    <canvas class="score-layer note-layer" width="2400" height="1400"></canvas>
+                </div>
+            </section>
+        </section>
+
+        <!-- Status Area -->
+        <footer class="status-area">
+            <span>template auto load: pending</span>
+            <span>analysis: waiting</span>
+            <span>renderer: canvas slots</span>
+        </footer>
+    </main>
+
+    <!-- Info Dialog -->
+    <dialog id="legal-info" class="info-dialog">
+        <form method="dialog">
+            <h2>Info</h2>
+            <p>This program is provided for non-commercial purposes.</p>
+            <p>This program does not provide music file downloads.</p>
+            <p>All musical works belong to their lawful copyright holders.</p>
+            <p>Score data may be removed from the database or public list upon request from the copyright holder.</p>
+            <p>Users must respect copyright.</p>
+            <button type="submit">Close</button>
+        </form>
+    </dialog>
+
+    <!-- Score Details Dialog -->
+    <dialog id="score-details" class="details-dialog">
+        <form class="details-form">
+            <div class="dialog-title-row">
+                <h2>Details</h2>
+                <button type="button" class="details-close-button" aria-label="Close">Close</button>
+            </div>
+            <div class="details-grid">
+                <label class="details-field">
+                    Title
+                    <input class="details-title-input" type="text" maxlength="100">
+                </label>
+                <label class="details-field">
+                    Artist
+                    <input class="details-artist-input" type="text" maxlength="100">
+                </label>
+                <label class="details-field">
+                    Genre
+                    <input class="details-genre-input" type="text" maxlength="100">
+                </label>
+                <label class="details-field">
+                    Score Writer
+                    <input class="details-writer-input" type="text" maxlength="100">
+                </label>
+                <label class="details-field wide">
+                    Comment
+                    <textarea class="details-comment-input" maxlength="100" rows="3"></textarea>
+                </label>
+                <fieldset class="details-difficulty-row">
+                    <legend>Difficulty</legend>
+                    <label class="details-field compact">
+                        Basic
+                        <input class="details-basic-difficulty-input" type="number" min="0" max="99" step="1">
+                    </label>
+                    <label class="details-field compact">
+                        Optional
+                        <input class="details-optional-difficulty-input" type="number" min="0" max="99" step="1">
+                    </label>
+                    <label class="details-field compact">
+                        Extra
+                        <input class="details-extra-difficulty-input" type="number" min="0" max="99" step="1">
+                    </label>
+                </fieldset>
+            </div>
+            <div class="dialog-action-row">
+                <button type="button" class="details-cancel-button">Cancel</button>
+                <button type="submit" class="details-save-button">Save</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Layout Dialog -->
+    <dialog id="layout-editor" class="layout-dialog">
+        <form class="layout-form">
+            <div class="dialog-title-row">
+                <h2>Layout</h2>
+                <button type="button" class="layout-close-button" aria-label="Close">Close</button>
+            </div>
+
+            <div class="layout-dialog-grid">
+                <section class="layout-section layout-preset-section" aria-label="Layout preset">
+                    <h3>Preset</h3>
+                    <div class="layout-field-row">
+                        <label class="details-field">
+                            Current
+                            <select class="layout-preset-select">
+                                <option value="">Current score layout</option>
+                            </select>
+                        </label>
+                        <label class="details-field">
+                            Preset Name
+                            <input class="layout-preset-name-input" type="text" maxlength="30" placeholder="Layout name">
+                        </label>
+                    </div>
+                    <div class="layout-button-row">
+                        <button type="button" class="layout-new-preset-button">New Preset</button>
+                        <button type="button" class="layout-local-save-button">Local Save</button>
+                        <button type="button" class="layout-local-load-button">Local Load</button>
+                        <button type="button" class="layout-file-save-button">File Save</button>
+                        <button type="button" class="layout-file-load-button">File Load</button>
+                        <input class="layout-file-load-input" type="file" accept="application/json,.json" hidden>
+                    </div>
+                </section>
+
+                <section class="layout-section layout-instrument-section" aria-label="Instrument layout settings">
+                    <h3>Instrument</h3>
+                    <div class="layout-field-row">
+                        <label class="details-field">
+                            Family
+                            <select class="layout-family-input">
+                                <option value="otamatone">Otamatone</option>
+                                <option value="haegeum">Haegeum</option>
+                                <option value="violin">Violin</option>
+                                <option value="cello">Cello</option>
+                                <option value="gayageum">Gayageum</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                        </label>
+                        <label class="switch-field layout-open-field">
+                            <input class="layout-supports-open-input" type="checkbox" disabled>
+                            Open string
+                        </label>
+                    </div>
+                    <div class="layout-string-table" aria-label="Instrument strings">
+                        <div class="layout-table-head">
+                            <span>String</span>
+                            <span>Name</span>
+                            <span>Min</span>
+                            <span>Max</span>
+                            <span>Open</span>
+                        </div>
+                        <div class="layout-string-list"></div>
+                    </div>
+                </section>
+
+                <section class="layout-section layout-row-section" aria-label="Layout rows">
+                    <div class="layout-section-title-row">
+                        <h3>Rows</h3>
+                        <label class="inline-field">
+                            String
+                            <select class="layout-string-select"></select>
+                        </label>
+                        <label class="inline-field">
+                            Note Height
+                            <input class="layout-note-height-input" type="number" min="1" max="500" step="1" value="7">
+                        </label>
+                    </div>
+                    <div class="layout-row-list" aria-label="Editable row list"></div>
+                </section>
+
+                <section class="layout-section layout-preview-section" aria-label="Layout preview">
+                    <h3>Preview</h3>
+                    <div class="layout-preview" aria-label="Draft layout preview"></div>
+                </section>
+
+                <section class="layout-section layout-add-row-section" aria-label="Add layout row">
+                    <h3>Add Row</h3>
+                    <div class="layout-field-row layout-add-row-controls">
+                        <label class="details-field compact">
+                            Type
+                            <select class="layout-row-type-select">
+                                <option value="note">note</option>
+                                <option value="gap">gap</option>
+                            </select>
+                        </label>
+                        <label class="details-field compact">
+                            Height (px)
+                            <input class="layout-row-height-input" type="number" min="1" max="500" step="1" value="21">
+                        </label>
+                        <span class="layout-auto-pitch-label">Auto pitch from selected row</span>
+                        <button type="button" class="layout-add-row-below-button">Insert Below Selected</button>
+                        <button type="button" class="layout-add-row-above-button">Insert Above Selected</button>
+                    </div>
+                </section>
+            </div>
+
+            <p class="layout-status-line" role="status" aria-live="polite">Layout draft is ready.</p>
+
+            <div class="dialog-action-row">
+                <button type="button" class="layout-reset-button">Reset</button>
+                <span class="dialog-action-spacer"></span>
+                <button type="submit" class="layout-apply-button">Apply</button>
+                <button type="button" class="layout-cancel-button">Cancel</button>
+            </div>
+        </form>
+    </dialog>
+    <script type="module" src="./src/app/main.ts"></script>
+</body>
+</html>

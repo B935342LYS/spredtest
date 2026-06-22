@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.vite/
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.code-workspace
+
