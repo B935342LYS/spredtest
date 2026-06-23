@@ -44,6 +44,10 @@ import { createLayoutDraftBundle } from "./layout/layout_draft";
 import type { LayoutDraftBundle } from "./layout/layout_types";
 import { DEFAULT_ACTIVE_TRACK_IDS } from "../track/track_control";
 import { touchScoreUpdatedAt } from "./score_timestamp";
+import {
+  MAX_EXPAND_COLUMNS_PER_ACTION,
+  MAX_SCORE_COLUMN_COUNT,
+} from "../core/score/score_limits";
 
 const CLEAR_ALL_COLUMN_COUNT = 1000;
 const DEFAULT_GLOBAL_RAW_TEXT_BY_KIND: Record<GlobalKind, string> = {
@@ -300,7 +304,28 @@ export function applyExpandColumnsToState(
     };
   }
 
+  if (additionalColumns > MAX_EXPAND_COLUMNS_PER_ACTION) {
+    return {
+      ...state,
+      statusMessage: {
+        level: "warning",
+        text: `Expand columns can add at most ${MAX_EXPAND_COLUMNS_PER_ACTION} columns at once.`,
+      },
+    };
+  }
+
   const nextColumnCount = state.document.score.globalLines.columnCount + additionalColumns;
+
+  if (nextColumnCount > MAX_SCORE_COLUMN_COUNT) {
+    return {
+      ...state,
+      statusMessage: {
+        level: "warning",
+        text: `Score can have at most ${MAX_SCORE_COLUMN_COUNT} columns.`,
+      },
+    };
+  }
+
   const nextScore: ScoreFile = {
     ...state.document.score,
     globalLines: {

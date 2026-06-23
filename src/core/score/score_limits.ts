@@ -5,6 +5,15 @@
 /** 셀 rawText 최대 글자 수. */
 export const MAX_CELL_RAW_TEXT_LENGTH = 100;
 
+/** ScoreFile 전체 columnCount 최대값. */
+export const MAX_SCORE_COLUMN_COUNT = 10000;
+
+/** 한 번의 UI expand 동작에서 추가할 수 있는 최대 column 수. */
+export const MAX_EXPAND_COLUMNS_PER_ACTION = 960;
+
+/** layout row height 최대 px 값. */
+export const MAX_ROW_HEIGHT = 500;
+
 /** Score JSON 파일 로드 최대 UTF-8 byte 수. */
 export const MAX_SCORE_JSON_BYTES = 8 * 1024 * 1024;
 

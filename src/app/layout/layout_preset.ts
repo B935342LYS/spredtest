@@ -10,6 +10,7 @@ import type {
 import {
   formatByteSize,
   getUtf8ByteLength,
+  MAX_ROW_HEIGHT,
 } from "../../core/score/score_limits";
 import type {
   LayoutDraftBundle,
@@ -384,8 +385,8 @@ function validatePresetRows(
       return invalidPreset(`Layout preset row stringId is unknown: ${row.rowId}.`);
     }
 
-    if (!isPositiveInteger(row.height)) {
-      return invalidPreset(`Layout preset row height must be a positive integer: ${row.rowId}.`);
+    if (!isRowHeight(row.height)) {
+      return invalidPreset(`Layout preset row height must be an integer from 1 to ${MAX_ROW_HEIGHT}: ${row.rowId}.`);
     }
 
     rowIds.add(row.rowId);
@@ -561,6 +562,15 @@ function isGapBoundaryMidi(value: unknown): value is number {
  */
 function isPositiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
+
+/**
+ * layout row height 허용 범위인지 확인한다.
+ * - 인수 : value : 확인할 값
+ * - 반환값 : 1..MAX_ROW_HEIGHT 정수 여부
+ */
+function isRowHeight(value: unknown): value is number {
+  return isPositiveInteger(value) && value <= MAX_ROW_HEIGHT;
 }
 
 /**

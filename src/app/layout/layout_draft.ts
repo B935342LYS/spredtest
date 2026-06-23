@@ -10,6 +10,7 @@ import type {
   ScoreFile,
   StringId,
 } from "../../core/score/types";
+import { MAX_ROW_HEIGHT } from "../../core/score/score_limits";
 import { formatPitchName } from "../pitch_label";
 import type {
   LayoutDraftBundle,
@@ -17,7 +18,6 @@ import type {
 } from "./layout_types";
 
 const MIN_ROW_HEIGHT = 1;
-const MAX_ROW_HEIGHT = 500;
 const MIN_GAP_BOUNDARY_MIDI = -1;
 const MAX_GAP_BOUNDARY_MIDI = 128;
 

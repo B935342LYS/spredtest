@@ -13,7 +13,11 @@ import type {
   ScoreFile,
   TrackId,
 } from "./types";
-import { MAX_CELL_RAW_TEXT_LENGTH } from "./score_limits";
+import {
+  MAX_CELL_RAW_TEXT_LENGTH,
+  MAX_ROW_HEIGHT,
+  MAX_SCORE_COLUMN_COUNT,
+} from "./score_limits";
 
 /**
  * ScoreFile 검증 실패를 구분하는 오류 코드.
@@ -242,6 +246,16 @@ function validateBasicShapes(
     );
   }
 
+  if (
+    score.globalLines.columnCount < 1 ||
+    score.globalLines.columnCount > MAX_SCORE_COLUMN_COUNT
+  ) {
+    return invalidShape(
+      `globalLines.columnCount must be an integer from 1 to ${MAX_SCORE_COLUMN_COUNT}.`,
+      "globalLines.columnCount",
+    );
+  }
+
   // 전역 셀 목록은 global kind별 시작 셀과 좌표 중복 검사의 입력이다.
   if (!Array.isArray(score.globalLines.cells)) {
     return invalidShape(
@@ -339,8 +353,11 @@ function validateRows(
  * - 반환값 : 범위/형태 오류 또는 null
  */
 function validateRowFields(row: RowDefinition): ScoreValidationError | null {
-  if (!Number.isInteger(row.height) || row.height < 1) {
-    return invalidShape(`Row height must be a positive integer: ${row.rowId}.`, "layout.rowDefinitions");
+  if (!Number.isInteger(row.height) || row.height < 1 || row.height > MAX_ROW_HEIGHT) {
+    return invalidShape(
+      `Row height must be an integer from 1 to ${MAX_ROW_HEIGHT}: ${row.rowId}.`,
+      "layout.rowDefinitions",
+    );
   }
 
   if (row.type === "note") {
