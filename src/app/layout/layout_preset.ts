@@ -10,6 +10,7 @@ import type {
 import {
   formatByteSize,
   getUtf8ByteLength,
+  MAX_ROW_DEFINITIONS,
   MAX_ROW_HEIGHT,
 } from "../../core/score/score_limits";
 import type {
@@ -363,6 +364,10 @@ function validatePresetRows(
   const noteKeys = new Set<string>();
   const stringById = new Map(instData.strings.map((string) => [string.stringId, string]));
   const editableRows: LayoutEditableRowDefinition[] = [];
+
+  if (rows.length > MAX_ROW_DEFINITIONS) {
+    return invalidPreset(`Layout preset rowDefinitions must have ${MAX_ROW_DEFINITIONS} or fewer rows.`);
+  }
 
   for (const [index, row] of rows.entries()) {
     if (!isRecord(row)) {

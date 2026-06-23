@@ -83,15 +83,16 @@ export function bindYoutubeControls(
 
   const loadSavedVideo = async (): Promise<boolean> => {
     const youtube = session.getState().document.score.musicData.youtube;
+    const safeVideoId = parseYoutubeVideoId(youtube.videoId);
 
-    if (youtube.videoId.trim().length === 0) {
+    if (youtube.videoId.trim().length === 0 || safeVideoId === null) {
       setYoutubeModeOff("No video", "error");
       return false;
     }
 
     modeState = {
       kind: "loading",
-      videoId: youtube.videoId,
+      videoId: safeVideoId,
       offsetMs: youtube.offsetMs,
     };
     syncYoutubeStatus("Loading", "loading");
@@ -106,10 +107,10 @@ export function bindYoutubeControls(
       const scoreSeconds = session.getPlaybackRuntime().controller.getCurrentScoreSeconds();
       const youtubeSeconds = scoreSecondsToYoutubeSeconds(scoreSeconds, youtube.offsetMs);
 
-      await player.loadVideo(youtube.videoId, youtubeSeconds);
+      await player.loadVideo(safeVideoId, youtubeSeconds);
       modeState = {
         kind: "ready",
-        videoId: youtube.videoId,
+        videoId: safeVideoId,
         offsetMs: youtube.offsetMs,
       };
       syncYoutubeStatus("Ready", "ready");

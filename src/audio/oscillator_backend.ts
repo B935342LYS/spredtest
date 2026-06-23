@@ -47,6 +47,8 @@ const DEFAULT_VIBRATO_DEPTH_CENTS = 35;
 const TREMOLO_GATE_MIN_GAIN = 0.0001;
 const TREMOLO_GATE_DUTY_RATIO = 0.6;
 const TREMOLO_GATE_RAMP_SECONDS = 0.002;
+const MAX_ACTIVE_VOICES = 256;
+const MAX_TREMOLO_PULSES = 2048;
 
 /**
  * MIDI note number와 cent offset을 주파수로 변환한다.
@@ -152,6 +154,10 @@ export function createOscillatorBackend(
     event: AudioNoteScheduleEvent,
     offsetSeconds: number,
   ): void {
+    if (activeNodes.size >= MAX_ACTIVE_VOICES) {
+      return;
+    }
+
     const audioContext = getOrCreateAudioContext();
     const startTime = audioContext.currentTime + Math.max(0, offsetSeconds);
     const durationSeconds = Math.max(
@@ -226,6 +232,10 @@ export function createOscillatorBackend(
     event: AudioGlissScheduleEvent,
     offsetSeconds: number,
   ): void {
+    if (activeNodes.size >= MAX_ACTIVE_VOICES) {
+      return;
+    }
+
     const audioContext = getOrCreateAudioContext();
     const startTime = audioContext.currentTime + Math.max(0, offsetSeconds);
     const durationSeconds = event.endSeconds - event.startSeconds;
@@ -306,6 +316,10 @@ export function createOscillatorBackend(
     event: AudioGlissChainScheduleEvent,
     offsetSeconds: number,
   ): void {
+    if (activeNodes.size >= MAX_ACTIVE_VOICES) {
+      return;
+    }
+
     const audioContext = getOrCreateAudioContext();
     const startTime = audioContext.currentTime + Math.max(0, offsetSeconds);
     const durationSeconds = event.endSeconds - event.startSeconds;
@@ -715,9 +729,12 @@ function scheduleTremoloGate(
     return;
   }
 
-  const pulseCount = Math.max(
-    1,
-    Math.round(Math.max(1, durationTicks) * Math.max(1, division)),
+  const pulseCount = Math.min(
+    MAX_TREMOLO_PULSES,
+    Math.max(
+      1,
+      Math.round(Math.max(1, durationTicks) * Math.max(1, division)),
+    ),
   );
   const pulseSeconds = durationSeconds / pulseCount;
   const rampSeconds = Math.min(TREMOLO_GATE_RAMP_SECONDS, pulseSeconds * 0.25);

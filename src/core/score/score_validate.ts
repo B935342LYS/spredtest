@@ -15,6 +15,7 @@ import type {
 } from "./types";
 import {
   MAX_CELL_RAW_TEXT_LENGTH,
+  MAX_ROW_DEFINITIONS,
   MAX_ROW_HEIGHT,
   MAX_SCORE_COLUMN_COUNT,
 } from "./score_limits";
@@ -124,6 +125,11 @@ export function validateScoreFile(value: unknown): ScoreValidationResult {
   const rowValidation = validateRows(scoreFile.layout.rowDefinitions);
   if (!rowValidation.ok) {
     return { ok: false, error: rowValidation.error };
+  }
+
+  const rowStringError = validateRowStringReferences(scoreFile);
+  if (rowStringError) {
+    return { ok: false, error: rowStringError };
   }
 
   // trackId가 올바른지 및 중복 여부 검사
@@ -315,6 +321,16 @@ function validateRows(
     } {
   const rowById = new Map<RowId, RowDefinition>();
 
+  if (rows.length > MAX_ROW_DEFINITIONS) {
+    return {
+      ok: false,
+      error: invalidShape(
+        `layout.rowDefinitions must have ${MAX_ROW_DEFINITIONS} or fewer rows.`,
+        "layout.rowDefinitions",
+      ),
+    };
+  }
+
   // rowById는 이후 global/track cell의 rowId 참조 검증에 재사용된다.
   for (const row of rows) {
     const rowFieldError = validateRowFields(row);
@@ -376,6 +392,46 @@ function validateRowFields(row: RowDefinition): ScoreValidationError | null {
     ) {
       return invalidShape(`Gap row boundary midi out of range: ${row.rowId}.`, "layout.rowDefinitions");
     }
+  }
+
+  return null;
+}
+
+/**
+ * note/gap row의 stringId 참조와 같은 string 안의 note MIDI 중복을 확인한다.
+ * - 인수 : score : 기본 row 검증을 통과한 ScoreFile
+ * - 반환값 : stringId 참조 또는 MIDI 중복 오류
+ */
+function validateRowStringReferences(score: ScoreFile): ScoreValidationError | null {
+  const stringIds = new Set(score.instData.strings.map((stringInfo) => stringInfo.stringId));
+  const noteKeys = new Set<string>();
+
+  for (const row of score.layout.rowDefinitions) {
+    if (row.type !== "note" && row.type !== "gap") {
+      continue;
+    }
+
+    if (!stringIds.has(row.stringId)) {
+      return invalidShape(
+        `Row references unknown stringId: ${row.rowId}.`,
+        "layout.rowDefinitions",
+      );
+    }
+
+    if (row.type !== "note") {
+      continue;
+    }
+
+    const noteKey = `${row.stringId}|${row.midi}`;
+
+    if (noteKeys.has(noteKey)) {
+      return invalidShape(
+        `Duplicate note MIDI in string: ${row.stringId} ${row.midi}.`,
+        "layout.rowDefinitions",
+      );
+    }
+
+    noteKeys.add(noteKey);
   }
 
   return null;

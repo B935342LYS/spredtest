@@ -2,7 +2,7 @@
  * YouTube URL 또는 raw id 입력을 score에 저장할 video id로 정규화한다.
  */
 
-const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{6,}$/;
+const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{6,64}$/;
 
 /**
  * 사용자 입력에서 YouTube video id를 추출한다.
@@ -66,4 +66,3 @@ function parseYoutubePathId(pathname: string): string | null {
 function isYoutubeVideoId(value: string | null | undefined): value is string {
   return typeof value === "string" && YOUTUBE_ID_PATTERN.test(value);
 }
-
