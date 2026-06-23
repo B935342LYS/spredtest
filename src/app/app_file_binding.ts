@@ -91,6 +91,10 @@ export function bindFileControls(
   });
 
   dom.localSaveButton.addEventListener("click", () => {
+    if (!window.confirm("Overwrite the score saved in this browser's local storage?")) {
+      return;
+    }
+
     const state = session.getState();
     const nextScore = touchScoreTimestampsForSave(
       state.document.score,
@@ -141,6 +145,10 @@ export function bindFileControls(
           },
         });
         syncLeftStatus(dom, session.getState());
+        return;
+      }
+
+      if (!window.confirm("Replace the current score with the score saved in this browser's local storage?")) {
         return;
       }
 
