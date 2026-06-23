@@ -11,9 +11,6 @@ export const MAX_SCORE_COLUMN_COUNT = 10000;
 /** ScoreFile layout.rowDefinitions 최대 행 수. */
 export const MAX_ROW_DEFINITIONS = 4096;
 
-/** 한 번의 UI expand 동작에서 추가할 수 있는 최대 column 수. */
-export const MAX_EXPAND_COLUMNS_PER_ACTION = 960;
-
 /** layout row height 최대 px 값. */
 export const MAX_ROW_HEIGHT = 500;
 

@@ -64,6 +64,18 @@ export type CanvasDynamicViewport = {
 };
 
 /**
+ * viewport와 overscan으로 계산한 표시 tick/x 범위.
+ * - 인수 : 없음
+ * - 반환값 : viewport draw와 item filtering에 사용할 좌표 범위
+ */
+export type CanvasVisibleTickRange = {
+  startTick: number;
+  endTick: number;
+  startX: number;
+  endX: number;
+};
+
+/**
  * canvas 한 장과 2D context 묶음.
  * - 인수 : 없음
  * - 반환값 : renderer가 draw에 사용할 canvas target

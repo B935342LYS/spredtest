@@ -4,10 +4,16 @@
 
 import {
   buildCanvasScoreLayout,
+  resizeCanvasLayer,
   resizeCanvasLayerToDynamicViewport,
   resizeCanvasLayers,
 } from "./canvas_coordinate";
-import { drawLayoutGrid, drawScoreGrid } from "./canvas_grid_renderer";
+import {
+  drawLayoutGrid,
+  drawScoreColumnGridInRange,
+  drawScoreGrid,
+  drawScoreStaticRowBackground,
+} from "./canvas_grid_renderer";
 import {
   drawScoreMarkers,
   drawScoreOverlayMarkersInRange,
@@ -31,6 +37,13 @@ import type {
   CanvasRenderTarget,
   CanvasNoteRenderItem,
 } from "./canvas_types";
+import { createCanvasVisibleTickRange } from "./canvas_viewport";
+import {
+  filterVisibleGlobalTextItems,
+  filterVisibleMarkerItems,
+  filterVisibleMuteItems,
+  filterVisibleNoteItems,
+} from "./canvas_visible_range";
 
 /**
  * CanvasRenderInput을 실제 canvas layer에 그린다.
@@ -50,6 +63,45 @@ export function renderCanvasScore(
   const globalTextItems = getGlobalTextItems(input);
   const globalMarkerItems = getGlobalMarkerItems(input);
   const noteMarkerItems = getNoteMarkerItems(input);
+
+  if (options.dynamicViewport !== undefined) {
+    const viewportRange = createCanvasVisibleTickRange(layout, options.dynamicViewport);
+    const dpr = Number.isFinite(options.devicePixelRatio) && options.devicePixelRatio > 0
+      ? options.devicePixelRatio
+      : 1;
+
+    resizeCanvasLayersToDynamicViewport(target, layout, options.dynamicViewport, dpr);
+    drawLayoutGrid(target.layout.context, layout);
+    drawScoreStaticRowBackground(target.base.context, layout, viewportRange);
+    drawScoreColumnGridInRange(target.marker.context, layout, viewportRange);
+    drawScoreMarkers(
+      target.marker.context,
+      layout,
+      filterVisibleMarkerItems(globalMarkerItems, viewportRange),
+      { preserveExisting: true },
+    );
+    drawScoreMarkers(
+      target.noteMarker.context,
+      layout,
+      filterVisibleMarkerItems(noteMarkerItems, viewportRange),
+    );
+    drawScoreNotes(
+      target.note.context,
+      layout,
+      filterVisibleNoteItems(noteItems, viewportRange),
+      filterVisibleMuteItems(muteItems, viewportRange),
+      filterVisibleGlobalTextItems(globalTextItems, viewportRange),
+    );
+    drawScoreOverlayMarkers(
+      target.note.context,
+      layout,
+      filterVisibleMarkerItems(noteMarkerItems, viewportRange),
+    );
+
+    return {
+      layout,
+    };
+  }
 
   resizeCanvasLayers(target, layout, options);
   drawLayoutGrid(target.layout.context, layout);
@@ -97,6 +149,19 @@ export function renderCanvasScorePartial(
     const dpr = Number.isFinite(options.devicePixelRatio) && options.devicePixelRatio > 0
       ? options.devicePixelRatio
       : 1;
+    const viewportRange = createCanvasVisibleTickRange(layout, options.dynamicViewport);
+    const baseResize = resizeCanvasLayerToDynamicViewport(
+      target.base,
+      layout,
+      options.dynamicViewport,
+      dpr,
+    );
+    resizeCanvasLayerToDynamicViewport(
+      target.marker,
+      layout,
+      options.dynamicViewport,
+      dpr,
+    );
     resizeCanvasLayerToDynamicViewport(
       target.note,
       layout,
@@ -110,9 +175,34 @@ export function renderCanvasScorePartial(
       dpr,
     );
 
-    drawScoreMarkers(target.noteMarker.context, layout, noteMarkerItems);
-    drawScoreNotes(target.note.context, layout, noteItems, muteItems, globalTextItems);
-    drawScoreOverlayMarkers(target.note.context, layout, noteMarkerItems);
+    if (baseResize.didResize) {
+      drawScoreStaticRowBackground(target.base.context, layout, viewportRange);
+    }
+
+    drawScoreColumnGridInRange(target.marker.context, layout, viewportRange);
+    drawScoreMarkers(
+      target.marker.context,
+      layout,
+      filterVisibleMarkerItems(globalMarkerItems, viewportRange),
+      { preserveExisting: true },
+    );
+    drawScoreMarkers(
+      target.noteMarker.context,
+      layout,
+      filterVisibleMarkerItems(noteMarkerItems, viewportRange),
+    );
+    drawScoreNotes(
+      target.note.context,
+      layout,
+      filterVisibleNoteItems(noteItems, viewportRange),
+      filterVisibleMuteItems(muteItems, viewportRange),
+      filterVisibleGlobalTextItems(globalTextItems, viewportRange),
+    );
+    drawScoreOverlayMarkers(
+      target.note.context,
+      layout,
+      filterVisibleMarkerItems(noteMarkerItems, viewportRange),
+    );
 
     return {
       layout,
@@ -123,6 +213,19 @@ export function renderCanvasScorePartial(
     const dpr = Number.isFinite(options.devicePixelRatio) && options.devicePixelRatio > 0
       ? options.devicePixelRatio
       : 1;
+    const viewportRange = createCanvasVisibleTickRange(layout, options.dynamicViewport);
+    const baseResize = resizeCanvasLayerToDynamicViewport(
+      target.base,
+      layout,
+      options.dynamicViewport,
+      dpr,
+    );
+    resizeCanvasLayerToDynamicViewport(
+      target.marker,
+      layout,
+      options.dynamicViewport,
+      dpr,
+    );
     resizeCanvasLayerToDynamicViewport(
       target.note,
       layout,
@@ -130,9 +233,29 @@ export function renderCanvasScorePartial(
       dpr,
     );
 
-    drawScoreMarkers(target.marker.context, layout, globalMarkerItems);
-    drawScoreNotes(target.note.context, layout, noteItems, muteItems, globalTextItems);
-    drawScoreOverlayMarkers(target.note.context, layout, noteMarkerItems);
+    if (baseResize.didResize) {
+      drawScoreStaticRowBackground(target.base.context, layout, viewportRange);
+    }
+
+    drawScoreColumnGridInRange(target.marker.context, layout, viewportRange);
+    drawScoreMarkers(
+      target.marker.context,
+      layout,
+      filterVisibleMarkerItems(globalMarkerItems, viewportRange),
+      { preserveExisting: true },
+    );
+    drawScoreNotes(
+      target.note.context,
+      layout,
+      filterVisibleNoteItems(noteItems, viewportRange),
+      filterVisibleMuteItems(muteItems, viewportRange),
+      filterVisibleGlobalTextItems(globalTextItems, viewportRange),
+    );
+    drawScoreOverlayMarkers(
+      target.note.context,
+      layout,
+      filterVisibleMarkerItems(noteMarkerItems, viewportRange),
+    );
 
     return {
       layout,
@@ -158,6 +281,27 @@ export function renderCanvasScorePartial(
   return {
     layout,
   };
+}
+
+/**
+ * score 영역 canvas layer들을 현재 viewport 폭과 overscan에 맞춰 조정한다.
+ * - 인수 : target : renderer canvas target 묶음
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : viewport : 현재 score scroll viewport
+ * - 인수 : dpr : canvas bitmap 해상도 보정값
+ * - 반환값 : 없음
+ */
+function resizeCanvasLayersToDynamicViewport(
+  target: CanvasRenderTarget,
+  layout: CanvasRenderResult["layout"],
+  viewport: NonNullable<CanvasRenderOptions["dynamicViewport"]>,
+  dpr: number,
+): void {
+  resizeCanvasLayer(target.layout, layout.layoutWidth, layout.stageHeight, dpr);
+  resizeCanvasLayerToDynamicViewport(target.base, layout, viewport, dpr);
+  resizeCanvasLayerToDynamicViewport(target.marker, layout, viewport, dpr);
+  resizeCanvasLayerToDynamicViewport(target.note, layout, viewport, dpr);
+  resizeCanvasLayerToDynamicViewport(target.noteMarker, layout, viewport, dpr);
 }
 
 /**

@@ -153,7 +153,7 @@ export function buildCanvasScoreLayout(
  * - 인수 : devicePixelRatio : bitmap 해상도 보정값
  * - 반환값 : 없음
  */
-function resizeCanvasLayer(
+export function resizeCanvasLayer(
   target: CanvasLayerTarget,
   cssWidth: number,
   cssHeight: number,
@@ -214,7 +214,7 @@ export function resizeCanvasLayerToDynamicViewport(
   layout: CanvasScoreLayout,
   viewport: CanvasDynamicViewport,
   devicePixelRatio: number,
-): { startX: number; endX: number; width: number } {
+): { startX: number; endX: number; width: number; didResize: boolean } {
   const startX = Math.max(0, viewport.scrollLeft - viewport.overscanPx);
   const endX = Math.min(
     layout.stageWidth,
@@ -232,6 +232,7 @@ export function resizeCanvasLayerToDynamicViewport(
   );
   const bitmapWidth = Math.max(1, Math.floor(cssWidth * effectiveDevicePixelRatio));
   const bitmapHeight = Math.max(1, Math.floor(cssHeight * effectiveDevicePixelRatio));
+  let didResize = false;
 
   target.canvas.style.width = `${cssWidth}px`;
   target.canvas.style.height = `${cssHeight}px`;
@@ -240,9 +241,11 @@ export function resizeCanvasLayerToDynamicViewport(
 
   if (target.canvas.width !== bitmapWidth) {
     target.canvas.width = bitmapWidth;
+    didResize = true;
   }
   if (target.canvas.height !== bitmapHeight) {
     target.canvas.height = bitmapHeight;
+    didResize = true;
   }
 
   target.context.setTransform(
@@ -258,6 +261,7 @@ export function resizeCanvasLayerToDynamicViewport(
     startX,
     endX,
     width: cssWidth,
+    didResize,
   };
 }
 

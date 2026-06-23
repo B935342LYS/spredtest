@@ -5,7 +5,10 @@
 import { columnToX } from "./canvas_coordinate";
 import { colorForLabelMidi } from "./canvas_note_colors";
 import { CANVAS_COLORS } from "./canvas_theme";
-import type { CanvasScoreLayout } from "./canvas_types";
+import type {
+  CanvasScoreLayout,
+  CanvasVisibleTickRange,
+} from "./canvas_types";
 
 /**
  * layout label 영역의 row background, label, playback boundary 표시를 그린다.
@@ -175,4 +178,75 @@ export function drawScoreGrid(
     context.lineTo(layout.stageWidth, row.y + row.height + 0.5);
     context.stroke();
   }
+}
+
+/**
+ * score base 영역의 x축 비의존 row background와 horizontal line만 그린다.
+ * - 인수 : context : base canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : range : 실제 canvas가 담당하는 visible x 범위
+ * - 반환값 : 없음
+ */
+export function drawScoreStaticRowBackground(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  range: CanvasVisibleTickRange,
+): void {
+  const width = Math.max(0, range.endX - range.startX);
+
+  // 현재 viewport canvas 범위를 지운 뒤 x축으로 변하지 않는 row 배경만 다시 그린다.
+  context.clearRect(range.startX, 0, width, layout.stageHeight);
+  context.fillStyle = CANVAS_COLORS.rollBackground;
+  context.fillRect(range.startX, 0, width, layout.stageHeight);
+
+  for (const row of layout.rows) {
+    if (row.kind === "note") {
+      context.fillStyle = CANVAS_COLORS.noteRowBackground;
+      context.fillRect(range.startX, row.y, width, row.height);
+    }
+  }
+
+  context.strokeStyle = CANVAS_COLORS.gridSoft;
+  context.lineWidth = 1;
+
+  for (const row of layout.rows) {
+    context.beginPath();
+    context.moveTo(range.startX, row.y + row.height + 0.5);
+    context.lineTo(range.endX, row.y + row.height + 0.5);
+    context.stroke();
+  }
+}
+
+/**
+ * 현재 viewport에 보이는 column grid line만 그린다.
+ * - 인수 : context : dynamic grid를 그릴 canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : range : 현재 viewport visible tick/x 범위
+ * - 반환값 : 없음
+ */
+export function drawScoreColumnGridInRange(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  range: CanvasVisibleTickRange,
+): void {
+  const firstColumn = Math.max(0, Math.floor(range.startTick));
+  const lastColumn = Math.min(layout.columnCount, Math.ceil(range.endTick));
+  const width = Math.max(0, range.endX - range.startX);
+
+  context.save();
+  context.clearRect(range.startX, 0, width, layout.stageHeight);
+  context.strokeStyle = CANVAS_COLORS.gridVertical;
+  context.lineWidth = 1;
+
+  // 현재 viewport 주변의 column line만 그려 full width grid redraw를 피한다.
+  for (let column = firstColumn; column <= lastColumn; column += 1) {
+    const x = columnToX(column, layout);
+
+    context.beginPath();
+    context.moveTo(x + 0.5, 0);
+    context.lineTo(x + 0.5, layout.stageHeight);
+    context.stroke();
+  }
+
+  context.restore();
 }

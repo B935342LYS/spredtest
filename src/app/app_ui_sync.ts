@@ -359,7 +359,7 @@ export function renderApp(dom: AppDom, state: AppState): AppState {
   const result: CanvasRenderResult = renderCanvasScore(
     dom.target,
     state.renderInput,
-    createRenderOptions(dom.zoomInput),
+    createRenderOptions(dom.zoomInput, dom.scoreArea),
   );
 
   // renderer가 계산한 stage 크기를 CSS 변수에 반영하고 label scroll 위치를 맞춘다.

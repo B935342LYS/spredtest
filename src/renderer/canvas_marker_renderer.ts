@@ -30,8 +30,11 @@ export function drawScoreMarkers(
   context: CanvasRenderingContext2D,
   layout: CanvasScoreLayout,
   items: CanvasMarkerItem[],
+  options: { preserveExisting?: boolean } = {},
 ): void {
-  context.clearRect(0, 0, layout.stageWidth, layout.stageHeight);
+  if (options.preserveExisting !== true) {
+    context.clearRect(0, 0, layout.stageWidth, layout.stageHeight);
+  }
 
   const rowById = createLayoutRowMap(layout);
 

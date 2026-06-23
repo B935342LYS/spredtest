@@ -45,7 +45,6 @@ import type { LayoutDraftBundle } from "./layout/layout_types";
 import { DEFAULT_ACTIVE_TRACK_IDS } from "../track/track_control";
 import { touchScoreUpdatedAt } from "./score_timestamp";
 import {
-  MAX_EXPAND_COLUMNS_PER_ACTION,
   MAX_SCORE_COLUMN_COUNT,
 } from "../core/score/score_limits";
 
@@ -300,16 +299,6 @@ export function applyExpandColumnsToState(
       statusMessage: {
         level: "warning",
         text: "Expand columns requires a positive integer.",
-      },
-    };
-  }
-
-  if (additionalColumns > MAX_EXPAND_COLUMNS_PER_ACTION) {
-    return {
-      ...state,
-      statusMessage: {
-        level: "warning",
-        text: `Expand columns can add at most ${MAX_EXPAND_COLUMNS_PER_ACTION} columns at once.`,
       },
     };
   }

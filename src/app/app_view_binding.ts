@@ -7,6 +7,10 @@ import type {
   AppState,
 } from "./app_types";
 import {
+  columnToX,
+  xToColumn,
+} from "../renderer/canvas_coordinate";
+import {
   applyClearAllScoreToState,
   applyExpandColumnsToState,
   applyMenuThemeToState,
@@ -59,10 +63,12 @@ export function fitScoreHeight(
   session: ViewBindingSession,
 ): void {
   const state = session.getState();
+  const leftEdgeTick = getViewportLeftEdgeTick(dom, state);
   const statusMessage = fitScoreHeightZoom(dom, state);
 
   if (statusMessage.level === "info") {
     session.render();
+    restoreViewportLeftEdgeTick(dom, session, leftEdgeTick);
   }
 
   session.setState({
@@ -76,6 +82,7 @@ export function fitScoreHeight(
   }
 
   requestAnimationFrame(() => {
+    const secondPassLeftEdgeTick = getViewportLeftEdgeTick(dom, session.getState());
     const previousZoomValue = dom.zoomInput.value;
     const nextStatusMessage = fitScoreHeightZoom(dom, session.getState());
 
@@ -85,12 +92,52 @@ export function fitScoreHeight(
     }
 
     session.render();
+    restoreViewportLeftEdgeTick(dom, session, secondPassLeftEdgeTick);
     session.setState({
       ...session.getState(),
       statusMessage: nextStatusMessage,
     });
     syncLeftStatus(dom, session.getState());
   });
+}
+
+/**
+ * 현재 viewport 왼쪽 edge가 가리키는 tick 값을 읽는다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : 왼쪽 edge tick, layout이 없으면 null
+ */
+function getViewportLeftEdgeTick(dom: AppDom, state: AppState): number | null {
+  if (state.layout === null) {
+    return null;
+  }
+
+  return xToColumn(dom.scoreArea.scrollLeft, state.layout);
+}
+
+/**
+ * 저장해 둔 tick이 viewport 왼쪽 edge에 오도록 scrollLeft를 복원하고 동적 layer를 다시 그린다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : session : app 상태와 render callback 묶음
+ * - 인수 : leftEdgeTick : 복원할 왼쪽 edge tick
+ * - 반환값 : 없음
+ */
+function restoreViewportLeftEdgeTick(
+  dom: AppDom,
+  session: ViewBindingSession,
+  leftEdgeTick: number | null,
+): void {
+  const nextLayout = session.getState().layout;
+
+  if (leftEdgeTick === null || nextLayout === null) {
+    return;
+  }
+
+  const nextScrollLeft = columnToX(leftEdgeTick, nextLayout);
+  const maxScrollLeft = Math.max(0, nextLayout.stageWidth);
+  dom.scoreArea.scrollLeft = Math.min(Math.max(0, nextScrollLeft), maxScrollLeft);
+  syncLayoutScroll(dom.scoreArea, dom.layoutStage);
+  session.setState(renderDynamicViewportLayers(dom, session.getState()));
 }
 
 /**
@@ -128,6 +175,25 @@ export function applyDetailsDialog(
   );
   dom.detailsDialog.close();
   session.render();
+}
+
+/**
+ * zoom 변경 전 viewport 왼쪽 edge에 있던 tick이 변경 후에도 왼쪽 edge에 오도록 보정한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : session : app 상태와 render callback 묶음
+ * - 인수 : nextZoomPercent : 적용할 다음 zoom percent
+ * - 반환값 : 없음
+ */
+function applyZoomPreservingViewportLeftEdge(
+  dom: AppDom,
+  session: ViewBindingSession,
+  nextZoomPercent: number,
+): void {
+  const leftEdgeTick = getViewportLeftEdgeTick(dom, session.getState());
+
+  setZoomPercent(dom, nextZoomPercent);
+  session.render();
+  restoreViewportLeftEdgeTick(dom, session, leftEdgeTick);
 }
 
 /**
@@ -169,8 +235,7 @@ export function bindViewControls(
 
   // zoom 값이 확정되면 현재 입력값으로 전체 canvas score를 다시 그린다.
   dom.zoomInput.addEventListener("change", () => {
-    setZoomPercent(dom, Number(dom.zoomInput.value));
-    session.render();
+    applyZoomPreservingViewportLeftEdge(dom, session, Number(dom.zoomInput.value));
   });
 
   dom.fitHeightButton.addEventListener("click", () => {
