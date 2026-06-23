@@ -116,7 +116,7 @@
             { "rowId": "s1-note-53", "type": "note", "stringId": "s1", "midi": 53, "height": 7, "displayLabel": "F3" },
             { "rowId": "s1-gap-52-53", "type": "gap", "stringId": "s1", "fromMidi": 52, "toMidi": 53, "height": 42 },
             { "rowId": "s1-note-52", "type": "note", "stringId": "s1", "midi": 52, "height": 7, "displayLabel": "E3" },
-            { "rowId": "s1-gap-51-52", "type": "gap", "stringId": "s1", "fromMidi": 51, "toMidi": 52, "height": 14 }     
+            { "rowId": "s1-gap-51-52", "type": "gap", "stringId": "s1", "fromMidi": 51, "toMidi": 52, "height": 21 }     
         ]
     },
 
