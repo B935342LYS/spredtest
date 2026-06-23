@@ -101,6 +101,7 @@ select:disabled {
 }
 
 .menu-area {
+  grid-row: 1;
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.55fr) minmax(0, 0.85fr);
   gap: 12px;
@@ -475,6 +476,7 @@ select:disabled {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: auto;
+  align-items: start;
   justify-content: flex-end;
   gap: 8px;
   min-width: 0;
@@ -577,6 +579,7 @@ select:disabled {
 }
 
 .edit-panel {
+  grid-row: 2;
   display: none;
   overflow: hidden;
   border-bottom: 1px solid var(--line);
@@ -865,6 +868,7 @@ select:disabled {
 
 .score-viewer {
   position: relative;
+  grid-row: 3;
   display: grid;
   grid-template-columns: var(--label-width) minmax(0, 1fr);
   min-height: 0;
@@ -979,6 +983,7 @@ select:disabled {
 
 .status-area {
   position: relative;
+  grid-row: 4;
   min-width: 0;
   height: var(--status-height);
   min-height: var(--status-height);
