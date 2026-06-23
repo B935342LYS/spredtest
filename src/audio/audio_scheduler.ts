@@ -49,6 +49,7 @@ export function createAudioLookaheadScheduler(
       loopCycleIndex = 0,
     ): number {
       validateCurrentScoreSeconds(currentScoreSeconds);
+      pruneScheduledKeysForLoop(scheduledKeys, loop, loopCycleIndex);
 
       const windows = createLookaheadQueryWindows(
         currentScoreSeconds,
@@ -121,6 +122,35 @@ export function createAudioLookaheadScheduler(
       return scheduledKeys.size;
     },
   };
+}
+
+/**
+ * loop playback에서 지난 cycle의 예약 key를 제거한다.
+ * - 인수 : scheduledKeys : scheduler 중복 예약 방지 key set
+ * - 인수 : loop : 현재 loop 상태
+ * - 인수 : loopCycleIndex : playback controller가 관리하는 현재 loop cycle
+ * - 반환값 : 없음
+ */
+function pruneScheduledKeysForLoop(
+  scheduledKeys: Set<string>,
+  loop: PlaybackLoopState,
+  loopCycleIndex: number,
+): void {
+  if (!loop.enabled) {
+    return;
+  }
+
+  const minKeptCycleIndex = Math.max(0, loopCycleIndex - 1);
+
+  // wrap 직전/직후 lookahead를 고려해 현재 cycle과 직전 cycle key는 유지한다.
+  for (const key of scheduledKeys) {
+    const cycleText = key.slice(0, key.indexOf("|"));
+    const cycleIndex = Number.parseInt(cycleText, 10);
+
+    if (Number.isInteger(cycleIndex) && cycleIndex < minKeptCycleIndex) {
+      scheduledKeys.delete(key);
+    }
+  }
 }
 
 /**

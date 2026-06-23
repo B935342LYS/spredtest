@@ -153,9 +153,25 @@ function applyOverlapGainScaleAutomation(
   events: AudioScheduleEvent[],
 ): AudioScheduleEvent[] {
   const gainScaleSpans = buildGainScaleSpans(events);
+  let firstCandidateSpanIndex = 0;
 
   return events.map((event) => {
-    const gainScaleAutomation = buildGainScaleAutomationForEvent(event, gainScaleSpans);
+    // events와 span은 시간순이므로, 이미 event 시작 전 끝난 span은 다음 event에서도 다시 볼 필요가 없다.
+    while (firstCandidateSpanIndex < gainScaleSpans.length) {
+      const span = gainScaleSpans[firstCandidateSpanIndex];
+
+      if (span === undefined || span.endSeconds > event.startSeconds) {
+        break;
+      }
+
+      firstCandidateSpanIndex += 1;
+    }
+
+    const gainScaleAutomation = buildGainScaleAutomationForEvent(
+      event,
+      gainScaleSpans,
+      firstCandidateSpanIndex,
+    );
 
     return {
       ...event,
@@ -264,12 +280,15 @@ function mergeAdjacentGainScaleSpans(spans: GainScaleSpan[]): GainScaleSpan[] {
 function buildGainScaleAutomationForEvent(
   event: AudioScheduleEvent,
   gainScaleSpans: GainScaleSpan[],
+  startSpanIndex: number,
 ): AudioAutomationEvent[] {
   const automation: AudioAutomationEvent[] = [];
 
-  for (const span of gainScaleSpans) {
-    if (span.endSeconds <= event.startSeconds) {
-      continue;
+  for (let index = startSpanIndex; index < gainScaleSpans.length; index += 1) {
+    const span = gainScaleSpans[index];
+
+    if (span === undefined) {
+      break;
     }
 
     if (span.startSeconds >= event.endSeconds) {
