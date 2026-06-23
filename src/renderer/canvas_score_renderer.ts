@@ -44,6 +44,9 @@ import {
   filterVisibleMuteItems,
   filterVisibleNoteItems,
 } from "./canvas_visible_range";
+import {
+  measureCanvasPerformance,
+} from "./canvas_performance";
 
 /**
  * CanvasRenderInput을 실제 canvas layer에 그린다.
@@ -65,38 +68,72 @@ export function renderCanvasScore(
   const noteMarkerItems = getNoteMarkerItems(input);
 
   if (options.dynamicViewport !== undefined) {
-    const viewportRange = createCanvasVisibleTickRange(layout, options.dynamicViewport);
+    const dynamicViewport = options.dynamicViewport;
+    const viewportRange = createCanvasVisibleTickRange(layout, dynamicViewport);
     const dpr = Number.isFinite(options.devicePixelRatio) && options.devicePixelRatio > 0
       ? options.devicePixelRatio
       : 1;
 
-    resizeCanvasLayersToDynamicViewport(target, layout, options.dynamicViewport, dpr);
-    drawLayoutGrid(target.layout.context, layout);
-    drawScoreStaticRowBackground(target.base.context, layout, viewportRange);
-    drawScoreColumnGridInRange(target.marker.context, layout, viewportRange);
-    drawScoreMarkers(
+    const visibleGlobalMarkerItems = measureCanvasPerformance(
+      "renderer.full.filter.globalMarkers",
+      () => filterVisibleMarkerItems(globalMarkerItems, viewportRange),
+    );
+    const visibleNoteMarkerItems = measureCanvasPerformance(
+      "renderer.full.filter.noteMarkers",
+      () => filterVisibleMarkerItems(noteMarkerItems, viewportRange),
+    );
+    const visibleNoteItems = measureCanvasPerformance(
+      "renderer.full.filter.notes",
+      () => filterVisibleNoteItems(noteItems, viewportRange),
+    );
+    const visibleMuteItems = measureCanvasPerformance(
+      "renderer.full.filter.mutes",
+      () => filterVisibleMuteItems(muteItems, viewportRange),
+    );
+    const visibleGlobalTextItems = measureCanvasPerformance(
+      "renderer.full.filter.globalTexts",
+      () => filterVisibleGlobalTextItems(globalTextItems, viewportRange),
+    );
+
+    measureCanvasPerformance(
+      "renderer.full.resizeDynamic",
+      () => resizeCanvasLayersToDynamicViewport(target, layout, dynamicViewport, dpr),
+    );
+    measureCanvasPerformance(
+      "renderer.full.drawLayout",
+      () => drawLayoutGrid(target.layout.context, layout),
+    );
+    measureCanvasPerformance(
+      "renderer.full.drawStaticRows",
+      () => drawScoreStaticRowBackground(target.base.context, layout, viewportRange),
+    );
+    measureCanvasPerformance(
+      "renderer.full.drawColumnGrid",
+      () => drawScoreColumnGridInRange(target.marker.context, layout, viewportRange),
+    );
+    measureCanvasPerformance("renderer.full.drawGlobalMarkers", () => drawScoreMarkers(
       target.marker.context,
       layout,
-      filterVisibleMarkerItems(globalMarkerItems, viewportRange),
+      visibleGlobalMarkerItems,
       { preserveExisting: true },
-    );
-    drawScoreMarkers(
+    ));
+    measureCanvasPerformance("renderer.full.drawNoteMarkers", () => drawScoreMarkers(
       target.noteMarker.context,
       layout,
-      filterVisibleMarkerItems(noteMarkerItems, viewportRange),
-    );
-    drawScoreNotes(
+      visibleNoteMarkerItems,
+    ));
+    measureCanvasPerformance("renderer.full.drawNotes", () => drawScoreNotes(
       target.note.context,
       layout,
-      filterVisibleNoteItems(noteItems, viewportRange),
-      filterVisibleMuteItems(muteItems, viewportRange),
-      filterVisibleGlobalTextItems(globalTextItems, viewportRange),
-    );
-    drawScoreOverlayMarkers(
+      visibleNoteItems,
+      visibleMuteItems,
+      visibleGlobalTextItems,
+    ));
+    measureCanvasPerformance("renderer.full.drawOverlayMarkers", () => drawScoreOverlayMarkers(
       target.note.context,
       layout,
-      filterVisibleMarkerItems(noteMarkerItems, viewportRange),
-    );
+      visibleNoteMarkerItems,
+    ));
 
     return {
       layout,
@@ -146,63 +183,97 @@ export function renderCanvasScorePartial(
   const noteMarkerItems = getNoteMarkerItems(input);
 
   if (options.dynamicViewport !== undefined && scope === "note") {
+    const dynamicViewport = options.dynamicViewport;
     const dpr = Number.isFinite(options.devicePixelRatio) && options.devicePixelRatio > 0
       ? options.devicePixelRatio
       : 1;
-    const viewportRange = createCanvasVisibleTickRange(layout, options.dynamicViewport);
-    const baseResize = resizeCanvasLayerToDynamicViewport(
-      target.base,
-      layout,
-      options.dynamicViewport,
-      dpr,
+    const viewportRange = createCanvasVisibleTickRange(layout, dynamicViewport);
+    const visibleGlobalMarkerItems = measureCanvasPerformance(
+      "renderer.partial.note.filter.globalMarkers",
+      () => filterVisibleMarkerItems(globalMarkerItems, viewportRange),
     );
-    resizeCanvasLayerToDynamicViewport(
-      target.marker,
-      layout,
-      options.dynamicViewport,
-      dpr,
+    const visibleNoteMarkerItems = measureCanvasPerformance(
+      "renderer.partial.note.filter.noteMarkers",
+      () => filterVisibleMarkerItems(noteMarkerItems, viewportRange),
     );
-    resizeCanvasLayerToDynamicViewport(
-      target.note,
-      layout,
-      options.dynamicViewport,
-      dpr,
+    const visibleNoteItems = measureCanvasPerformance(
+      "renderer.partial.note.filter.notes",
+      () => filterVisibleNoteItems(noteItems, viewportRange),
     );
-    resizeCanvasLayerToDynamicViewport(
-      target.noteMarker,
-      layout,
-      options.dynamicViewport,
-      dpr,
+    const visibleMuteItems = measureCanvasPerformance(
+      "renderer.partial.note.filter.mutes",
+      () => filterVisibleMuteItems(muteItems, viewportRange),
+    );
+    const visibleGlobalTextItems = measureCanvasPerformance(
+      "renderer.partial.note.filter.globalTexts",
+      () => filterVisibleGlobalTextItems(globalTextItems, viewportRange),
+    );
+    const baseResize = measureCanvasPerformance(
+      "renderer.partial.note.resizeDynamic",
+      () => {
+        const resizeResult = resizeCanvasLayerToDynamicViewport(
+          target.base,
+          layout,
+          dynamicViewport,
+          dpr,
+        );
+        resizeCanvasLayerToDynamicViewport(
+          target.marker,
+          layout,
+          dynamicViewport,
+          dpr,
+        );
+        resizeCanvasLayerToDynamicViewport(
+          target.note,
+          layout,
+          dynamicViewport,
+          dpr,
+        );
+        resizeCanvasLayerToDynamicViewport(
+          target.noteMarker,
+          layout,
+          dynamicViewport,
+          dpr,
+        );
+
+        return resizeResult;
+      },
     );
 
     if (baseResize.didResize) {
-      drawScoreStaticRowBackground(target.base.context, layout, viewportRange);
+      measureCanvasPerformance(
+        "renderer.partial.note.drawStaticRows",
+        () => drawScoreStaticRowBackground(target.base.context, layout, viewportRange),
+      );
     }
 
-    drawScoreColumnGridInRange(target.marker.context, layout, viewportRange);
-    drawScoreMarkers(
+    measureCanvasPerformance(
+      "renderer.partial.note.drawColumnGrid",
+      () => drawScoreColumnGridInRange(target.marker.context, layout, viewportRange),
+    );
+    measureCanvasPerformance("renderer.partial.note.drawGlobalMarkers", () => drawScoreMarkers(
       target.marker.context,
       layout,
-      filterVisibleMarkerItems(globalMarkerItems, viewportRange),
+      visibleGlobalMarkerItems,
       { preserveExisting: true },
-    );
-    drawScoreMarkers(
+    ));
+    measureCanvasPerformance("renderer.partial.note.drawNoteMarkers", () => drawScoreMarkers(
       target.noteMarker.context,
       layout,
-      filterVisibleMarkerItems(noteMarkerItems, viewportRange),
-    );
-    drawScoreNotes(
+      visibleNoteMarkerItems,
+    ));
+    measureCanvasPerformance("renderer.partial.note.drawNotes", () => drawScoreNotes(
       target.note.context,
       layout,
-      filterVisibleNoteItems(noteItems, viewportRange),
-      filterVisibleMuteItems(muteItems, viewportRange),
-      filterVisibleGlobalTextItems(globalTextItems, viewportRange),
-    );
-    drawScoreOverlayMarkers(
+      visibleNoteItems,
+      visibleMuteItems,
+      visibleGlobalTextItems,
+    ));
+    measureCanvasPerformance("renderer.partial.note.drawOverlayMarkers", () => drawScoreOverlayMarkers(
       target.note.context,
       layout,
-      filterVisibleMarkerItems(noteMarkerItems, viewportRange),
-    );
+      visibleNoteMarkerItems,
+    ));
 
     return {
       layout,

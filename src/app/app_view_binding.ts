@@ -37,6 +37,9 @@ import {
   syncLayoutToolbarPresetSelectForCurrentScore,
 } from "./layout/layout_dialog_binding";
 import type { YoutubePlaybackControl } from "./youtube/youtube_binding";
+import {
+  recordCanvasPerformance,
+} from "../renderer/canvas_performance";
 
 /** view binding이 app 상태와 render 흐름을 제어하기 위한 session 입력. */
 export type ViewBindingSession = {
@@ -218,8 +221,11 @@ export function bindViewControls(
       return;
     }
 
+    const scheduledAt = performance.now();
+
     dynamicViewportScrollRafId = requestAnimationFrame(() => {
       dynamicViewportScrollRafId = null;
+      recordCanvasPerformance("app.scrollToRafDelay", scheduledAt);
       session.setState(renderDynamicViewportLayers(dom, session.getState()));
     });
   });

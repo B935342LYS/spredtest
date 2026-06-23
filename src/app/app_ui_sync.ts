@@ -20,6 +20,9 @@ import type {
 import { composeEditRawText } from "./edit/edit_core";
 import { resolveAutoDefaultText } from "./pitch_label";
 import { isTrackId } from "../track/track_control";
+import {
+  recordCanvasPerformance,
+} from "../renderer/canvas_performance";
 
 /**
  * status footer의 특정 위치 문구를 바꾼다.
@@ -438,6 +441,7 @@ export function renderDynamicViewportLayers(dom: AppDom, state: AppState): AppSt
     return state;
   }
 
+  const startedAt = performance.now();
   const result = renderCanvasScorePartial(
     dom.target,
     state.renderInput,
@@ -445,6 +449,15 @@ export function renderDynamicViewportLayers(dom: AppDom, state: AppState): AppSt
     "note",
     state.layout,
     null,
+  );
+  recordCanvasPerformance(
+    "app.renderDynamicViewportLayers",
+    startedAt,
+    {
+      scrollLeft: Math.round(dom.scoreArea.scrollLeft),
+      viewportWidth: dom.scoreArea.clientWidth,
+      columnCount: state.renderInput.columnCount,
+    },
   );
 
   return {

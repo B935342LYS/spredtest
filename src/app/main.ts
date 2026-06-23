@@ -48,6 +48,9 @@ import {
   bindYoutubeControls,
   type YoutubePlaybackControl,
 } from "./youtube/youtube_binding";
+import {
+  installCanvasPerformanceDebugTools,
+} from "../renderer/canvas_performance";
 import templateScoreJson from "../assets/templates/default-score.json?raw";
 
 /**
@@ -57,6 +60,7 @@ import templateScoreJson from "../assets/templates/default-score.json?raw";
  */
 async function boot(): Promise<void> {
   // score viewer DOM 요소와 renderer가 사용할 canvas target을 준비한다.
+  installCanvasPerformanceDebugTools(window);
   const dom = collectAppDom();
 
   populateAbsolutePitchOptions(dom.absolutePitchSelect);
