@@ -39,6 +39,8 @@ export type CanvasAnalyzedRenderInput = CanvasRenderInput & {
   noteItems: CanvasNoteRenderItem[];
   muteItems: CanvasMuteRenderItem[];
   globalTextItems: CanvasGlobalTextRenderItem[];
+  globalMarkerItems: CanvasMarkerItem[];
+  noteMarkerItems: CanvasMarkerItem[];
   markerItems: CanvasMarkerItem[];
 };
 
@@ -51,6 +53,14 @@ export type CanvasRenderOptions = {
   zoom: number;
   devicePixelRatio: number;
   columnWidth?: number;
+  dynamicViewport?: CanvasDynamicViewport;
+};
+
+/** 동적 canvas layer를 현재 viewport 근처로 제한하기 위한 범위. */
+export type CanvasDynamicViewport = {
+  scrollLeft: number;
+  width: number;
+  overscanPx: number;
 };
 
 /**
@@ -73,6 +83,7 @@ export type CanvasRenderTarget = {
   base: CanvasLayerTarget;
   note: CanvasLayerTarget;
   marker: CanvasLayerTarget;
+  noteMarker: CanvasLayerTarget;
 };
 
 /** 좌표 계산 이후 renderer 내부에서 사용하는 행 종류. */
@@ -131,6 +142,7 @@ export type CanvasViewport = {
  * - 반환값 : tick/row 기준 note 표시 정보
  */
 export type CanvasNoteRenderItem = {
+  sourceEventId: string;
   rowId: string;
   displayCentOffset: number;
   startTick: number;
@@ -188,6 +200,7 @@ export type CanvasNoteLayoutItem = CanvasNoteRenderItem & {
  * - 반환값 : tick/row 기준 mute 텍스트 표시 정보
  */
 export type CanvasMuteRenderItem = {
+  sourceEventId: string;
   rowId: string;
   startTick: number;
   endTick: number;
@@ -232,6 +245,7 @@ export type CanvasMarkerItem =
     }
   | {
       kind: "gliss";
+      sourceEventId: string;
       startRowId: string;
       startCentOffset: number;
       startTick: number;
@@ -244,6 +258,7 @@ export type CanvasMarkerItem =
     }
   | {
       kind: "glissOrphanAnchor";
+      sourceEventId: string;
       rowId: string;
       centOffset: number;
       tick: number;
@@ -253,6 +268,7 @@ export type CanvasMarkerItem =
     }
   | {
       kind: "tupletContainer";
+      sourceEventId: string;
       rowId: string;
       startTick: number;
       endTick: number;
@@ -268,4 +284,13 @@ export type CanvasMarkerItem =
  */
 export type CanvasRenderResult = {
   layout: CanvasScoreLayout;
+};
+
+/** renderer가 다시 그릴 canvas layer 범위. */
+export type CanvasRedrawScope = "all" | "note" | "global";
+
+/** 부분 redraw에서 사용할 tick 범위. */
+export type CanvasDirtyTickRange = {
+  startTick: number;
+  endTick: number;
 };

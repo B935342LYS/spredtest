@@ -19,12 +19,15 @@ import type {
 } from "../core/score/types";
 import {
   buildCanvasGlobalTextRenderItems,
+  buildCanvasGlobalMarkerItems,
   buildCanvasMarkerItems,
   buildCanvasMuteRenderItems,
+  buildCanvasNoteMarkerItems,
   buildCanvasNoteRenderItems,
 } from "../renderer/canvas_item_builder";
 import type { CanvasAnalyzedRenderInput } from "../renderer/canvas_types";
 import type { CanvasRenderInput } from "../renderer/canvas_types";
+import { buildScoreTextEditPartialArtifacts } from "../orchestration/partial_rebuild/partial_rebuild_artifacts";
 import { createCanvasRenderInput } from "./canvas_renderer_adapter";
 import {
   applyNoteCellRawText,
@@ -133,12 +136,16 @@ export function buildAnalyzedCanvasRenderInput(
     createCanvasRenderInput(document),
     reverseRows,
   );
+  const globalMarkerItems = buildCanvasGlobalMarkerItems(analysis);
+  const noteMarkerItems = buildCanvasNoteMarkerItems(analysis, activeTrackIds);
 
   return {
     ...renderInput,
     globalTextItems: buildCanvasGlobalTextRenderItems(document.score),
     noteItems: buildCanvasNoteRenderItems(analysis, activeTrackIds),
     muteItems: buildCanvasMuteRenderItems(analysis, activeTrackIds),
+    globalMarkerItems,
+    noteMarkerItems,
     markerItems: buildCanvasMarkerItems(analysis, activeTrackIds),
   };
 }
@@ -670,7 +677,16 @@ export function applyRawTextBatchToScore(
   }
 
   const nextDocument = createRuntimeDocument(applyResult.score);
-  const artifacts = buildRuntimeArtifacts(nextDocument, state.activeTrackIds, state.reverseRows);
+  const renderBaseInput = applyReverseRowsOption(
+    createCanvasRenderInput(nextDocument),
+    state.reverseRows,
+  );
+  const artifacts = buildScoreTextEditPartialArtifacts({
+    state,
+    nextDocument,
+    edits,
+    renderBaseInput,
+  }) ?? buildRuntimeArtifacts(nextDocument, state.activeTrackIds, state.reverseRows);
 
   return {
     ...state,

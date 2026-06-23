@@ -20,6 +20,7 @@ import {
 } from "./edit_interaction";
 import {
   addDragEditForHit,
+  getScoreTextEditKey,
   shouldStartDragEdit,
   type DragEditState,
   type RepeatedClickCycleState,
@@ -56,6 +57,8 @@ export function bindScorePointerControls(
   let dragEdit: DragEditState | null = null;
   let suppressNextClick = false;
   let lastPreviewHitKey: string | null = null;
+  let dragEditRafId: number | null = null;
+  const pendingDragEdits = new Map<string, ScoreTextEdit>();
 
   const resetRepeatedClickCycle = (): void => {
     repeatedClickCycle = null;
@@ -81,6 +84,51 @@ export function bindScorePointerControls(
 
   const expandEditsForActiveTracks = (edits: ScoreTextEdit[]): ScoreTextEdit[] =>
     edits.flatMap(expandEditForActiveTracks);
+
+  /**
+   * requestAnimationFrame까지 모인 drag edit batch를 실제 score edit으로 적용한다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
+  const flushPendingDragEdits = (): void => {
+    if (dragEditRafId !== null) {
+      cancelAnimationFrame(dragEditRafId);
+      dragEditRafId = null;
+    }
+
+    if (pendingDragEdits.size === 0) {
+      return;
+    }
+
+    const edits = Array.from(pendingDragEdits.values());
+
+    pendingDragEdits.clear();
+    session.applyScoreTextEdits(edits);
+  };
+
+  /**
+   * drag edit을 frame 단위로 모아 과도한 rebuild/render 반복을 줄인다.
+   * - 인수 : edits : 이번 pointermove에서 새로 생긴 edit 목록
+   * - 반환값 : 없음
+   */
+  const queueDragEdits = (edits: ScoreTextEdit[]): void => {
+    if (edits.length === 0) {
+      return;
+    }
+
+    for (const edit of edits) {
+      pendingDragEdits.set(getScoreTextEditKey(edit), edit);
+    }
+
+    if (dragEditRafId !== null) {
+      return;
+    }
+
+    dragEditRafId = requestAnimationFrame(() => {
+      dragEditRafId = null;
+      flushPendingDragEdits();
+    });
+  };
 
   const getPointerEditHit = (event: MouseEvent): ScoreHit | null => {
     const state = session.getState();
@@ -197,6 +245,7 @@ export function bindScorePointerControls(
           startClientX: event.clientX,
           startClientY: event.clientY,
           startHit: hit,
+          lockedRowKind: hit?.rowKind ?? null,
           lastHit: hit,
           canDrag: true,
           isDragging: false,
@@ -212,6 +261,7 @@ export function bindScorePointerControls(
         startClientX: event.clientX,
         startClientY: event.clientY,
         startHit: hit,
+        lockedRowKind: hit?.rowKind ?? null,
         lastHit: hit,
         canDrag: false,
         isDragging: false,
@@ -245,7 +295,7 @@ export function bindScorePointerControls(
             composeDragRawTextForHit(dom, session.getState(), hit, button),
         });
 
-        session.applyScoreTextEdits(expandEditsForActiveTracks(startEdits));
+      queueDragEdits(expandEditsForActiveTracks(startEdits));
       }
     }
 
@@ -276,7 +326,7 @@ export function bindScorePointerControls(
         composeDragRawTextForHit(dom, session.getState(), targetHit, button),
     });
 
-    session.applyScoreTextEdits(expandEditsForActiveTracks(edits));
+    queueDragEdits(expandEditsForActiveTracks(edits));
   });
 
   dom.scoreStage.addEventListener("pointerup", (event) => {
@@ -292,6 +342,7 @@ export function bindScorePointerControls(
     }
 
     if (completedDrag.isDragging) {
+      flushPendingDragEdits();
       resetNotePreviewHit();
       return;
     }
@@ -314,6 +365,7 @@ export function bindScorePointerControls(
     }
 
     dragEdit = null;
+    flushPendingDragEdits();
     resetNotePreviewHit();
   });
 

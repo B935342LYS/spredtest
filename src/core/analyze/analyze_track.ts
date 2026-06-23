@@ -262,6 +262,7 @@ function analyzeParsedMuteEntry(
   // mute는 발음 이벤트가 아니므로 표시 위치와 텍스트만 가진 독립 이벤트로 만든다.
   return {
     eventKind: "mute",
+    eventId: createMuteEventId(trackId, sourceCell),
     trackId,
     time: createIntegerTimeRange(entry.col, entry.col + 1),
     sourceCells: [sourceCell],
@@ -271,6 +272,16 @@ function analyzeParsedMuteEntry(
     },
     text: parsedCell.displayText,
   };
+}
+
+/**
+ * mute event의 안정적인 eventId를 만든다.
+ * - 인수 : trackId : 이벤트가 속한 track
+ * - 인수 : sourceCell : mute 원본 셀
+ * - 반환값 : string : mute event id
+ */
+function createMuteEventId(trackId: TrackId, sourceCell: SourceCellRef): string {
+  return `${trackId}:mute:${sourceCell.rowId}:${sourceCell.col}`;
 }
 
 // ============================================================

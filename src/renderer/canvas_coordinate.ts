@@ -3,6 +3,7 @@
  */
 
 import type {
+  CanvasDynamicViewport,
   CanvasLayerTarget,
   CanvasRenderInput,
   CanvasRenderOptions,
@@ -16,7 +17,7 @@ const DEFAULT_LAYOUT_WIDTH =
   CANVAS_METRICS.baseLayoutLabelWidth +
   CANVAS_METRICS.baseLayoutPaddingWidth;
 const PREVIEW_MAX_BITMAP_WIDTH = 65_535;
-const PREVIEW_MAX_BITMAP_HEIGHT = 720;
+const PREVIEW_MAX_BITMAP_HEIGHT = 1080;
 
 type NormalizedCanvasRenderOptions = {
   zoom: number;
@@ -178,6 +179,8 @@ function resizeCanvasLayer(
 
   target.canvas.style.width = `${cssWidth}px`;
   target.canvas.style.height = `${cssHeight}px`;
+  target.canvas.style.transformOrigin = "";
+  target.canvas.style.transform = "";
 
   // 계산된 bitmap 크기가 현재 canvas 속성과 다를 때만 width/height를 갱신한다.
   if (target.canvas.width !== bitmapWidth) {
@@ -196,6 +199,66 @@ function resizeCanvasLayer(
     0,
     0,
   );
+}
+
+/**
+ * 긴 악보 실험용으로 동적 layer canvas를 현재 viewport 폭으로만 맞춘다.
+ * - 인수 : target : 크기를 맞출 canvas target
+ * - 인수 : layout : 전체 score 좌표 layout
+ * - 인수 : viewport : scrollLeft와 viewport 폭
+ * - 인수 : devicePixelRatio : bitmap 해상도 보정값
+ * - 반환값 : viewport 시작/끝 x 좌표
+ */
+export function resizeCanvasLayerToDynamicViewport(
+  target: CanvasLayerTarget,
+  layout: CanvasScoreLayout,
+  viewport: CanvasDynamicViewport,
+  devicePixelRatio: number,
+): { startX: number; endX: number; width: number } {
+  const startX = Math.max(0, viewport.scrollLeft - viewport.overscanPx);
+  const endX = Math.min(
+    layout.stageWidth,
+    viewport.scrollLeft + viewport.width + viewport.overscanPx,
+  );
+  const cssWidth = Math.max(1, endX - startX);
+  const cssHeight = layout.stageHeight;
+  const effectiveDevicePixelRatio = Math.max(
+    0.25,
+    Math.min(
+      devicePixelRatio,
+      PREVIEW_MAX_BITMAP_WIDTH / Math.max(1, cssWidth),
+      PREVIEW_MAX_BITMAP_HEIGHT / Math.max(1, cssHeight),
+    ),
+  );
+  const bitmapWidth = Math.max(1, Math.floor(cssWidth * effectiveDevicePixelRatio));
+  const bitmapHeight = Math.max(1, Math.floor(cssHeight * effectiveDevicePixelRatio));
+
+  target.canvas.style.width = `${cssWidth}px`;
+  target.canvas.style.height = `${cssHeight}px`;
+  target.canvas.style.transformOrigin = "0 0";
+  target.canvas.style.transform = `translateX(${startX}px)`;
+
+  if (target.canvas.width !== bitmapWidth) {
+    target.canvas.width = bitmapWidth;
+  }
+  if (target.canvas.height !== bitmapHeight) {
+    target.canvas.height = bitmapHeight;
+  }
+
+  target.context.setTransform(
+    effectiveDevicePixelRatio,
+    0,
+    0,
+    effectiveDevicePixelRatio,
+    -startX * effectiveDevicePixelRatio,
+    0,
+  );
+
+  return {
+    startX,
+    endX,
+    width: cssWidth,
+  };
 }
 
 /**
@@ -218,4 +281,5 @@ export function resizeCanvasLayers(
   resizeCanvasLayer(target.base, layout.stageWidth, layout.stageHeight, dpr);
   resizeCanvasLayer(target.note, layout.stageWidth, layout.stageHeight, dpr);
   resizeCanvasLayer(target.marker, layout.stageWidth, layout.stageHeight, dpr);
+  resizeCanvasLayer(target.noteMarker, layout.stageWidth, layout.stageHeight, dpr);
 }

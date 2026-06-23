@@ -57,6 +57,7 @@ export function createCanvasRenderTarget(): CanvasRenderTarget {
     base: createCanvasLayerTarget(".base-layer"),
     note: createCanvasLayerTarget(".note-layer"),
     marker: createCanvasLayerTarget(".marker-layer"),
+    noteMarker: createCanvasLayerTarget(".note-marker-layer"),
   };
 }
 

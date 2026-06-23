@@ -13,6 +13,9 @@ import { MAX_CELL_RAW_TEXT_LENGTH } from "../../core/score/score_limits";
 /** edit 적용 대상 row 종류. */
 export type EditRowKind = "global" | "note" | "gap";
 
+/** score text edit batch가 무효화하는 런타임 산출물 종류. */
+export type EditInvalidationKind = "noteCell" | "globalCell" | "mixedCell";
+
 /**
  * score edit 적용 대상 좌표.
  * - 인수 : 없음
@@ -52,6 +55,37 @@ export type ScoreTextEdit = {
   selection: ScoreEditSelection;
   rawText: string;
 };
+
+/**
+ * edit batch가 note/global 중 어느 영역을 바꾸는지 분류한다.
+ * - 인수 : edits : 적용할 score cell 편집 목록
+ * - 반환값 : note/global/mixed invalidation 종류
+ */
+export function getScoreTextEditInvalidationKind(
+  edits: readonly ScoreTextEdit[],
+): EditInvalidationKind {
+  let hasNote = false;
+  let hasGlobal = false;
+
+  // edit 목록을 순회하며 note/global rowKind가 함께 들어왔는지 확인한다.
+  for (const edit of edits) {
+    if (edit.selection.rowKind === "note") {
+      hasNote = true;
+    } else if (edit.selection.rowKind === "global") {
+      hasGlobal = true;
+    }
+
+    if (hasNote && hasGlobal) {
+      return "mixedCell";
+    }
+  }
+
+  if (hasGlobal) {
+    return "globalCell";
+  }
+
+  return "noteCell";
+}
 
 /**
  * ScoreFile JSON 구조를 편집용으로 깊은 복사한다.
@@ -126,7 +160,7 @@ export function applyScoreCellRawTextBatch(
     }
   }
 
-  const nextScore = cloneScoreFile(score);
+  const nextScore = cloneScoreFileForTextEdits(score, edits);
   let deletedCount = 0;
 
   for (const edit of edits) {
@@ -146,6 +180,48 @@ export function applyScoreCellRawTextBatch(
     score: nextScore,
     isDelete: deletedCount === edits.length,
     updated: edits.length,
+  };
+}
+
+/**
+ * score text edit 적용에 필요한 ScoreFile 부분만 복제한다.
+ * - 인수 : score : 현재 score JSON
+ * - 인수 : edits : 적용할 score cell 편집 목록
+ * - 반환값 : 편집 대상 track/global cell 배열만 독립 복제한 score JSON
+ */
+function cloneScoreFileForTextEdits(
+  score: ScoreFile,
+  edits: readonly ScoreTextEdit[],
+): ScoreFile {
+  const invalidationKind = getScoreTextEditInvalidationKind(edits);
+  const shouldCloneGlobalLines =
+    invalidationKind === "globalCell" || invalidationKind === "mixedCell";
+  const shouldCloneTracks =
+    invalidationKind === "noteCell" || invalidationKind === "mixedCell";
+  const editedTrackIds = new Set(
+    edits
+      .filter((edit) => edit.selection.rowKind === "note")
+      .map((edit) => edit.selection.trackId),
+  );
+
+  return {
+    ...score,
+    globalLines: shouldCloneGlobalLines
+      ? {
+          ...score.globalLines,
+          cells: [...score.globalLines.cells],
+        }
+      : score.globalLines,
+    tracks: shouldCloneTracks
+      ? score.tracks.map((track) =>
+          editedTrackIds.has(track.trackId)
+            ? {
+                ...track,
+                cells: [...track.cells],
+              }
+            : track
+        )
+      : score.tracks,
   };
 }
 

@@ -11,6 +11,12 @@ import {
 import { bindFileControls } from "./app_file_binding";
 import { bindViewControls } from "./app_view_binding";
 import type { ScoreTextEdit } from "./edit/edit_apply";
+import {
+  createScoreTextEditPartialPlan,
+  getScoreTextEditRedrawScope,
+} from "../orchestration/partial_rebuild/partial_rebuild_app_plan";
+import { applyPartialRenderInputPatch } from "../orchestration/partial_rebuild/partial_rebuild_render_patch";
+import type { PartialRebuildPlan } from "../orchestration/partial_rebuild/partial_rebuild_types";
 import { bindEditPanelControls } from "./edit/edit_panel_binding";
 import { bindScorePointerControls } from "./edit/edit_pointer_binding";
 import { syncLayoutToolbarPresetSelectForCurrentScore } from "./layout/layout_dialog_binding";
@@ -19,6 +25,7 @@ import {
 } from "./pitch_label";
 import {
   renderApp,
+  renderAppPartial,
   setStatus,
   syncLeftStatus,
   syncMusicMetadata,
@@ -80,6 +87,24 @@ async function boot(): Promise<void> {
     syncPlaybackUi(dom, state, playbackRuntime);
   };
 
+  const renderAfterScoreTextEdit = (edits: ScoreTextEdit[], plan: PartialRebuildPlan | null): void => {
+    const redrawScope = plan?.renderer.redrawScope ?? getScoreTextEditRedrawScope(edits);
+
+    if (redrawScope === "note") {
+      state = renderAppPartial(dom, state, "note", plan?.renderer.dirtyTickRange ?? null);
+    } else if (redrawScope === "global") {
+      state = renderAppPartial(dom, state, "global");
+    } else {
+      state = renderApp(dom, state);
+    }
+
+    syncMusicMetadata(dom, state);
+    syncLeftStatus(dom, state);
+    syncUiControls(dom, state);
+    syncLayoutToolbarPresetSelectForCurrentScore(dom, { getState: () => state });
+    syncPlaybackUi(dom, state, playbackRuntime);
+  };
+
   playbackRuntime = createAppPlaybackRuntime(dom, state);
   notePreviewRuntime = createAppNotePreviewRuntime(dom);
   youtubeControl = createNoopYoutubeControl();
@@ -109,6 +134,8 @@ async function boot(): Promise<void> {
       return;
     }
 
+    const previousState = state;
+
     state = {
       ...state,
       busy: { kind: "applyingEdit", message: "Applying edit..." },
@@ -118,8 +145,24 @@ async function boot(): Promise<void> {
 
     // 모아둔 rawText 편집을 하나의 full rebuild 경로로 넘겨 드래그 입력 중 rebuild 반복을 피한다.
     state = applyRawTextBatchEditToState(state, edits);
+    const partialPlan = createScoreTextEditPartialPlan({
+      previousState,
+      nextState: state,
+      edits,
+    });
 
-    render();
+    if (partialPlan !== null) {
+      state = {
+        ...state,
+        renderInput: applyPartialRenderInputPatch(
+          previousState.renderInput,
+          state.renderInput,
+          partialPlan,
+        ),
+      };
+    }
+
+    renderAfterScoreTextEdit(edits, partialPlan);
     resetPlaybackForCurrentState();
   };
 

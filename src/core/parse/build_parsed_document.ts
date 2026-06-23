@@ -64,7 +64,7 @@ function buildParsedNoteCells(
  * - 인수 : track : 파싱할 track 원본
  * - 반환값 : Map : col -> ParsedCellEntry[] 구조
  */
-function buildParsedTrackCells(track: Track): Map<number, ParsedCellEntry[]> {
+export function buildParsedTrackCells(track: Track): Map<number, ParsedCellEntry[]> {
   const entriesByCol = new Map<number, ParsedCellEntry[]>();
 
   // 원본 track.cells 순회를 기준으로 위치 정보와 단일 셀 parser 결과를 함께 저장한다.
@@ -94,7 +94,7 @@ function buildParsedTrackCells(track: Track): Map<number, ParsedCellEntry[]> {
  * - 인수 : indexes : score에서 파생된 런타임 조회 인덱스
  * - 반환값 : Map : GlobalKind -> col -> ParsedGlobalCellEntry 구조
  */
-function buildParsedGlobalCells(
+export function buildParsedGlobalCells(
   score: ScoreFile,
   indexes: ScoreIndexes,
 ): ParsedScoreDocument["globalCellsByKindAndCol"] {

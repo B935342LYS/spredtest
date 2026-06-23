@@ -49,6 +49,7 @@ export function buildCanvasNoteRenderItems(
       }
 
       items.push({
+        sourceEventId: event.eventId,
         rowId: event.display.rowId,
         displayCentOffset: event.display.centOffset,
         startTick: timeFractionToNumber(event.time.startTick),
@@ -136,6 +137,7 @@ export function buildCanvasMuteRenderItems(
       }
 
       items.push({
+        sourceEventId: event.eventId,
         rowId: event.display.rowId,
         startTick: timeFractionToNumber(event.time.startTick),
         endTick: timeFractionToNumber(event.time.endTick),
@@ -189,10 +191,38 @@ export function buildCanvasMarkerItems(
   analysis: AnalysisResult,
   activeTrackIds: readonly TrackId[] = DEFAULT_ACTIVE_TRACK_IDS,
 ): CanvasMarkerItem[] {
-  const items: CanvasMarkerItem[] = [
+  return sortCanvasMarkerItems([
+    ...buildCanvasGlobalMarkerItems(analysis),
+    ...buildCanvasNoteMarkerItems(analysis, activeTrackIds),
+  ]);
+}
+
+/**
+ * analyzer 결과에서 global/timeline 계열 marker item 목록을 만든다.
+ * - 인수 : analysis : analyzer가 확정한 문서 분석 결과
+ * - 반환값 : beat/bar, BPM, dynamics 표시 marker 목록
+ */
+export function buildCanvasGlobalMarkerItems(
+  analysis: AnalysisResult,
+): CanvasMarkerItem[] {
+  return sortCanvasMarkerItems([
     ...buildDynamicsGuideMarkerItems(analysis),
     ...buildTimingLineMarkerItems(analysis),
     ...buildBpmChangeMarkerItems(analysis),
+  ]);
+}
+
+/**
+ * analyzer 결과에서 note event 관계 계열 marker item 목록을 만든다.
+ * - 인수 : analysis : analyzer가 확정한 문서 분석 결과
+ * - 인수 : activeTrackIds : renderer alpha에 반영할 active track 목록
+ * - 반환값 : gliss, orphan anchor, tuplet container marker 목록
+ */
+export function buildCanvasNoteMarkerItems(
+  analysis: AnalysisResult,
+  activeTrackIds: readonly TrackId[] = DEFAULT_ACTIVE_TRACK_IDS,
+): CanvasMarkerItem[] {
+  const items: CanvasMarkerItem[] = [
   ];
   const connectedGlissAnchorKeys = new Set<string>();
   const noteEvents = collectNoteEvents(analysis);
@@ -204,6 +234,7 @@ export function buildCanvasMarkerItems(
         if (isTupletGroupEvent(event)) {
           items.push({
             kind: "tupletContainer",
+            sourceEventId: event.eventId,
             rowId: event.containerRowId,
             startTick: timeFractionToNumber(event.time.startTick),
             endTick: timeFractionToNumber(event.time.endTick),
@@ -214,6 +245,7 @@ export function buildCanvasMarkerItems(
         } else if (isTupletExtendGroupEvent(event)) {
           items.push({
             kind: "tupletContainer",
+            sourceEventId: event.eventId,
             rowId: event.rowId,
             startTick: timeFractionToNumber(event.time.startTick),
             endTick: timeFractionToNumber(event.time.endTick),
@@ -231,6 +263,7 @@ export function buildCanvasMarkerItems(
       });
       items.push({
         kind: "gliss",
+        sourceEventId: event.eventId,
         startRowId: event.startDisplay.rowId,
         startCentOffset: event.startDisplay.centOffset,
         startTick: timeFractionToNumber(event.startAnchorTick),
@@ -260,6 +293,7 @@ export function buildCanvasMarkerItems(
 
         items.push({
           kind: "glissOrphanAnchor",
+          sourceEventId: event.eventId,
           rowId: anchor.display.rowId,
           centOffset: anchor.display.centOffset,
           tick: timeRangeCenterToNumber(anchor.time),
@@ -272,6 +306,15 @@ export function buildCanvasMarkerItems(
   }
 
   // marker draw 순서가 입력 순서에 의존하지 않도록 시간과 행 순서로 정렬한다.
+  return sortCanvasMarkerItems(items);
+}
+
+/**
+ * marker item 목록을 시간, 행, track 순서로 안정 정렬한다.
+ * - 인수 : items : 정렬할 marker item 목록
+ * - 반환값 : 새 배열이 아닌 입력 배열을 정렬한 결과
+ */
+function sortCanvasMarkerItems(items: CanvasMarkerItem[]): CanvasMarkerItem[] {
   return items.sort((left, right) => {
     const leftTick = getMarkerSortTick(left);
     const rightTick = getMarkerSortTick(right);

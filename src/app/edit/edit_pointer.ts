@@ -22,6 +22,7 @@ export type DragEditState = {
   startClientX: number;
   startClientY: number;
   startHit: ScoreHit | null;
+  lockedRowKind: ScoreHit["rowKind"] | null;
   lastHit: ScoreHit | null;
   canDrag: boolean;
   isDragging: boolean;
@@ -233,6 +234,17 @@ export function addDragEditForHit(
   input: DragEditCreateInput,
 ): ScoreTextEdit[] {
   const edits: ScoreTextEdit[] = [];
+
+  if (
+    dragState.lockedRowKind !== null &&
+    hit.rowKind !== dragState.lockedRowKind
+  ) {
+    return edits;
+  }
+
+  if (dragState.lockedRowKind === null) {
+    dragState.lockedRowKind = hit.rowKind;
+  }
 
   // 같은 행에서 빠르게 이동해 중간 열 hit가 누락된 경우 이전 열과 현재 열 사이를 채운다.
   if (dragState.lastHit !== null && dragState.lastHit.rowId === hit.rowId) {

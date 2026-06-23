@@ -117,6 +117,7 @@ export function analyzeParsedPletHeadEntry(
     ...slotEvents,
     {
       eventKind: "tupletGroup",
+      eventId: createTupletGroupEventId(groupId),
       trackId,
       time: groupTime,
       sourceCells: [
@@ -286,13 +287,15 @@ function pushOrphanTupletExtendRun(
   }
 
   const extendCells = run.map((entry) => createSourceCellRef(entry));
+  const groupId = createTupletExtendGroupId(trackId, firstEntry);
 
   events.push({
     eventKind: "tupletExtendGroup",
+    eventId: createTupletExtendGroupEventId(groupId),
     trackId,
     time: createIntegerTimeRange(firstEntry.col, lastEntry.col + 1),
     sourceCells: extendCells,
-    groupId: createTupletExtendGroupId(trackId, firstEntry),
+    groupId,
     rowId: firstEntry.rowId,
     extendCells,
   });
@@ -314,12 +317,29 @@ function createTupletRestEvent(
 ): RestEvent {
   return {
     eventKind: "rest",
+    eventId: createTupletRestEventId(trackId, sourceCell),
     trackId,
     time: cloneTimeRange(time),
     sourceCells: [sourceCell],
     display: null,
     tuplet: membership,
   };
+}
+
+/**
+ * rest event의 안정적인 eventId를 만든다.
+ * - 인수 : trackId : 이벤트가 속한 track
+ * - 인수 : sourceCell : rest 원본 셀 또는 slot
+ * - 반환값 : string : rest event id
+ */
+function createTupletRestEventId(trackId: TrackId, sourceCell: SourceCellRef): string {
+  const baseId = `${trackId}:rest:${sourceCell.rowId}:${sourceCell.col}`;
+
+  if (sourceCell.slotIndex === undefined) {
+    return baseId;
+  }
+
+  return `${baseId}:slot:${sourceCell.slotIndex}`;
 }
 
 /**
@@ -420,6 +440,15 @@ function createTupletGroupId(trackId: TrackId, entry: ParsedCellEntry): string {
 }
 
 /**
+ * tuplet group event의 안정적인 eventId를 만든다.
+ * - 인수 : groupId : tuplet membership 연결에 쓰는 group id
+ * - 반환값 : string : tuplet group event id
+ */
+function createTupletGroupEventId(groupId: string): string {
+  return `tupletGroup:${groupId}`;
+}
+
+/**
  * orphan pletExtend group의 안정적인 id를 만든다.
  * - 인수 : trackId : 이벤트가 속한 track
  * - 인수 : entry : extend run의 첫 parsed entry
@@ -427,6 +456,15 @@ function createTupletGroupId(trackId: TrackId, entry: ParsedCellEntry): string {
  */
 function createTupletExtendGroupId(trackId: TrackId, entry: ParsedCellEntry): string {
   return `${trackId}:tuplet-extend:${entry.rowId}:${entry.col}`;
+}
+
+/**
+ * tuplet extend group event의 안정적인 eventId를 만든다.
+ * - 인수 : groupId : orphan extend group id
+ * - 반환값 : string : tuplet extend group event id
+ */
+function createTupletExtendGroupEventId(groupId: string): string {
+  return `tupletExtendGroup:${groupId}`;
 }
 
 /**

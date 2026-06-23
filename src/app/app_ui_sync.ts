@@ -2,8 +2,13 @@
  * AppState를 DOM과 canvas renderer에 반영하는 동기화 함수를 제공한다.
  */
 
-import { renderCanvasScore } from "../renderer/canvas_score_renderer";
+import {
+  renderCanvasScore,
+  renderCanvasScorePartial,
+} from "../renderer/canvas_score_renderer";
 import type {
+  CanvasDirtyTickRange,
+  CanvasRedrawScope,
   CanvasRenderOptions,
   CanvasRenderResult,
 } from "../renderer/canvas_types";
@@ -271,12 +276,23 @@ export function syncLayoutScroll(
  * - 인수 : zoomInput : zoom slider DOM 요소
  * - 반환값 : renderer 좌표 계산 옵션
  */
-export function createRenderOptions(zoomInput: HTMLInputElement): CanvasRenderOptions {
+export function createRenderOptions(
+  zoomInput: HTMLInputElement,
+  scoreArea?: HTMLElement,
+): CanvasRenderOptions {
   const zoom = Number(zoomInput.value) / 100;
+  const dynamicViewport = scoreArea !== undefined
+    ? {
+        scrollLeft: scoreArea.scrollLeft,
+        width: scoreArea.clientWidth,
+        overscanPx: Math.max(128, scoreArea.clientWidth * 0.25),
+      }
+    : undefined;
 
   return {
     zoom,
     devicePixelRatio: window.devicePixelRatio || 1,
+    dynamicViewport,
   };
 }
 
@@ -339,6 +355,77 @@ export function renderApp(dom: AppDom, state: AppState): AppState {
   syncLayoutScroll(dom.scoreArea, dom.layoutStage);
   setStatus(1, `analysis: ${state.renderInput.noteItems.length} notes`);
   setStatus(2, `renderer: ${result.layout.rows.length} rows`);
+
+  return {
+    ...state,
+    layout: result.layout,
+  };
+}
+
+/**
+ * AppState 안의 renderInput으로 편집 영향 layer만 다시 그리고 layout 상태를 유지한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : scope : 다시 그릴 canvas 동적 layer 범위
+ * - 인수 : dirtyTickRange : note scope에서 부분 redraw할 tick 범위
+ * - 반환값 : renderer layout이 반영된 새 상태
+ */
+export function renderAppPartial(
+  dom: AppDom,
+  state: AppState,
+  scope: Exclude<CanvasRedrawScope, "all">,
+  dirtyTickRange: CanvasDirtyTickRange | null = null,
+): AppState {
+  if (state.layout === null) {
+    return renderApp(dom, state);
+  }
+
+  const previousLayout = state.layout;
+  const result: CanvasRenderResult = renderCanvasScorePartial(
+    dom.target,
+    state.renderInput,
+    createRenderOptions(dom.zoomInput, dom.scoreArea),
+    scope,
+    previousLayout,
+    dirtyTickRange,
+  );
+  const horizontalTailWidth = Math.max(0, dom.scoreArea.clientWidth);
+
+  updateStageCssVars(
+    result.layout.stageWidth,
+    result.layout.stageWidth + horizontalTailWidth,
+    result.layout.stageHeight,
+    result.layout.layoutWidth,
+  );
+  syncLayoutScroll(dom.scoreArea, dom.layoutStage);
+  setStatus(1, `analysis: ${state.renderInput.noteItems.length} notes`);
+  setStatus(2, `renderer: ${result.layout.rows.length} rows`);
+
+  return {
+    ...state,
+    layout: result.layout,
+  };
+}
+
+/**
+ * scroll 위치가 바뀐 뒤 현재 viewport에 맞춰 note/note marker 동적 layer만 다시 그린다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : renderer layout이 유지/갱신된 앱 상태
+ */
+export function renderDynamicViewportLayers(dom: AppDom, state: AppState): AppState {
+  if (state.layout === null) {
+    return state;
+  }
+
+  const result = renderCanvasScorePartial(
+    dom.target,
+    state.renderInput,
+    createRenderOptions(dom.zoomInput, dom.scoreArea),
+    "note",
+    state.layout,
+    null,
+  );
 
   return {
     ...state,

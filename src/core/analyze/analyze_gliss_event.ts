@@ -286,14 +286,13 @@ function createGlissAnchorUniquenessKey(anchor: GlissAnchor): string {
  * - 반환값 : string : gliss event id
  */
 function createGlissEventId(trackId: TrackId, startAnchor: GlissAnchor): string {
-  return [
-    trackId,
-    "gliss",
-    startAnchor.glissId,
-    startAnchor.source.rowId,
-    startAnchor.source.col,
-    startAnchor.source.slotIndex ?? "",
-  ].join(":");
+  const baseId = `${trackId}:gliss:${startAnchor.glissId}:${startAnchor.source.rowId}:${startAnchor.source.col}`;
+
+  if (startAnchor.source.slotIndex === undefined) {
+    return baseId;
+  }
+
+  return `${baseId}:slot:${startAnchor.source.slotIndex}`;
 }
 
 /**

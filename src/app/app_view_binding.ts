@@ -24,6 +24,7 @@ import {
   toggleFullscreen,
 } from "./app_view_actions";
 import {
+  renderDynamicViewportLayers,
   syncLayoutScroll,
   syncLeftStatus,
 } from "./app_ui_sync";
@@ -119,10 +120,20 @@ export function bindViewControls(
 ): void {
   syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
   bindLayoutDialogControls(dom, session);
+  let dynamicViewportScrollRafId: number | null = null;
 
   // score 영역이 스크롤될 때 layout label stage의 세로 위치를 함께 이동한다.
   dom.scoreArea.addEventListener("scroll", () => {
     syncLayoutScroll(dom.scoreArea, dom.layoutStage);
+
+    if (dynamicViewportScrollRafId !== null) {
+      return;
+    }
+
+    dynamicViewportScrollRafId = requestAnimationFrame(() => {
+      dynamicViewportScrollRafId = null;
+      session.setState(renderDynamicViewportLayers(dom, session.getState()));
+    });
   });
 
   window.addEventListener("resize", session.render);

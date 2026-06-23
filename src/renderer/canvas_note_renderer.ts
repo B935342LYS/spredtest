@@ -13,6 +13,7 @@ import {
 } from "./canvas_theme";
 import type {
   CanvasGlobalTextRenderItem,
+  CanvasDirtyTickRange,
   CanvasLayoutRow,
   CanvasMuteRenderItem,
   CanvasNoteLayoutItem,
@@ -72,6 +73,89 @@ export function drawScoreNotes(
 }
 
 /**
+ * note canvas의 dirty tick 범위에 해당하는 note row 영역만 다시 그린다.
+ * - 인수 : context : note layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : items : note 표시 item 목록
+ * - 인수 : muteItems : mute 표시 item 목록
+ * - 인수 : dirtyRange : 다시 그릴 tick 범위
+ * - 반환값 : 없음
+ */
+export function drawScoreNotesInRange(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  items: CanvasNoteRenderItem[],
+  muteItems: CanvasMuteRenderItem[] = [],
+  dirtyRange: CanvasDirtyTickRange,
+): void {
+  const rowById = createLayoutRowMap(layout);
+  const renderRange = expandDirtyRangeForTextOverflow(dirtyRange, layout);
+
+  clearNoteRowsInRange(context, layout, dirtyRange);
+  context.save();
+  clipDirtyRange(context, layout, dirtyRange);
+
+  // clear padding 영역에 걸친 인접 note/mute까지 다시 그려 텍스트 overflow가 잘리지 않게 한다.
+  for (const item of items) {
+    if (!doesTickRangeOverlap(item.startTick, item.endTick, renderRange)) {
+      continue;
+    }
+
+    const layoutItem = createNoteLayoutItem(item, rowById, layout);
+
+    if (layoutItem === null) {
+      continue;
+    }
+
+    context.save();
+    context.globalAlpha = layoutItem.renderAlpha ?? 1;
+    drawNoteRectangle(context, layoutItem);
+    drawNoteEffects(context, layoutItem, layout);
+    drawNoteText(context, layoutItem, layout);
+    context.restore();
+  }
+
+  for (const item of muteItems) {
+    if (!doesTickRangeOverlap(item.startTick, item.endTick, renderRange)) {
+      continue;
+    }
+
+    context.save();
+    context.globalAlpha = item.renderAlpha ?? 1;
+    drawMuteText(context, layout, rowById, item);
+    context.restore();
+  }
+
+  context.restore();
+}
+
+/**
+ * note canvas 안의 global row 텍스트 영역만 다시 그린다.
+ * - 인수 : context : note layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : globalTextItems : 전역 행 rawText 표시 item 목록
+ * - 반환값 : 없음
+ */
+export function drawScoreGlobalTexts(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  globalTextItems: CanvasGlobalTextRenderItem[] = [],
+): void {
+  const rowById = createLayoutRowMap(layout);
+
+  // global row 영역만 지워 note row의 note/event 표시를 유지한다.
+  for (const row of layout.rows) {
+    if (row.kind === "global") {
+      context.clearRect(0, row.y, layout.stageWidth, row.height);
+    }
+  }
+
+  for (const item of globalTextItems) {
+    drawGlobalText(context, layout, rowById, item);
+  }
+}
+
+/**
  * layout row를 rowId 기준 Map으로 만든다.
  * - 인수 : layout : CSS pixel 기준 score layout
  * - 반환값 : Map<string, CanvasLayoutRow> : note item row 조회용 Map
@@ -87,6 +171,137 @@ function createLayoutRowMap(
   }
 
   return rowById;
+}
+
+/**
+ * dirty tick 범위에 해당하는 note row canvas 영역을 지운다.
+ * - 인수 : context : note layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : dirtyRange : 다시 그릴 tick 범위
+ * - 반환값 : 없음
+ */
+function clearNoteRowsInRange(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  dirtyRange: CanvasDirtyTickRange,
+): void {
+  const x = getDirtyRangeX(dirtyRange, layout);
+
+  for (const row of layout.rows) {
+    if (row.kind === "note") {
+      const y = getNoteRowDirtyY(row, layout);
+
+      context.clearRect(x.startX, y.startY, x.width, y.height);
+    }
+  }
+}
+
+/**
+ * note row에서 실제 note/mute/overlay가 차지할 수 있는 y clear 범위를 계산한다.
+ * - 인수 : row : note row layout
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 반환값 : clear 시작 y와 높이
+ */
+function getNoteRowDirtyY(
+  row: CanvasLayoutRow,
+  layout: CanvasScoreLayout,
+): { startY: number; height: number } {
+  const visualHeight = Math.max(
+    row.height,
+    CANVAS_METRICS.minNoteHeight,
+    CANVAS_METRICS.baseNoteRenderHeight * getLayoutZoom(layout),
+    CANVAS_METRICS.muteTextFontSizePx,
+  );
+  const padding = 4;
+  const centerY = row.y + row.height / 2;
+  const startY = Math.max(0, centerY - visualHeight / 2 - padding);
+  const endY = Math.min(layout.stageHeight, centerY + visualHeight / 2 + padding);
+
+  return {
+    startY,
+    height: Math.max(0, endY - startY),
+  };
+}
+
+/**
+ * 두 tick 범위가 겹치는지 확인한다.
+ * - 인수 : startTick : item 시작 tick
+ * - 인수 : endTick : item 끝 tick
+ * - 인수 : dirtyRange : dirty tick 범위
+ * - 반환값 : 겹치면 true
+ */
+function doesTickRangeOverlap(
+  startTick: number,
+  endTick: number,
+  dirtyRange: CanvasDirtyTickRange,
+): boolean {
+  return endTick >= dirtyRange.startTick && startTick <= dirtyRange.endTick;
+}
+
+/**
+ * dirty tick 범위를 clearRect에 사용할 x 범위로 변환한다.
+ * - 인수 : dirtyRange : dirty tick 범위
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 반환값 : clear 시작 x와 폭
+ */
+function getDirtyRangeX(
+  dirtyRange: CanvasDirtyTickRange,
+  layout: CanvasScoreLayout,
+): { startX: number; width: number } {
+  const padding = getDirtyRangeXPadding(layout);
+  const startX = Math.max(0, columnToX(dirtyRange.startTick, layout) - padding);
+  const endX = Math.min(layout.stageWidth, columnToX(dirtyRange.endTick, layout) + padding);
+
+  return {
+    startX,
+    width: Math.max(0, endX - startX),
+  };
+}
+
+/**
+ * note 텍스트 overflow까지 포함하도록 dirty tick 범위를 확장한다.
+ * - 인수 : dirtyRange : 실제 편집으로 더러워진 tick 범위
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 반환값 : redraw item 선택에 사용할 확장 tick 범위
+ */
+function expandDirtyRangeForTextOverflow(
+  dirtyRange: CanvasDirtyTickRange,
+  layout: CanvasScoreLayout,
+): CanvasDirtyTickRange {
+  const paddingTick = getDirtyRangeXPadding(layout) / layout.columnWidth;
+
+  return {
+    startTick: Math.max(0, dirtyRange.startTick - paddingTick),
+    endTick: dirtyRange.endTick + paddingTick,
+  };
+}
+
+/**
+ * note layer partial clear에서 좌우 텍스트 overflow를 보호할 x padding을 계산한다.
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 반환값 : CSS pixel 기준 padding
+ */
+function getDirtyRangeXPadding(layout: CanvasScoreLayout): number {
+  return Math.max(layout.columnWidth * 2, 64 * getLayoutZoom(layout), 8);
+}
+
+/**
+ * dirty tick 범위에 해당하는 x 영역으로 draw를 제한한다.
+ * - 인수 : context : note layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : dirtyRange : dirty tick 범위
+ * - 반환값 : 없음
+ */
+function clipDirtyRange(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  dirtyRange: CanvasDirtyTickRange,
+): void {
+  const x = getDirtyRangeX(dirtyRange, layout);
+
+  context.beginPath();
+  context.rect(x.startX, 0, x.width, layout.stageHeight);
+  context.clip();
 }
 
 /**
@@ -645,6 +860,7 @@ function rangesOverlap(
 function getLayoutZoom(layout: CanvasScoreLayout): number {
   return layout.layoutFontSize / 12;
 }
+
 
 /**
  * trackId와 midi에 맞는 legacy note fill 색상을 반환한다.

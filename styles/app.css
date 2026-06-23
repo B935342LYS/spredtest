@@ -968,7 +968,8 @@ select:disabled {
   height: var(--score-stage-height);
 }
 
-.marker-layer {
+.marker-layer,
+.note-marker-layer {
   pointer-events: none;
 }
 

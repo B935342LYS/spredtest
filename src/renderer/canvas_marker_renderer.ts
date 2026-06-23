@@ -8,6 +8,7 @@ import {
   CANVAS_METRICS,
 } from "./canvas_theme";
 import type {
+  CanvasDirtyTickRange,
   CanvasLayoutRow,
   CanvasMarkerItem,
   CanvasScoreLayout,
@@ -60,6 +61,65 @@ export function drawScoreMarkers(
 }
 
 /**
+ * marker canvas의 dirty tick 범위만 지우고 겹치는 marker를 다시 그린다.
+ * - 인수 : context : marker layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : items : marker 표시 item 목록
+ * - 인수 : dirtyRange : 다시 그릴 tick 범위
+ * - 반환값 : 없음
+ */
+export function drawScoreMarkersInRange(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  items: CanvasMarkerItem[],
+  dirtyRange: CanvasDirtyTickRange,
+): void {
+  const x = getDirtyRangeX(dirtyRange, layout);
+
+  context.clearRect(x.startX, 0, x.width, layout.stageHeight);
+  context.save();
+  clipDirtyRange(context, layout, dirtyRange);
+
+  const rowById = createLayoutRowMap(layout);
+
+  for (const item of items) {
+    if (!doesMarkerOverlapDirtyRange(item, dirtyRange)) {
+      continue;
+    }
+
+    if (item.kind === "dynamicsGuide") {
+      drawDynamicsGuideMarker(context, layout, rowById, item);
+    }
+  }
+
+  for (const item of items) {
+    if (!doesMarkerOverlapDirtyRange(item, dirtyRange)) {
+      continue;
+    }
+
+    if (item.kind === "beat" || item.kind === "bar") {
+      drawTimingLineMarker(context, layout, item);
+    }
+  }
+
+  for (const item of items) {
+    if (!doesMarkerOverlapDirtyRange(item, dirtyRange)) {
+      continue;
+    }
+
+    if (item.kind === "bpmChange") {
+      drawBpmChangeMarker(context, layout, item);
+    } else if (item.kind === "gliss") {
+      drawGlissMarker(context, layout, rowById, item);
+    } else if (item.kind === "glissOrphanAnchor") {
+      drawGlissOrphanAnchorMarker(context, layout, rowById, item);
+    }
+  }
+
+  context.restore();
+}
+
+/**
  * note layer 위에 올라와야 하는 marker item 목록을 canvas에 그린다.
  * - 인수 : context : note layer canvas 2D context
  * - 인수 : layout : CSS pixel 기준 score layout
@@ -82,6 +142,34 @@ export function drawScoreOverlayMarkers(
 }
 
 /**
+ * note layer 위 overlay marker 중 dirty tick 범위와 겹치는 항목만 다시 그린다.
+ * - 인수 : context : note layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : items : marker 표시 item 목록
+ * - 인수 : dirtyRange : 다시 그릴 tick 범위
+ * - 반환값 : 없음
+ */
+export function drawScoreOverlayMarkersInRange(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  items: CanvasMarkerItem[],
+  dirtyRange: CanvasDirtyTickRange,
+): void {
+  const rowById = createLayoutRowMap(layout);
+
+  context.save();
+  clipDirtyRange(context, layout, dirtyRange);
+
+  for (const item of items) {
+    if (item.kind === "tupletContainer" && doesMarkerOverlapDirtyRange(item, dirtyRange)) {
+      drawTupletContainerMarker(context, layout, rowById, item);
+    }
+  }
+
+  context.restore();
+}
+
+/**
  * layout row를 rowId 기준 Map으로 만든다.
  * - 인수 : layout : CSS pixel 기준 score layout
  * - 반환값 : Map<string, CanvasLayoutRow> : marker item row 조회용 Map
@@ -97,6 +185,93 @@ function createLayoutRowMap(
   }
 
   return rowById;
+}
+
+/**
+ * marker item이 dirty tick 범위와 겹치는지 확인한다.
+ * - 인수 : item : marker item
+ * - 인수 : dirtyRange : dirty tick 범위
+ * - 반환값 : 겹치면 true
+ */
+function doesMarkerOverlapDirtyRange(
+  item: CanvasMarkerItem,
+  dirtyRange: CanvasDirtyTickRange,
+): boolean {
+  const range = getMarkerTickRange(item);
+
+  return range.endTick >= dirtyRange.startTick && range.startTick <= dirtyRange.endTick;
+}
+
+/**
+ * marker item의 tick 범위를 반환한다.
+ * - 인수 : item : marker item
+ * - 반환값 : marker가 차지하는 tick 범위
+ */
+function getMarkerTickRange(item: CanvasMarkerItem): CanvasDirtyTickRange {
+  if (item.kind === "beat" || item.kind === "bar" || item.kind === "bpmChange") {
+    return {
+      startTick: item.tick,
+      endTick: item.tick,
+    };
+  }
+
+  if (item.kind === "dynamicsGuide" || item.kind === "tupletContainer") {
+    return {
+      startTick: item.startTick,
+      endTick: item.endTick,
+    };
+  }
+
+  if (item.kind === "gliss") {
+    return {
+      startTick: Math.min(item.startTick, item.endTick),
+      endTick: Math.max(item.startTick, item.endTick),
+    };
+  }
+
+  return {
+    startTick: item.tick,
+    endTick: item.tick,
+  };
+}
+
+/**
+ * dirty tick 범위를 clearRect에 사용할 x 범위로 변환한다.
+ * - 인수 : dirtyRange : dirty tick 범위
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 반환값 : clear 시작 x와 폭
+ */
+function getDirtyRangeX(
+  dirtyRange: CanvasDirtyTickRange,
+  layout: CanvasScoreLayout,
+): { startX: number; width: number } {
+  const padding = Math.max(layout.columnWidth, 8);
+  const startX = Math.max(0, columnToX(dirtyRange.startTick, layout) - padding);
+  const endX = Math.min(layout.stageWidth, columnToX(dirtyRange.endTick, layout) + padding);
+
+  return {
+    startX,
+    width: Math.max(0, endX - startX),
+  };
+}
+
+/**
+ * dirty tick 범위에 해당하는 x 영역으로 draw를 제한한다.
+ * - 인수 : context : marker layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : dirtyRange : dirty tick 범위
+ * - 반환값 : 없음
+ */
+function clipDirtyRange(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  dirtyRange: CanvasDirtyTickRange,
+): void {
+  const x = getDirtyRangeX(dirtyRange, layout);
+
+  context.beginPath();
+  context.rect(x.startX, 0, x.width, layout.stageHeight);
+  context.clip();
 }
 
 /**

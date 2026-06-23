@@ -49,6 +49,7 @@ export type AnalyzedEventKind =
 /** 모든 analyzer 이벤트가 공유하는 필드. */
 export type AnalyzedEventBase = {
   eventKind: AnalyzedEventKind;
+  eventId: string;
   trackId: TrackId;
   time: TimeRange;
   sourceCells: SourceCellRef[];
@@ -88,7 +89,6 @@ export type FinalSoundPitch = {
 /** 실제 발음 구간을 나타내는 이벤트. hold로 연결된 여러 셀/slot이 하나로 병합될 수 있다. */
 export type NoteEvent = AnalyzedEventBase & {
   eventKind: "note";
-  eventId: string;
   text: string;
   displayTextAnchors: NoteDisplayTextAnchor[];
   display: FinalDisplayPosition;
@@ -159,7 +159,6 @@ export type MuteEvent = AnalyzedEventBase & {
 /** 두 gliss anchor 사이의 연속 음정 이동 관계. 자체 발음원은 만들지 않는다. */
 export type GlissEvent = AnalyzedEventBase & {
   eventKind: "gliss";
-  eventId: string;
   startDisplay: FinalDisplayPosition;
   endDisplay: FinalDisplayPosition;
   startSound: FinalSoundPitch;
