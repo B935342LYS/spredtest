@@ -8,6 +8,7 @@ import type {
 } from "../app_types";
 import { syncLeftStatus } from "../app_ui_sync";
 import type { AppPlaybackRuntime } from "./app_playback";
+import { createPlaybackLoopStateFromApp } from "./app_playback";
 import type { YoutubePlaybackControl } from "../youtube/youtube_binding";
 import {
   scrollLeftToScoreSeconds,
@@ -46,12 +47,14 @@ export function bindPlaybackControls(
   let playbackRafId: number | null = null;
   let scrollSeekRafId: number | null = null;
   let suppressScrollSeek = false;
+  let lastPlaybackScoreSeconds: number | null = null;
 
   const stopPlaybackAnimation = (): void => {
     if (playbackRafId !== null) {
       cancelAnimationFrame(playbackRafId);
       playbackRafId = null;
     }
+    lastPlaybackScoreSeconds = null;
   };
 
   const scrollScoreAreaToSeconds = (
@@ -141,7 +144,10 @@ export function bindPlaybackControls(
       const scoreSeconds = scrollLeftToScoreSeconds(dom, nextState, nextPlaybackRuntime);
 
       syncSeekUi(dom, nextState, nextPlaybackRuntime, scoreSeconds);
-      nextPlaybackRuntime.controller.seekToSeconds(scoreSeconds)
+      nextPlaybackRuntime.controller.seekToSeconds(
+        scoreSeconds,
+        createPlaybackLoopStateFromApp(nextState, nextPlaybackRuntime),
+      )
         .then(() => {
           session.youtubeControl?.seekToCurrentScoreTime();
         })
@@ -173,6 +179,15 @@ export function bindPlaybackControls(
     }
 
     const currentScoreSeconds = playbackRuntime.controller.getCurrentScoreSeconds();
+
+    if (
+      lastPlaybackScoreSeconds !== null &&
+      currentScoreSeconds + 1e-6 < lastPlaybackScoreSeconds
+    ) {
+      session.youtubeControl?.seekToCurrentScoreTime();
+    }
+
+    lastPlaybackScoreSeconds = currentScoreSeconds;
 
     // score canvas의 왼쪽 edge를 재생 기준선으로 두고 현재 tick이 그 위치에 오도록 스크롤한다.
     scrollScoreAreaToSeconds(state, playbackRuntime, currentScoreSeconds);
@@ -216,9 +231,13 @@ export function bindPlaybackControls(
       return;
     }
 
+    const loopState = createPlaybackLoopStateFromApp(state, playbackRuntime);
     const playRequest = playbackState.kind === "paused"
-      ? playbackRuntime.controller.resume()
-      : playbackRuntime.controller.playFromSeconds(Number(dom.seekInput.value));
+      ? playbackRuntime.controller.playFromSeconds(
+          playbackRuntime.controller.getCurrentScoreSeconds(),
+          loopState,
+        )
+      : playbackRuntime.controller.playFromSeconds(Number(dom.seekInput.value), loopState);
 
     playRequest
       .then(() => {
@@ -232,6 +251,7 @@ export function bindPlaybackControls(
           nextPlaybackRuntime.controller.getCurrentScoreSeconds(),
         );
         session.youtubeControl?.playAtCurrentScoreTime();
+        lastPlaybackScoreSeconds = nextPlaybackRuntime.controller.getCurrentScoreSeconds();
         stopPlaybackAnimation();
         playbackRafId = requestAnimationFrame(updatePlaybackScroll);
       })
@@ -293,7 +313,10 @@ export function bindPlaybackControls(
     const scoreSeconds = Number(dom.seekInput.value);
     const playbackRuntime = session.getPlaybackRuntime();
 
-    playbackRuntime.controller.seekToSeconds(scoreSeconds)
+    playbackRuntime.controller.seekToSeconds(
+      scoreSeconds,
+      createPlaybackLoopStateFromApp(session.getState(), playbackRuntime),
+    )
       .then(() => {
         const state = session.getState();
         const nextPlaybackRuntime = session.getPlaybackRuntime();

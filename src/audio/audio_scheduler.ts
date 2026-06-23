@@ -28,6 +28,7 @@ type LookaheadQueryWindow = {
   queryEndSeconds: number;
   offsetBaseSeconds: number;
   cycleOffset: number;
+  hardClipEndSeconds: number | null;
 };
 
 /**
@@ -84,7 +85,19 @@ export function createAudioLookaheadScheduler(
             continue;
           }
 
-          input.backend.scheduleEvent(resumedEvent, window.offsetBaseSeconds + window.queryStartSeconds);
+          const clippedEvent = clipScheduleEventToHardEnd(
+            resumedEvent,
+            window.hardClipEndSeconds,
+          );
+
+          if (clippedEvent === null) {
+            continue;
+          }
+
+          input.backend.scheduleEvent(
+            clippedEvent,
+            window.offsetBaseSeconds + clippedEvent.startSeconds,
+          );
           scheduledKeys.add(scheduledKey);
           scheduledCount += 1;
         }
@@ -101,13 +114,22 @@ export function createAudioLookaheadScheduler(
             continue;
           }
 
-          const offsetSeconds = event.startSeconds + window.offsetBaseSeconds;
+          const clippedEvent = clipScheduleEventToHardEnd(
+            event,
+            window.hardClipEndSeconds,
+          );
+
+          if (clippedEvent === null) {
+            continue;
+          }
+
+          const offsetSeconds = clippedEvent.startSeconds + window.offsetBaseSeconds;
 
           if (offsetSeconds < 0) {
             continue;
           }
 
-          input.backend.scheduleEvent(event, offsetSeconds);
+          input.backend.scheduleEvent(clippedEvent, offsetSeconds);
           scheduledKeys.add(scheduledKey);
           scheduledCount += 1;
         }
@@ -172,6 +194,7 @@ function createLookaheadQueryWindows(
         queryEndSeconds: currentScoreSeconds + lookaheadSeconds,
         offsetBaseSeconds: -currentScoreSeconds,
         cycleOffset: 0,
+        hardClipEndSeconds: null,
       },
     ];
   }
@@ -192,6 +215,7 @@ function createLookaheadQueryWindows(
         queryEndSeconds: lookaheadEnd,
         offsetBaseSeconds: -clampedCurrent,
         cycleOffset: 0,
+        hardClipEndSeconds: loop.endSeconds,
       },
     ];
   }
@@ -204,12 +228,14 @@ function createLookaheadQueryWindows(
       queryEndSeconds: loop.endSeconds,
       offsetBaseSeconds: -clampedCurrent,
       cycleOffset: 0,
+      hardClipEndSeconds: loop.endSeconds,
     },
     {
       queryStartSeconds: loop.startSeconds,
       queryEndSeconds: Math.min(wrappedEnd, loop.endSeconds),
       offsetBaseSeconds: loop.endSeconds - clampedCurrent - loop.startSeconds,
       cycleOffset: 1,
+      hardClipEndSeconds: loop.endSeconds,
     },
   ];
 }
@@ -411,6 +437,231 @@ function clipAutomationForResume(
         startValue: interpolateAutomationValue(automation, resumeSeconds),
       };
     });
+}
+
+/**
+ * loop end 경계를 넘는 schedule event를 hard cut한다.
+ * - 인수 : event : 예약 후보 event
+ * - 인수 : hardClipEndSeconds : loop end에 해당하는 score seconds. null이면 자르지 않는다.
+ * - 반환값 : loop end 안에서 유효한 event 또는 유효하지 않으면 null
+ */
+function clipScheduleEventToHardEnd(
+  event: AudioScheduleEvent,
+  hardClipEndSeconds: number | null,
+): AudioScheduleEvent | null {
+  if (hardClipEndSeconds === null || event.endSeconds <= hardClipEndSeconds) {
+    return event;
+  }
+
+  if (event.startSeconds >= hardClipEndSeconds) {
+    return null;
+  }
+
+  const automation = clipAutomationForEnd(event.automation, hardClipEndSeconds);
+  const effects = clipEffectsForEnd(event.effects, hardClipEndSeconds);
+
+  if (event.sourceEventKind === "note") {
+    return {
+      ...event,
+      endSeconds: hardClipEndSeconds,
+      automation,
+      effects,
+    };
+  }
+
+  if (event.sourceEventKind === "gliss") {
+    return clipGlissEventForEnd(event, hardClipEndSeconds, automation, effects);
+  }
+
+  return clipGlissChainEventForEnd(event, hardClipEndSeconds, automation, effects);
+}
+
+/**
+ * gliss fallback event를 loop end 지점의 pitch까지로 자른다.
+ * - 인수 : event : 원본 gliss event
+ * - 인수 : hardClipEndSeconds : loop end score seconds
+ * - 인수 : automation : loop end 기준으로 잘라낸 automation
+ * - 인수 : effects : loop end 기준으로 잘라낸 effects
+ * - 반환값 : 잘라낸 gliss event
+ */
+function clipGlissEventForEnd(
+  event: AudioGlissScheduleEvent,
+  hardClipEndSeconds: number,
+  automation: AudioAutomationEvent[],
+  effects: AudioGlissScheduleEvent["effects"],
+): AudioGlissScheduleEvent {
+  const endPitch = interpolatePitchAtSeconds(event, hardClipEndSeconds);
+  const endMidi = Math.round(endPitch);
+  const endCentOffset = (endPitch - endMidi) * 100;
+
+  return {
+    ...event,
+    endSeconds: hardClipEndSeconds,
+    endMidi,
+    endCentOffset,
+    automation,
+    effects,
+  };
+}
+
+/**
+ * connected gliss chain event를 loop end 이전 segment만 남기도록 자른다.
+ * - 인수 : event : 원본 gliss chain event
+ * - 인수 : hardClipEndSeconds : loop end score seconds
+ * - 인수 : automation : loop end 기준으로 잘라낸 automation
+ * - 인수 : effects : loop end 기준으로 잘라낸 effects
+ * - 반환값 : 잘라낸 gliss chain event 또는 유효하지 않으면 null
+ */
+function clipGlissChainEventForEnd(
+  event: AudioGlissChainScheduleEvent,
+  hardClipEndSeconds: number,
+  automation: AudioAutomationEvent[],
+  effects: AudioGlissChainScheduleEvent["effects"],
+): AudioGlissChainScheduleEvent | null {
+  const segments = event.segments
+    .filter((segment) => segment.startSeconds < hardClipEndSeconds)
+    .map((segment) => clipGlissChainSegmentForEnd(segment, hardClipEndSeconds))
+    .filter((segment): segment is AudioGlissChainSegment => segment !== null);
+
+  if (segments.length === 0) {
+    return null;
+  }
+
+  return {
+    ...event,
+    endSeconds: hardClipEndSeconds,
+    segments,
+    automation,
+    effects,
+  };
+}
+
+/**
+ * gliss chain segment를 loop end 지점의 pitch까지로 자른다.
+ * - 인수 : segment : 원본 chain segment
+ * - 인수 : hardClipEndSeconds : loop end score seconds
+ * - 반환값 : 잘라낸 segment 또는 유효하지 않으면 null
+ */
+function clipGlissChainSegmentForEnd(
+  segment: AudioGlissChainSegment,
+  hardClipEndSeconds: number,
+): AudioGlissChainSegment | null {
+  if (segment.startSeconds >= hardClipEndSeconds) {
+    return null;
+  }
+
+  if (segment.endSeconds <= hardClipEndSeconds) {
+    return { ...segment };
+  }
+
+  const endPitch = interpolatePitchAtSeconds(segment, hardClipEndSeconds);
+  const endMidi = Math.round(endPitch);
+  const endCentOffset = (endPitch - endMidi) * 100;
+
+  return {
+    ...segment,
+    endSeconds: hardClipEndSeconds,
+    endMidi,
+    endCentOffset,
+  };
+}
+
+/**
+ * automation 목록을 loop end 이전 구간으로 제한한다.
+ * - 인수 : automations : 원본 automation 목록
+ * - 인수 : hardClipEndSeconds : loop end score seconds
+ * - 반환값 : loop end 안에서 유효한 automation 목록
+ */
+function clipAutomationForEnd(
+  automations: AudioAutomationEvent[],
+  hardClipEndSeconds: number,
+): AudioAutomationEvent[] {
+  return automations
+    .filter((automation) => automation.startSeconds < hardClipEndSeconds)
+    .map((automation) => {
+      if (automation.endSeconds <= hardClipEndSeconds) {
+        return { ...automation };
+      }
+
+      if (automation.kind === "pitchRamp") {
+        return clipPitchRampAutomationForEnd(automation, hardClipEndSeconds);
+      }
+
+      return {
+        ...automation,
+        endSeconds: hardClipEndSeconds,
+        endValue: interpolateAutomationValue(automation, hardClipEndSeconds),
+      };
+    });
+}
+
+/**
+ * pitchRamp automation을 loop end 지점의 pitch까지로 자른다.
+ * - 인수 : automation : pitchRamp automation
+ * - 인수 : hardClipEndSeconds : loop end score seconds
+ * - 반환값 : 잘라낸 pitchRamp automation
+ */
+function clipPitchRampAutomationForEnd(
+  automation: Extract<AudioAutomationEvent, { kind: "pitchRamp" }>,
+  hardClipEndSeconds: number,
+): Extract<AudioAutomationEvent, { kind: "pitchRamp" }> {
+  const endPitch = interpolatePitchAtSeconds(automation, hardClipEndSeconds);
+  const endMidi = Math.round(endPitch);
+  const endCentOffset = (endPitch - endMidi) * 100;
+
+  return {
+    ...automation,
+    endSeconds: hardClipEndSeconds,
+    endMidi,
+    endCentOffset,
+  };
+}
+
+/**
+ * effect 목록을 loop end 이전 구간으로 제한한다.
+ * - 인수 : effects : 원본 effect 목록
+ * - 인수 : hardClipEndSeconds : loop end score seconds
+ * - 반환값 : loop end 안에서 유효한 effect 목록
+ */
+function clipEffectsForEnd<T extends AudioNoteScheduleEvent["effects"]>(
+  effects: T,
+  hardClipEndSeconds: number,
+): T {
+  return effects
+    .filter((effect) => effect.startSeconds < hardClipEndSeconds)
+    .map((effect) => ({
+      ...effect,
+      endSeconds: Math.min(effect.endSeconds, hardClipEndSeconds),
+    })) as T;
+}
+
+/**
+ * 선형 pitch 구간에서 특정 score seconds의 pitch를 보간한다.
+ * - 인수 : range : 시작/끝 pitch와 seconds를 가진 구간
+ * - 인수 : seconds : 보간할 score seconds
+ * - 반환값 : MIDI number + cent offset을 합친 실수 pitch
+ */
+function interpolatePitchAtSeconds(
+  range: {
+    startSeconds: number;
+    endSeconds: number;
+    startMidi: number;
+    startCentOffset: number;
+    endMidi: number;
+    endCentOffset: number;
+  },
+  seconds: number,
+): number {
+  const startPitch = range.startMidi + range.startCentOffset / 100;
+  const endPitch = range.endMidi + range.endCentOffset / 100;
+
+  if (range.endSeconds <= range.startSeconds) {
+    return startPitch;
+  }
+
+  const ratio = (seconds - range.startSeconds) / (range.endSeconds - range.startSeconds);
+
+  return startPitch + (endPitch - startPitch) * Math.min(Math.max(ratio, 0), 1);
 }
 
 /**

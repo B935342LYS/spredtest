@@ -189,7 +189,7 @@ export function bindScorePointerControls(
       loop: {
         ...state.loop,
         ...normalizedLoop,
-        pickMode: state.loop.pickMode,
+        pickMode: null,
       },
       statusMessage: {
         level: "info",

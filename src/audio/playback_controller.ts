@@ -7,6 +7,7 @@ import type {
   AudioBackend,
   AudioLookaheadScheduler,
   AudioSchedule,
+  PlaybackLoopState,
   PlaybackState,
 } from "./audio_types";
 
@@ -20,12 +21,12 @@ export type PlaybackControllerInput = {
 
 /** UI/app 계층이 사용할 playback controller 계약. */
 export type PlaybackController = {
-  playFromStart(): Promise<void>;
-  playFromSeconds(scoreSeconds: number): Promise<void>;
+  playFromStart(loop?: PlaybackLoopState): Promise<void>;
+  playFromSeconds(scoreSeconds: number, loop?: PlaybackLoopState): Promise<void>;
   pause(): void;
-  pauseAtSeconds(scoreSeconds: number): void;
+  pauseAtSeconds(scoreSeconds: number, loop?: PlaybackLoopState): void;
   resume(): Promise<void>;
-  seekToSeconds(scoreSeconds: number): Promise<void>;
+  seekToSeconds(scoreSeconds: number, loop?: PlaybackLoopState): Promise<void>;
   stop(): void;
   getState(): PlaybackState;
   getCurrentScoreSeconds(): number;
@@ -53,20 +54,28 @@ export function createPlaybackController(
   let intervalId: ReturnType<typeof setInterval> | null = null;
 
   return {
-    async playFromStart(): Promise<void> {
-      await this.playFromSeconds(0);
+    async playFromStart(loop: PlaybackLoopState = LOOP_OFF): Promise<void> {
+      await this.playFromSeconds(0, loop);
     },
-    async playFromSeconds(scoreSeconds: number): Promise<void> {
+    async playFromSeconds(
+      scoreSeconds: number,
+      loop: PlaybackLoopState = LOOP_OFF,
+    ): Promise<void> {
       stopInterval();
       input.backend.stopAll();
       input.scheduler.resetScheduledEvents();
       await input.backend.ensureStarted();
 
+      const normalizedLoop = normalizeLoop(loop, input.schedule.durationSeconds);
       state = {
         kind: "playing",
         audioStartedAt: input.backend.getCurrentTime(),
-        scoreStartedAt: clampScoreSeconds(scoreSeconds, input.schedule.durationSeconds),
-        loop: LOOP_OFF,
+        scoreStartedAt: normalizeStartScoreSeconds(
+          scoreSeconds,
+          normalizedLoop,
+          input.schedule.durationSeconds,
+        ),
+        loop: normalizedLoop,
       };
       scheduleCurrentLookahead();
       intervalId = setInterval(
@@ -90,14 +99,22 @@ export function createPlaybackController(
         loop: state.loop,
       };
     },
-    pauseAtSeconds(scoreSeconds: number): void {
+    pauseAtSeconds(
+      scoreSeconds: number,
+      loop: PlaybackLoopState = LOOP_OFF,
+    ): void {
       stopInterval();
       input.backend.stopAll();
       input.scheduler.resetScheduledEvents();
+      const normalizedLoop = normalizeLoop(loop, input.schedule.durationSeconds);
       state = {
         kind: "paused",
-        pausedAtScoreSeconds: clampScoreSeconds(scoreSeconds, input.schedule.durationSeconds),
-        loop: LOOP_OFF,
+        pausedAtScoreSeconds: normalizeStartScoreSeconds(
+          scoreSeconds,
+          normalizedLoop,
+          input.schedule.durationSeconds,
+        ),
+        loop: normalizedLoop,
       };
     },
     async resume(): Promise<void> {
@@ -105,13 +122,21 @@ export function createPlaybackController(
         return;
       }
 
-      await this.playFromSeconds(state.pausedAtScoreSeconds);
+      await this.playFromSeconds(state.pausedAtScoreSeconds, state.loop);
     },
-    async seekToSeconds(scoreSeconds: number): Promise<void> {
-      const nextScoreSeconds = clampScoreSeconds(scoreSeconds, input.schedule.durationSeconds);
+    async seekToSeconds(
+      scoreSeconds: number,
+      loop: PlaybackLoopState = state.loop,
+    ): Promise<void> {
+      const normalizedLoop = normalizeLoop(loop, input.schedule.durationSeconds);
+      const nextScoreSeconds = normalizeStartScoreSeconds(
+        scoreSeconds,
+        normalizedLoop,
+        input.schedule.durationSeconds,
+      );
 
       if (state.kind === "playing") {
-        await this.playFromSeconds(nextScoreSeconds);
+        await this.playFromSeconds(nextScoreSeconds, normalizedLoop);
         return;
       }
 
@@ -122,12 +147,12 @@ export function createPlaybackController(
         ? {
             kind: "paused",
             pausedAtScoreSeconds: nextScoreSeconds,
-            loop: state.loop,
+            loop: normalizedLoop,
           }
         : {
             kind: "stopped",
             seekScoreSeconds: nextScoreSeconds,
-            loop: LOOP_OFF,
+            loop: normalizedLoop,
           };
     },
     stop(): void {
@@ -174,14 +199,16 @@ export function createPlaybackController(
       return;
     }
 
-    const currentScoreSeconds = clampScoreSeconds(
-      getPlayingScoreSeconds(state),
-      input.schedule.durationSeconds,
+    const playingTime = getPlayingTime(state);
+    const currentScoreSeconds = playingTime.scoreSeconds;
+
+    input.scheduler.scheduleLookahead(
+      currentScoreSeconds,
+      state.loop,
+      playingTime.loopCycleIndex,
     );
 
-    input.scheduler.scheduleLookahead(currentScoreSeconds, state.loop);
-
-    if (currentScoreSeconds >= input.schedule.durationSeconds) {
+    if (!state.loop.enabled && currentScoreSeconds >= input.schedule.durationSeconds) {
       stopInterval();
       state = {
         kind: "stopped",
@@ -211,10 +238,37 @@ export function createPlaybackController(
   function getPlayingScoreSeconds(
     playingState: Extract<PlaybackState, { kind: "playing" }>,
   ): number {
-    return clampScoreSeconds(
-      playingState.scoreStartedAt + input.backend.getCurrentTime() - playingState.audioStartedAt,
-      input.schedule.durationSeconds,
-    );
+    return getPlayingTime(playingState).scoreSeconds;
+  }
+
+  /**
+   * playing 상태의 raw 경과 시간에서 loop wrap이 반영된 score time과 cycle index를 계산한다.
+   * - 인수 : playingState : 현재 playing 상태
+   * - 반환값 : scheduler와 UI가 사용할 score time 및 loop 반복 번호
+   */
+  function getPlayingTime(
+    playingState: Extract<PlaybackState, { kind: "playing" }>,
+  ): { scoreSeconds: number; loopCycleIndex: number } {
+    const rawScoreSeconds = playingState.scoreStartedAt +
+      input.backend.getCurrentTime() -
+      playingState.audioStartedAt;
+
+    if (!playingState.loop.enabled) {
+      return {
+        scoreSeconds: clampScoreSeconds(rawScoreSeconds, input.schedule.durationSeconds),
+        loopCycleIndex: 0,
+      };
+    }
+
+    const loopDuration = playingState.loop.endSeconds - playingState.loop.startSeconds;
+    const elapsedInLoop = Math.max(0, rawScoreSeconds - playingState.loop.startSeconds);
+    const loopCycleIndex = Math.floor(elapsedInLoop / loopDuration);
+    const wrappedOffset = elapsedInLoop - loopCycleIndex * loopDuration;
+
+    return {
+      scoreSeconds: playingState.loop.startSeconds + wrappedOffset,
+      loopCycleIndex,
+    };
   }
 }
 
@@ -241,4 +295,55 @@ function clampScoreSeconds(seconds: number, durationSeconds: number): number {
   }
 
   return Math.min(Math.max(seconds, 0), Math.max(0, durationSeconds));
+}
+
+/**
+ * loop 상태를 score 전체 길이 안으로 제한하고 유효하지 않으면 loop off로 바꾼다.
+ * - 인수 : loop : 요청된 loop 상태
+ * - 인수 : durationSeconds : schedule 전체 길이
+ * - 반환값 : playback controller가 보관할 loop 상태
+ */
+function normalizeLoop(
+  loop: PlaybackLoopState,
+  durationSeconds: number,
+): PlaybackLoopState {
+  if (!loop.enabled) {
+    return LOOP_OFF;
+  }
+
+  const startSeconds = clampScoreSeconds(loop.startSeconds, durationSeconds);
+  const endSeconds = clampScoreSeconds(loop.endSeconds, durationSeconds);
+
+  if (endSeconds <= startSeconds) {
+    return LOOP_OFF;
+  }
+
+  return {
+    enabled: true,
+    startSeconds,
+    endSeconds,
+  };
+}
+
+/**
+ * loop가 켜져 있으면 시작 위치를 loop 범위 안으로 보정한다.
+ * - 인수 : scoreSeconds : 요청된 score time
+ * - 인수 : loop : 정규화된 loop 상태
+ * - 인수 : durationSeconds : schedule 전체 길이
+ * - 반환값 : 실제 재생 시작 score time
+ */
+function normalizeStartScoreSeconds(
+  scoreSeconds: number,
+  loop: PlaybackLoopState,
+  durationSeconds: number,
+): number {
+  const clampedSeconds = clampScoreSeconds(scoreSeconds, durationSeconds);
+
+  if (!loop.enabled) {
+    return clampedSeconds;
+  }
+
+  return clampedSeconds >= loop.startSeconds && clampedSeconds < loop.endSeconds
+    ? clampedSeconds
+    : loop.startSeconds;
 }

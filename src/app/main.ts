@@ -32,6 +32,7 @@ import {
   syncUiControls,
 } from "./app_ui_sync";
 import {
+  createPlaybackLoopStateFromApp,
   createAppPlaybackRuntime,
   type AppPlaybackRuntime,
 } from "./playback/app_playback";
@@ -120,7 +121,10 @@ async function boot(): Promise<void> {
     stopPlaybackAnimation();
     playbackRuntime.controller.dispose();
     playbackRuntime = createAppPlaybackRuntime(dom, state);
-    playbackRuntime.controller.pauseAtSeconds(scoreSeconds);
+    playbackRuntime.controller.pauseAtSeconds(
+      scoreSeconds,
+      createPlaybackLoopStateFromApp(state, playbackRuntime),
+    );
     syncPlaybackUi(dom, state, playbackRuntime);
   };
 
@@ -139,7 +143,10 @@ async function boot(): Promise<void> {
     stopPlaybackAnimation();
     playbackRuntime.controller.dispose();
     playbackRuntime = createAppPlaybackRuntime(dom, state);
-    playbackRuntime.controller.pauseAtSeconds(playbackRuntime.timeMapper.tickToSeconds(currentTick));
+    playbackRuntime.controller.pauseAtSeconds(
+      playbackRuntime.timeMapper.tickToSeconds(currentTick),
+      createPlaybackLoopStateFromApp(state, playbackRuntime),
+    );
     syncPlaybackUi(dom, state, playbackRuntime);
   };
 

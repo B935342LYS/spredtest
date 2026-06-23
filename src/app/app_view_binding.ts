@@ -293,18 +293,24 @@ function applyLoopStartSelect(
   session: ViewBindingSession,
 ): void {
   const state = session.getState();
+  const selectedTick = parseLoopColumnSelectValue(dom.loopStartSelect.value);
   const pickMode = dom.loopStartSelect.value === "pick" ? "start" : null;
+  const startTick = selectedTick !== null
+    ? selectedTick
+    : pickMode === null
+      ? null
+      : state.loop.startTick;
 
   session.setState({
     ...state,
     loop: {
       ...state.loop,
-      startTick: pickMode === null ? null : state.loop.startTick,
+      startTick,
       pickMode,
     },
     statusMessage: {
       level: "info",
-      text: pickMode === "start" ? "Click a score column for loop start." : "Loop start: First",
+      text: formatLoopSelectStatus("start", pickMode, startTick),
     },
   });
   session.setState(renderDynamicViewportLayers(dom, session.getState()));
@@ -323,23 +329,67 @@ function applyLoopEndSelect(
   session: ViewBindingSession,
 ): void {
   const state = session.getState();
+  const selectedTick = parseLoopColumnSelectValue(dom.loopEndSelect.value);
   const pickMode = dom.loopEndSelect.value === "pick" ? "end" : null;
+  const endTick = selectedTick !== null
+    ? selectedTick
+    : pickMode === null
+      ? null
+      : state.loop.endTick;
 
   session.setState({
     ...state,
     loop: {
       ...state.loop,
-      endTick: pickMode === null ? null : state.loop.endTick,
+      endTick,
       pickMode,
     },
     statusMessage: {
       level: "info",
-      text: pickMode === "end" ? "Click a score column for loop end." : "Loop end: Last",
+      text: formatLoopSelectStatus("end", pickMode, endTick),
     },
   });
   session.setState(renderDynamicViewportLayers(dom, session.getState()));
   syncLeftStatus(dom, session.getState());
   syncUiControls(dom, session.getState());
+}
+
+/**
+ * loop select의 column option 값을 tick number로 해석한다.
+ * - 인수 : value : select option value
+ * - 반환값 : `col:n`이면 n, 아니면 null
+ */
+function parseLoopColumnSelectValue(value: string): number | null {
+  if (!value.startsWith("col:")) {
+    return null;
+  }
+
+  const tick = Number.parseInt(value.slice("col:".length), 10);
+
+  return Number.isInteger(tick) && tick >= 0 ? tick : null;
+}
+
+/**
+ * loop select 변경 후 왼쪽 status line에 표시할 문구를 만든다.
+ * - 인수 : boundary : start/end 중 어느 쪽인지
+ * - 인수 : pickMode : column pick 대기 상태
+ * - 인수 : tick : 현재 선택된 tick
+ * - 반환값 : 사용자용 상태 문구
+ */
+function formatLoopSelectStatus(
+  boundary: "start" | "end",
+  pickMode: "start" | "end" | null,
+  tick: number | null,
+): string {
+  if (pickMode !== null) {
+    return `Click a score column for loop ${boundary}.`;
+  }
+
+  if (boundary === "start") {
+    return tick === null ? "Loop start: First" : `Loop start: Col ${tick}`;
+  }
+
+  return tick === null ? "Loop end: Last" : `Loop end: Col ${Math.max(0, tick - 1)}`;
 }
 
 /**

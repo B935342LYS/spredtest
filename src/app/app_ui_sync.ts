@@ -240,15 +240,74 @@ export function syncViewOptionControls(dom: AppDom, state: AppState): void {
   dom.loopToggleButton.setAttribute("aria-pressed", String(state.loop.enabled));
   dom.loopToggleButton.classList.toggle("on", state.loop.enabled);
   dom.loopToggleButton.classList.toggle("off", !state.loop.enabled);
-  dom.loopStartSelect.value = state.loop.pickMode === "start" || state.loop.startTick !== null
-    ? "pick"
-    : "first";
-  dom.loopEndSelect.value = state.loop.pickMode === "end" || state.loop.endTick !== null
-    ? "pick"
-    : "last";
+  syncLoopSelectOptions(dom.loopStartSelect, {
+    defaultValue: "first",
+    defaultLabel: "First",
+    pickSelected: state.loop.pickMode === "start",
+    pickedValue: state.loop.startTick,
+    formatPickedLabel: (tick) => `Col ${tick}`,
+  });
+  syncLoopSelectOptions(dom.loopEndSelect, {
+    defaultValue: "last",
+    defaultLabel: "Last",
+    pickSelected: state.loop.pickMode === "end",
+    pickedValue: state.loop.endTick,
+    formatPickedLabel: (tick) => `Col ${Math.max(0, tick - 1)}`,
+  });
   dom.loopStartValue.textContent = formatLoopStartValue(state);
   dom.loopEndValue.textContent = formatLoopEndValue(state);
   dom.appShell.dataset.menuTheme = state.menuTheme;
+}
+
+/**
+ * loop start/end select에 기본값, 선택된 column 값, Select Column 항목을 동기화한다.
+ * - 인수 : select : 갱신할 select DOM
+ * - 인수 : options : 기본 항목과 현재 loop 선택값
+ * - 반환값 : 없음
+ */
+function syncLoopSelectOptions(
+  select: HTMLSelectElement,
+  options: {
+    defaultValue: string;
+    defaultLabel: string;
+    pickSelected: boolean;
+    pickedValue: number | null;
+    formatPickedLabel(tick: number): string;
+  },
+): void {
+  const selectedValue = options.pickSelected
+    ? "pick"
+    : options.pickedValue === null
+      ? options.defaultValue
+      : `col:${options.pickedValue}`;
+  const items = [
+    {
+      value: options.defaultValue,
+      label: options.defaultLabel,
+    },
+  ];
+
+  if (options.pickedValue !== null) {
+    items.push({
+      value: `col:${options.pickedValue}`,
+      label: options.formatPickedLabel(options.pickedValue),
+    });
+  }
+
+  items.push({
+    value: "pick",
+    label: "Select Column",
+  });
+
+  // 현재 선택된 column만 option으로 유지해 긴 악보에서 수천 개 option 생성을 피한다.
+  select.replaceChildren(...items.map((item) => {
+    const option = document.createElement("option");
+
+    option.value = item.value;
+    option.textContent = item.label;
+    return option;
+  }));
+  select.value = selectedValue;
 }
 
 /**
