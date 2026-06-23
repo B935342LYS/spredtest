@@ -124,6 +124,25 @@ async function boot(): Promise<void> {
     syncPlaybackUi(dom, state, playbackRuntime);
   };
 
+  const resetPlaybackForCurrentStatePreservingPosition = (): void => {
+    const playbackState = playbackRuntime.controller.getState();
+
+    if (playbackState.kind === "stopped") {
+      resetPlaybackForCurrentState();
+      return;
+    }
+
+    const currentTick = playbackRuntime.timeMapper.secondsToTick(
+      playbackRuntime.controller.getCurrentScoreSeconds(),
+    );
+
+    stopPlaybackAnimation();
+    playbackRuntime.controller.dispose();
+    playbackRuntime = createAppPlaybackRuntime(dom, state);
+    playbackRuntime.controller.pauseAtSeconds(playbackRuntime.timeMapper.tickToSeconds(currentTick));
+    syncPlaybackUi(dom, state, playbackRuntime);
+  };
+
   const resetNotePreviewForCurrentDom = (): void => {
     notePreviewRuntime.dispose();
     notePreviewRuntime = createAppNotePreviewRuntime(dom);
@@ -135,10 +154,6 @@ async function boot(): Promise<void> {
     }
 
     const previousState = state;
-    const previousPlaybackState = playbackRuntime.controller.getState();
-    const resumeScoreSeconds = previousPlaybackState.kind === "paused"
-      ? playbackRuntime.controller.getCurrentScoreSeconds()
-      : null;
 
     state = {
       ...state,
@@ -167,11 +182,7 @@ async function boot(): Promise<void> {
     }
 
     renderAfterScoreTextEdit(edits, partialPlan);
-    if (resumeScoreSeconds === null) {
-      resetPlaybackForCurrentState();
-    } else {
-      resetPlaybackForCurrentStatePausedAt(resumeScoreSeconds);
-    }
+    resetPlaybackForCurrentStatePreservingPosition();
   };
 
   const loadScoreJsonText = (jsonText: string, sourceLabel: string): void => {
@@ -219,6 +230,7 @@ async function boot(): Promise<void> {
     getNotePreviewRuntime: () => notePreviewRuntime,
     resetPlaybackForCurrentState,
     resetPlaybackForCurrentStatePausedAt,
+    resetPlaybackForCurrentStatePreservingPosition,
     resetNotePreviewForCurrentDom,
     applyScoreTextEdits,
     get youtubeControl(): YoutubePlaybackControl {

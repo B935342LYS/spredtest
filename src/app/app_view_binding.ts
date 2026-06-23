@@ -45,6 +45,7 @@ export type ViewBindingSession = {
 /** view control 전체 binding이 layout 적용 후 playback 재생성을 요청하기 위한 session 입력. */
 type ViewControlsBindingSession = ViewBindingSession & {
   resetPlaybackForCurrentState(): void;
+  resetPlaybackForCurrentStatePreservingPosition(): void;
 };
 
 /**
@@ -195,7 +196,7 @@ export function bindViewControls(
       readIntegerInput(dom.expandColumnInput, 0),
     ));
     session.render();
-    session.resetPlaybackForCurrentState();
+    session.resetPlaybackForCurrentStatePreservingPosition();
   });
 
   dom.trimRightButton.addEventListener("click", () => {

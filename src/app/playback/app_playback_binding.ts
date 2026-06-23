@@ -24,7 +24,7 @@ export type PlaybackBindingSession = {
   getPlaybackRuntime(): AppPlaybackRuntime;
   youtubeControl?: YoutubePlaybackControl;
   resetPlaybackForCurrentState(): void;
-  resetPlaybackForCurrentStatePausedAt(scoreSeconds: number): void;
+  resetPlaybackForCurrentStatePreservingPosition(): void;
   resetNotePreviewForCurrentDom(): void;
 };
 
@@ -92,12 +92,14 @@ export function bindPlaybackControls(
   };
 
   const resetPlaybackForAudioOptionChange = (): void => {
-    const playbackRuntime = session.getPlaybackRuntime();
-    const playbackState = playbackRuntime.controller.getState();
+    const playbackState = session.getPlaybackRuntime().controller.getState();
 
-    // 음색/볼륨 변경은 backend 재생성이 필요하므로, paused 상태라면 위치를 보존해 새 controller에 이식한다.
-    if (playbackState.kind === "paused") {
-      session.resetPlaybackForCurrentStatePausedAt(playbackRuntime.controller.getCurrentScoreSeconds());
+    // 음색/볼륨 변경은 backend 재생성이 필요하므로, 재생 위치를 tick 기준으로 보존해 새 controller에 이식한다.
+    if (playbackState.kind === "playing") {
+      session.youtubeControl?.pause();
+      session.resetPlaybackForCurrentStatePreservingPosition();
+    } else if (playbackState.kind === "paused") {
+      session.resetPlaybackForCurrentStatePreservingPosition();
     } else {
       session.resetPlaybackForCurrentState();
     }
@@ -191,7 +193,7 @@ export function bindPlaybackControls(
     passive: true,
   });
 
-  dom.playButton.addEventListener("click", () => {
+  const togglePlayback = (): void => {
     const state = session.getState();
     const playbackRuntime = session.getPlaybackRuntime();
 
@@ -247,7 +249,23 @@ export function bindPlaybackControls(
         syncPlaybackStatus(dom, "error");
         syncLeftStatus(dom, session.getState());
       });
+  };
+
+  document.addEventListener("keydown", (event) => {
+    if (event.code !== "Space" || isEditableKeyboardTarget(event.target)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (event.repeat) {
+      return;
+    }
+
+    togglePlayback();
   });
+
+  dom.playButton.addEventListener("click", togglePlayback);
 
   dom.stopButton.addEventListener("click", () => {
     const state = session.getState();
@@ -319,4 +337,20 @@ export function bindPlaybackControls(
   return {
     stopPlaybackAnimation,
   };
+}
+
+/**
+ * Space 단축키가 텍스트 입력을 가로채면 안 되는 DOM target인지 확인한다.
+ * - 인수 : target : keyboard event target
+ * - 반환값 : 텍스트 입력/선택/편집 가능 영역 여부
+ */
+function isEditableKeyboardTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target.isContentEditable;
 }
