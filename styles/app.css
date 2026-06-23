@@ -13,6 +13,7 @@
   --score-stage-width: 2400px;
   --score-scroll-width: 2400px;
   --score-stage-height: 1400px;
+  --score-viewport-height: 1400px;
   --score-roll-background: #525252;
   --menu-height: 112px;
   --status-height: 28px;
@@ -866,7 +867,9 @@ select:disabled {
   display: grid;
   grid-template-columns: var(--label-width) minmax(0, 1fr);
   min-height: 0;
+  align-self: stretch;
   overflow: hidden;
+  background: var(--score-roll-background);
 }
 
 .score-viewer:fullscreen {
@@ -878,9 +881,9 @@ select:disabled {
 .layout-area {
   position: relative;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
   border-right: 2px solid var(--accent);
-  background: var(--surface);
+  background: var(--score-roll-background);
   z-index: 10;
 }
 
@@ -942,7 +945,7 @@ select:disabled {
   position: relative;
   width: 100%;
   height: var(--score-stage-height);
-  min-height: 100%;
+  min-height: var(--score-viewport-height);
   background: var(--score-roll-background);
 }
 
@@ -956,7 +959,7 @@ select:disabled {
   position: relative;
   width: var(--score-scroll-width);
   height: var(--score-stage-height);
-  min-height: 100%;
+  min-height: var(--score-viewport-height);
   background: var(--score-roll-background);
 }
 
@@ -974,8 +977,14 @@ select:disabled {
 }
 
 .status-area {
+  position: relative;
   min-width: 0;
+  height: var(--status-height);
+  min-height: var(--status-height);
+  max-height: var(--status-height);
+  align-self: end;
   overflow: hidden;
+  z-index: 30;
   gap: 18px;
   padding: 0 14px;
   border-top: 1px solid var(--line);

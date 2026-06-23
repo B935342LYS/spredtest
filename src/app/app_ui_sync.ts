@@ -302,6 +302,7 @@ export function createRenderOptions(
  * - 인수 : scrollWidth : score area에서 실제로 스크롤 가능한 stage CSS pixel 너비
  * - 인수 : stageHeight : score stage CSS pixel 높이
  * - 인수 : layoutWidth : layout label area CSS pixel 너비
+ * - 인수 : viewportHeight : score area가 현재 화면에서 차지하는 CSS pixel 높이
  * - 반환값 : 없음
  */
 export function updateStageCssVars(
@@ -309,6 +310,7 @@ export function updateStageCssVars(
   scrollWidth: number,
   stageHeight: number,
   layoutWidth: number,
+  viewportHeight: number,
 ): void {
   document.documentElement.style.setProperty(
     "--score-stage-width",
@@ -323,8 +325,26 @@ export function updateStageCssVars(
     `${stageHeight}px`,
   );
   document.documentElement.style.setProperty(
+    "--score-viewport-height",
+    `${viewportHeight}px`,
+  );
+  document.documentElement.style.setProperty(
     "--label-width",
     `${layoutWidth}px`,
+  );
+}
+
+/**
+ * renderer 결과 요약을 status footer에 표시한다.
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : result : renderer 호출 결과
+ * - 반환값 : 없음
+ */
+function syncRendererStatus(state: AppState, result: CanvasRenderResult): void {
+  setStatus(1, `analysis: ${state.renderInput.noteItems.length} notes`);
+  setStatus(
+    2,
+    `renderer: ${result.layout.rows.length} rows, ${state.renderInput.columnCount} cols`,
   );
 }
 
@@ -351,10 +371,10 @@ export function renderApp(dom: AppDom, state: AppState): AppState {
     result.layout.stageWidth + horizontalTailWidth,
     result.layout.stageHeight,
     result.layout.layoutWidth,
+    Math.max(0, dom.scoreArea.clientHeight),
   );
   syncLayoutScroll(dom.scoreArea, dom.layoutStage);
-  setStatus(1, `analysis: ${state.renderInput.noteItems.length} notes`);
-  setStatus(2, `renderer: ${result.layout.rows.length} rows`);
+  syncRendererStatus(state, result);
 
   return {
     ...state,
@@ -396,10 +416,10 @@ export function renderAppPartial(
     result.layout.stageWidth + horizontalTailWidth,
     result.layout.stageHeight,
     result.layout.layoutWidth,
+    Math.max(0, dom.scoreArea.clientHeight),
   );
   syncLayoutScroll(dom.scoreArea, dom.layoutStage);
-  setStatus(1, `analysis: ${state.renderInput.noteItems.length} notes`);
-  setStatus(2, `renderer: ${result.layout.rows.length} rows`);
+  syncRendererStatus(state, result);
 
   return {
     ...state,

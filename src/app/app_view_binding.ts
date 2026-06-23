@@ -70,6 +70,27 @@ export function fitScoreHeight(
     statusMessage,
   });
   syncLeftStatus(dom, session.getState());
+
+  if (statusMessage.level !== "info") {
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    const previousZoomValue = dom.zoomInput.value;
+    const nextStatusMessage = fitScoreHeightZoom(dom, session.getState());
+
+    // 첫 render 이후 확정된 layout에서 목표 높이가 달라졌을 때만 한 번 더 보정한다.
+    if (nextStatusMessage.level !== "info" || dom.zoomInput.value === previousZoomValue) {
+      return;
+    }
+
+    session.render();
+    session.setState({
+      ...session.getState(),
+      statusMessage: nextStatusMessage,
+    });
+    syncLeftStatus(dom, session.getState());
+  });
 }
 
 /**
@@ -141,12 +162,14 @@ export function bindViewControls(
 
   document.addEventListener("fullscreenchange", () => {
     syncFullscreenButton(dom);
-    session.render();
+    requestAnimationFrame(() => {
+      fitScoreHeight(dom, session);
+    });
   });
 
-  // zoom 값이 확정되면 수동 zoom 하한을 적용한 뒤 전체 canvas score를 다시 그린다.
+  // zoom 값이 확정되면 현재 입력값으로 전체 canvas score를 다시 그린다.
   dom.zoomInput.addEventListener("change", () => {
-    setZoomPercent(dom, Number(dom.zoomInput.value), 100);
+    setZoomPercent(dom, Number(dom.zoomInput.value));
     session.render();
   });
 

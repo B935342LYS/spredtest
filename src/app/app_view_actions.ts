@@ -26,10 +26,39 @@ export function setZoomPercent(
   const normalizedMin = minZoomPercent ?? (Number.isFinite(min) ? min : 1);
   const boundedZoom = Math.min(
     Math.max(zoomPercent, normalizedMin),
-    Number.isFinite(max) ? max : 400,
+    Number.isFinite(max) ? max : 200,
   );
 
   dom.zoomInput.value = String(Math.round(boundedZoom));
+}
+
+/**
+ * score area가 사용할 수 있는 세로 높이를 현재 app shell 배치에서 계산한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 반환값 : CSS pixel 기준 fit height 목표 높이
+ */
+export function getScoreAreaFitTargetHeight(dom: AppDom): number {
+  const scoreAreaRect = dom.scoreArea.getBoundingClientRect();
+  const scoreViewerRect = dom.scoreViewer.getBoundingClientRect();
+  const statusArea = dom.appShell.querySelector<HTMLElement>(".status-area");
+
+  if (statusArea !== null) {
+    const statusRect = statusArea.getBoundingClientRect();
+    const availableHeight = statusRect.top - scoreAreaRect.top;
+
+    // score 영역의 바닥 기준은 status footer의 실제 윗면으로 삼는다.
+    if (Number.isFinite(availableHeight) && availableHeight > 0) {
+      return availableHeight;
+    }
+  }
+
+  return Math.max(
+    0,
+    ...[
+      scoreViewerRect.height,
+      dom.scoreArea.clientHeight,
+    ].filter((height) => Number.isFinite(height) && height > 0),
+  );
 }
 
 /**
@@ -46,7 +75,7 @@ export function fitScoreHeightZoom(
     (sum, row) => sum + Math.max(0, row.height),
     0,
   );
-  const targetHeight = Math.max(0, dom.scoreArea.clientHeight);
+  const targetHeight = getScoreAreaFitTargetHeight(dom);
 
   if (baseStageHeight <= 0 || targetHeight <= 0) {
     return {
