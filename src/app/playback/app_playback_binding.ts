@@ -24,6 +24,7 @@ export type PlaybackBindingSession = {
   getPlaybackRuntime(): AppPlaybackRuntime;
   youtubeControl?: YoutubePlaybackControl;
   resetPlaybackForCurrentState(): void;
+  resetPlaybackForCurrentStatePausedAt(scoreSeconds: number): void;
   resetNotePreviewForCurrentDom(): void;
 };
 
@@ -88,6 +89,20 @@ export function bindPlaybackControls(
 
     pausePlaybackForManualSeek(playbackRuntime);
     syncPlaybackUi(dom, state, playbackRuntime);
+  };
+
+  const resetPlaybackForAudioOptionChange = (): void => {
+    const playbackRuntime = session.getPlaybackRuntime();
+    const playbackState = playbackRuntime.controller.getState();
+
+    // 음색/볼륨 변경은 backend 재생성이 필요하므로, paused 상태라면 위치를 보존해 새 controller에 이식한다.
+    if (playbackState.kind === "paused") {
+      session.resetPlaybackForCurrentStatePausedAt(playbackRuntime.controller.getCurrentScoreSeconds());
+    } else {
+      session.resetPlaybackForCurrentState();
+    }
+
+    session.resetNotePreviewForCurrentDom();
   };
 
   const syncSeekFromUserScroll = (): void => {
@@ -294,13 +309,11 @@ export function bindPlaybackControls(
   });
 
   dom.volumeInput.addEventListener("change", () => {
-    session.resetPlaybackForCurrentState();
-    session.resetNotePreviewForCurrentDom();
+    resetPlaybackForAudioOptionChange();
   });
 
   dom.waveSelect.addEventListener("change", () => {
-    session.resetPlaybackForCurrentState();
-    session.resetNotePreviewForCurrentDom();
+    resetPlaybackForAudioOptionChange();
   });
 
   return {

@@ -135,6 +135,10 @@ async function boot(): Promise<void> {
     }
 
     const previousState = state;
+    const previousPlaybackState = playbackRuntime.controller.getState();
+    const resumeScoreSeconds = previousPlaybackState.kind === "paused"
+      ? playbackRuntime.controller.getCurrentScoreSeconds()
+      : null;
 
     state = {
       ...state,
@@ -163,7 +167,11 @@ async function boot(): Promise<void> {
     }
 
     renderAfterScoreTextEdit(edits, partialPlan);
-    resetPlaybackForCurrentState();
+    if (resumeScoreSeconds === null) {
+      resetPlaybackForCurrentState();
+    } else {
+      resetPlaybackForCurrentStatePausedAt(resumeScoreSeconds);
+    }
   };
 
   const loadScoreJsonText = (jsonText: string, sourceLabel: string): void => {
