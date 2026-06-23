@@ -326,15 +326,28 @@ select:disabled {
 }
 
 .loop-panel {
-  min-width: 260px;
+  width: max-content;
+  min-width: 0;
 }
 
 .loop-panel .inline-field {
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 36px 166px max-content;
+  justify-content: start;
+  align-items: center;
+  column-gap: 4px;
 }
 
 .loop-panel select {
-  width: 132px;
+  width: 166px;
+  max-width: none;
+}
+
+.loop-panel .preview-pill {
+  box-sizing: border-box;
+  justify-self: start;
+  min-width: 0;
+  max-width: 86px;
 }
 
 .expand-panel,

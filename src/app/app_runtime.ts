@@ -36,6 +36,7 @@ import {
 import type { ScoreTextEdit } from "./edit/edit_apply";
 import type {
   AppState,
+  LoopState,
   ScoreOrigin,
   ScoreSelection,
 } from "./app_types";
@@ -54,6 +55,12 @@ const DEFAULT_GLOBAL_RAW_TEXT_BY_KIND: Record<GlobalKind, string> = {
   beatsPerBar: "4",
   stepsPerBeat: "4",
   dynamics: "100",
+};
+const DEFAULT_LOOP_STATE: LoopState = {
+  enabled: false,
+  startTick: null,
+  endTick: null,
+  pickMode: null,
 };
 
 /**
@@ -197,6 +204,9 @@ export function createInitialState(
     activeTrackIds: [...DEFAULT_ACTIVE_TRACK_IDS],
     reverseRows: false,
     menuTheme: "light",
+    speedScale: 1,
+    textOff: false,
+    loop: { ...DEFAULT_LOOP_STATE },
     mode: { kind: "view" },
     busy: { kind: "idle" },
     statusMessage: {
@@ -335,6 +345,7 @@ export function applyExpandColumnsToState(
     parsed: artifacts.parsed,
     analysis: artifacts.analysis,
     renderInput: artifacts.renderInput,
+    loop: { ...DEFAULT_LOOP_STATE },
     statusMessage: {
       level: "info",
       text: `Expanded ${additionalColumns} columns. cols 0-${nextColumnCount - 1}`,
@@ -411,6 +422,7 @@ export function applyTrimRightColumnsToState(
     selection: state.selection !== null && state.selection.col >= nextColumnCount
       ? null
       : state.selection,
+    loop: { ...DEFAULT_LOOP_STATE },
     statusMessage: {
       level: "info",
       text: `Trimmed ${trimColumns} columns. Removed ${removedCellCount} cell(s). cols 0-${nextColumnCount - 1}`,
@@ -460,6 +472,7 @@ export function applyClearAllScoreToState(
     analysis: artifacts.analysis,
     renderInput: artifacts.renderInput,
     selection: null,
+    loop: { ...DEFAULT_LOOP_STATE },
     statusMessage: {
       level: "info",
       text: `Cleared score. cols 0-${CLEAR_ALL_COLUMN_COUNT - 1}`,
@@ -605,6 +618,7 @@ export function applyLayoutDraftEditToState(
     renderInput: artifacts.renderInput,
     selection: null,
     layout: null,
+    loop: { ...DEFAULT_LOOP_STATE },
     statusMessage: {
       level: "info",
       text: applyResult.deletedCells.totalCount > 0

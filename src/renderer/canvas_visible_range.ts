@@ -106,7 +106,12 @@ export function filterVisibleMarkerItems(
  * - 반환값 : visible range 판정에 사용할 tick 범위
  */
 function getMarkerTickRange(item: CanvasMarkerItem): { startTick: number; endTick: number } {
-  if (item.kind === "beat" || item.kind === "bar" || item.kind === "bpmChange") {
+  if (
+    item.kind === "beat" ||
+    item.kind === "bar" ||
+    item.kind === "bpmChange" ||
+    item.kind === "loopBoundary"
+  ) {
     return {
       startTick: item.tick,
       endTick: item.tick,

@@ -8,6 +8,7 @@ import {
 } from "../renderer/canvas_score_renderer";
 import type {
   CanvasDirtyTickRange,
+  CanvasMarkerItem,
   CanvasRedrawScope,
   CanvasRenderOptions,
   CanvasRenderResult,
@@ -20,9 +21,6 @@ import type {
 import { composeEditRawText } from "./edit/edit_core";
 import { resolveAutoDefaultText } from "./pitch_label";
 import { isTrackId } from "../track/track_control";
-import {
-  recordCanvasPerformance,
-} from "../renderer/canvas_performance";
 
 /**
  * status footer의 특정 위치 문구를 바꾼다.
@@ -194,6 +192,11 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
     button.disabled = isBusy;
   });
   dom.zoomInput.disabled = isBusy;
+  dom.speedInput.disabled = isBusy;
+  dom.textOffInput.disabled = isBusy;
+  dom.loopToggleButton.disabled = isBusy || isEditMode;
+  dom.loopStartSelect.disabled = isBusy || isEditMode || !state.loop.enabled;
+  dom.loopEndSelect.disabled = isBusy || isEditMode || !state.loop.enabled;
   dom.reverseButton.disabled = isBusy;
   dom.themeButton.disabled = isBusy;
   dom.expandColumnInput.disabled = isBusy;
@@ -231,7 +234,47 @@ export function syncViewOptionControls(dom: AppDom, state: AppState): void {
   dom.reverseButton.setAttribute("aria-pressed", String(state.reverseRows));
   dom.themeButton.textContent = state.menuTheme === "dark" ? "Dark" : "Light";
   dom.themeButton.setAttribute("aria-pressed", String(state.menuTheme === "dark"));
+  dom.speedInput.value = String(Math.round(state.speedScale * 100));
+  dom.textOffInput.checked = state.textOff;
+  dom.loopToggleButton.textContent = state.loop.enabled ? "On" : "Off";
+  dom.loopToggleButton.setAttribute("aria-pressed", String(state.loop.enabled));
+  dom.loopToggleButton.classList.toggle("on", state.loop.enabled);
+  dom.loopToggleButton.classList.toggle("off", !state.loop.enabled);
+  dom.loopStartSelect.value = state.loop.pickMode === "start" || state.loop.startTick !== null
+    ? "pick"
+    : "first";
+  dom.loopEndSelect.value = state.loop.pickMode === "end" || state.loop.endTick !== null
+    ? "pick"
+    : "last";
+  dom.loopStartValue.textContent = formatLoopStartValue(state);
+  dom.loopEndValue.textContent = formatLoopEndValue(state);
   dom.appShell.dataset.menuTheme = state.menuTheme;
+}
+
+/**
+ * loop start 표시 label을 만든다.
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : loop start 표시 문자열
+ */
+function formatLoopStartValue(state: AppState): string {
+  if (state.loop.pickMode === "start" && state.loop.startTick === null) {
+    return "Pick...";
+  }
+
+  return state.loop.startTick === null ? "First" : `Col ${state.loop.startTick}`;
+}
+
+/**
+ * loop end 표시 label을 만든다.
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : loop end 표시 문자열
+ */
+function formatLoopEndValue(state: AppState): string {
+  if (state.loop.pickMode === "end" && state.loop.endTick === null) {
+    return "Pick...";
+  }
+
+  return state.loop.endTick === null ? "Last" : `Col ${Math.max(0, state.loop.endTick - 1)}`;
 }
 
 /**
@@ -281,6 +324,7 @@ export function syncLayoutScroll(
  */
 export function createRenderOptions(
   zoomInput: HTMLInputElement,
+  state: AppState,
   scoreArea?: HTMLElement,
 ): CanvasRenderOptions {
   const zoom = Number(zoomInput.value) / 100;
@@ -291,12 +335,51 @@ export function createRenderOptions(
         overscanPx: Math.max(128, scoreArea.clientWidth * 0.25),
       }
     : undefined;
+  const loopMarkers = createLoopMarkerItems(state);
 
   return {
     zoom,
+    speedScale: state.speedScale,
+    hideNoteText: state.textOff,
+    loopMarkers,
     devicePixelRatio: window.devicePixelRatio || 1,
     dynamicViewport,
   };
+}
+
+/**
+ * AppState의 runtime loop range를 renderer marker item으로 변환한다.
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : marker layer에 추가할 loop boundary item 목록
+ */
+function createLoopMarkerItems(state: AppState): CanvasMarkerItem[] {
+  const columnCount = state.renderInput.columnCount;
+
+  if (!state.loop.enabled || columnCount <= 0) {
+    return [];
+  }
+
+  const rawStartTick = state.loop.startTick ?? 0;
+  const rawEndTick = state.loop.endTick ?? columnCount;
+  const startTick = Math.min(rawStartTick, rawEndTick);
+  const endTick = Math.max(rawStartTick, rawEndTick);
+
+  if (endTick <= startTick) {
+    return [];
+  }
+
+  return [
+    {
+      kind: "loopBoundary",
+      tick: Math.max(0, Math.min(columnCount, startTick)),
+      role: "start",
+    },
+    {
+      kind: "loopBoundary",
+      tick: Math.max(0, Math.min(columnCount, endTick)),
+      role: "end",
+    },
+  ];
 }
 
 /**
@@ -362,7 +445,7 @@ export function renderApp(dom: AppDom, state: AppState): AppState {
   const result: CanvasRenderResult = renderCanvasScore(
     dom.target,
     state.renderInput,
-    createRenderOptions(dom.zoomInput, dom.scoreArea),
+    createRenderOptions(dom.zoomInput, state, dom.scoreArea),
   );
 
   // renderer가 계산한 stage 크기를 CSS 변수에 반영하고 label scroll 위치를 맞춘다.
@@ -407,7 +490,7 @@ export function renderAppPartial(
   const result: CanvasRenderResult = renderCanvasScorePartial(
     dom.target,
     state.renderInput,
-    createRenderOptions(dom.zoomInput, dom.scoreArea),
+    createRenderOptions(dom.zoomInput, state, dom.scoreArea),
     scope,
     previousLayout,
     dirtyTickRange,
@@ -441,23 +524,13 @@ export function renderDynamicViewportLayers(dom: AppDom, state: AppState): AppSt
     return state;
   }
 
-  const startedAt = performance.now();
   const result = renderCanvasScorePartial(
     dom.target,
     state.renderInput,
-    createRenderOptions(dom.zoomInput, dom.scoreArea),
+    createRenderOptions(dom.zoomInput, state, dom.scoreArea),
     "note",
     state.layout,
     null,
-  );
-  recordCanvasPerformance(
-    "app.renderDynamicViewportLayers",
-    startedAt,
-    {
-      scrollLeft: Math.round(dom.scoreArea.scrollLeft),
-      viewportWidth: dom.scoreArea.clientWidth,
-      columnCount: state.renderInput.columnCount,
-    },
   );
 
   return {

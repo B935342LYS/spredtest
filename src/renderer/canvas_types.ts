@@ -51,6 +51,9 @@ export type CanvasAnalyzedRenderInput = CanvasRenderInput & {
  */
 export type CanvasRenderOptions = {
   zoom: number;
+  speedScale?: number;
+  hideNoteText?: boolean;
+  loopMarkers?: CanvasMarkerItem[];
   devicePixelRatio: number;
   columnWidth?: number;
   dynamicViewport?: CanvasDynamicViewport;
@@ -246,6 +249,11 @@ export type CanvasMarkerItem =
       kind: "bpmChange";
       tick: number;
       changeKind: "instant" | "accel" | "rit";
+    }
+  | {
+      kind: "loopBoundary";
+      tick: number;
+      role: "start" | "end";
     }
   | {
       kind: "dynamicsGuide";

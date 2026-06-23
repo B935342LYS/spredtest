@@ -51,6 +51,7 @@ function normalizeCanvasRenderOptions(
 ): NormalizedCanvasRenderOptions {
   // UI 옵션이 유효한 숫자가 아니면 renderer 기본값으로 대체한다.
   const zoom = isPositiveFinite(options.zoom) ? options.zoom : 1;
+  const speedScale = isPositiveFinite(options.speedScale ?? 1) ? options.speedScale ?? 1 : 1;
   const devicePixelRatio = isPositiveFinite(options.devicePixelRatio)
     ? options.devicePixelRatio
     : 1;
@@ -60,8 +61,8 @@ function normalizeCanvasRenderOptions(
   const optionColumnWidth =
     options.columnWidth === undefined ? baseColumnWidth : options.columnWidth;
   const columnWidth = isPositiveFinite(optionColumnWidth)
-    ? optionColumnWidth * zoom
-    : baseColumnWidth * zoom;
+    ? optionColumnWidth * speedScale * zoom
+    : baseColumnWidth * speedScale * zoom;
 
   return {
     zoom,

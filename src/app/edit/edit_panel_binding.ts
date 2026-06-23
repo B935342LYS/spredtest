@@ -63,6 +63,13 @@ export function bindEditPanelControls(
             },
           }
         : { kind: "view" },
+      loop: dom.editToggle.checked
+        ? {
+            ...state.loop,
+            enabled: false,
+            pickMode: null,
+          }
+        : state.loop,
       statusMessage: {
         level: "info",
         text: dom.editToggle.checked ? "Edit mode: AUTO♯" : "View mode",

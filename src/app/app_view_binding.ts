@@ -31,15 +31,13 @@ import {
   renderDynamicViewportLayers,
   syncLayoutScroll,
   syncLeftStatus,
+  syncUiControls,
 } from "./app_ui_sync";
 import {
   bindLayoutDialogControls,
   syncLayoutToolbarPresetSelectForCurrentScore,
 } from "./layout/layout_dialog_binding";
 import type { YoutubePlaybackControl } from "./youtube/youtube_binding";
-import {
-  recordCanvasPerformance,
-} from "../renderer/canvas_performance";
 
 /** view binding이 app 상태와 render 흐름을 제어하기 위한 session 입력. */
 export type ViewBindingSession = {
@@ -200,6 +198,151 @@ function applyZoomPreservingViewportLeftEdge(
 }
 
 /**
+ * speed 배율 변경 전 viewport 왼쪽 edge tick을 변경 후에도 유지한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : session : app 상태와 render callback 묶음
+ * - 반환값 : 없음
+ */
+function applySpeedPreservingViewportLeftEdge(
+  dom: AppDom,
+  session: ViewBindingSession,
+): void {
+  const leftEdgeTick = getViewportLeftEdgeTick(dom, session.getState());
+  const speedPercent = Number(dom.speedInput.value);
+  const speedScale = Number.isFinite(speedPercent)
+    ? Math.min(Math.max(speedPercent / 100, 1), 4)
+    : 1;
+
+  session.setState({
+    ...session.getState(),
+    speedScale,
+    statusMessage: {
+      level: "info",
+      text: `Speed: ${speedScale.toFixed(2)}x`,
+    },
+  });
+  session.render();
+  restoreViewportLeftEdgeTick(dom, session, leftEdgeTick);
+}
+
+/**
+ * Text off 설정을 note/mute text layer에 반영한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : session : app 상태와 render callback 묶음
+ * - 반환값 : 없음
+ */
+function applyTextOff(
+  dom: AppDom,
+  session: ViewBindingSession,
+): void {
+  session.setState({
+    ...session.getState(),
+    textOff: dom.textOffInput.checked,
+    statusMessage: {
+      level: "info",
+      text: dom.textOffInput.checked ? "Text off enabled." : "Text off disabled.",
+    },
+  });
+  session.setState(renderDynamicViewportLayers(dom, session.getState()));
+  syncLeftStatus(dom, session.getState());
+}
+
+/**
+ * Loop on/off toggle을 AppState와 marker layer에 반영한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : session : app 상태와 render callback 묶음
+ * - 반환값 : 없음
+ */
+function toggleLoop(
+  dom: AppDom,
+  session: ViewBindingSession,
+): void {
+  const state = session.getState();
+
+  if (state.mode.kind === "edit") {
+    return;
+  }
+
+  const enabled = !state.loop.enabled;
+
+  session.setState({
+    ...state,
+    loop: {
+      ...state.loop,
+      enabled,
+      pickMode: enabled ? state.loop.pickMode : null,
+    },
+    statusMessage: {
+      level: "info",
+      text: enabled ? "Loop enabled." : "Loop disabled.",
+    },
+  });
+  session.setState(renderDynamicViewportLayers(dom, session.getState()));
+  syncLeftStatus(dom, session.getState());
+  syncUiControls(dom, session.getState());
+}
+
+/**
+ * loop start select 변경을 runtime loop state에 반영한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : session : app 상태와 render callback 묶음
+ * - 반환값 : 없음
+ */
+function applyLoopStartSelect(
+  dom: AppDom,
+  session: ViewBindingSession,
+): void {
+  const state = session.getState();
+  const pickMode = dom.loopStartSelect.value === "pick" ? "start" : null;
+
+  session.setState({
+    ...state,
+    loop: {
+      ...state.loop,
+      startTick: pickMode === null ? null : state.loop.startTick,
+      pickMode,
+    },
+    statusMessage: {
+      level: "info",
+      text: pickMode === "start" ? "Click a score column for loop start." : "Loop start: First",
+    },
+  });
+  session.setState(renderDynamicViewportLayers(dom, session.getState()));
+  syncLeftStatus(dom, session.getState());
+  syncUiControls(dom, session.getState());
+}
+
+/**
+ * loop end select 변경을 runtime loop state에 반영한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : session : app 상태와 render callback 묶음
+ * - 반환값 : 없음
+ */
+function applyLoopEndSelect(
+  dom: AppDom,
+  session: ViewBindingSession,
+): void {
+  const state = session.getState();
+  const pickMode = dom.loopEndSelect.value === "pick" ? "end" : null;
+
+  session.setState({
+    ...state,
+    loop: {
+      ...state.loop,
+      endTick: pickMode === null ? null : state.loop.endTick,
+      pickMode,
+    },
+    statusMessage: {
+      level: "info",
+      text: pickMode === "end" ? "Click a score column for loop end." : "Loop end: Last",
+    },
+  });
+  session.setState(renderDynamicViewportLayers(dom, session.getState()));
+  syncLeftStatus(dom, session.getState());
+  syncUiControls(dom, session.getState());
+}
+
+/**
  * view 관련 DOM event를 app 상태 변경 흐름에 연결한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
  * - 인수 : session : app 상태와 render callback 묶음
@@ -221,11 +364,8 @@ export function bindViewControls(
       return;
     }
 
-    const scheduledAt = performance.now();
-
     dynamicViewportScrollRafId = requestAnimationFrame(() => {
       dynamicViewportScrollRafId = null;
-      recordCanvasPerformance("app.scrollToRafDelay", scheduledAt);
       session.setState(renderDynamicViewportLayers(dom, session.getState()));
     });
   });
@@ -242,6 +382,26 @@ export function bindViewControls(
   // zoom 값이 확정되면 현재 입력값으로 전체 canvas score를 다시 그린다.
   dom.zoomInput.addEventListener("change", () => {
     applyZoomPreservingViewportLeftEdge(dom, session, Number(dom.zoomInput.value));
+  });
+
+  dom.speedInput.addEventListener("change", () => {
+    applySpeedPreservingViewportLeftEdge(dom, session);
+  });
+
+  dom.textOffInput.addEventListener("change", () => {
+    applyTextOff(dom, session);
+  });
+
+  dom.loopToggleButton.addEventListener("click", () => {
+    toggleLoop(dom, session);
+  });
+
+  dom.loopStartSelect.addEventListener("change", () => {
+    applyLoopStartSelect(dom, session);
+  });
+
+  dom.loopEndSelect.addEventListener("change", () => {
+    applyLoopEndSelect(dom, session);
   });
 
   dom.fitHeightButton.addEventListener("click", () => {

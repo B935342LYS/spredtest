@@ -29,22 +29,18 @@
                         <div class="menu-panel">
                             <label class="compact-field">
                                 Zoom
-                                <input type="range" min="50" max="200" value="100">
-                            </label>
-                            <label class="compact-field">
-                                Text Scale
-                                <input type="range" min="75" max="150" value="100" disabled>
+                                <input class="zoom-input" type="range" min="50" max="200" value="100">
                             </label>
                             <label class="compact-field">
                                 Speed
-                                <input type="range" min="50" max="150" value="100" disabled>
+                                <input class="speed-input" type="range" min="100" max="400" step="5" value="100">
                             </label>
                             <button type="button" class="fullscreen-button">Fullscreen</button>
                             <button type="button" class="fit-height-button">Fit Height</button>
                             <button type="button" class="reverse-button">Normal</button>
                             <button type="button" class="theme-button">Light</button>
                             <label class="switch-field">
-                                <input type="checkbox" disabled>
+                                <input class="text-off-input" type="checkbox">
                                 Text off
                             </label>
                         </div>
@@ -54,23 +50,23 @@
                         <div class="menu-panel loop-panel">
                             <div class="edit-control-row">
                                 <span class="micro-label">Loop</span>
-                                <button type="button" class="pill-toggle off" disabled>Off</button>
+                                <button type="button" class="pill-toggle loop-toggle off" aria-pressed="false">Off</button>
                             </div>
                             <label class="inline-field">
                                 Start
-                                <select disabled>
-                                    <option>First</option>
-                                    <option>Select Start Column</option>
+                                <select class="loop-start-select">
+                                    <option value="first">First</option>
+                                    <option value="pick">Select Column</option>
                                 </select>
-                                <span class="preview-pill">--</span>
+                                <span class="preview-pill loop-start-value">First</span>
                             </label>
                             <label class="inline-field">
                                 End
-                                <select disabled>
-                                    <option>Last</option>
-                                    <option>Select End Column</option>
+                                <select class="loop-end-select">
+                                    <option value="last">Last</option>
+                                    <option value="pick">Select Column</option>
                                 </select>
-                                <span class="preview-pill">--</span>
+                                <span class="preview-pill loop-end-value">Last</span>
                             </label>
                         </div>
                     </div>

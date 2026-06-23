@@ -37,6 +37,7 @@ export function drawScoreNotes(
   items: CanvasNoteRenderItem[],
   muteItems: CanvasMuteRenderItem[] = [],
   globalTextItems: CanvasGlobalTextRenderItem[] = [],
+  hideNoteText = false,
 ): void {
   context.clearRect(0, 0, layout.stageWidth, layout.stageHeight);
 
@@ -54,16 +55,20 @@ export function drawScoreNotes(
     context.globalAlpha = layoutItem.renderAlpha ?? 1;
     drawNoteRectangle(context, layoutItem);
     drawNoteEffects(context, layoutItem, layout);
-    drawNoteText(context, layoutItem, layout);
+    if (!hideNoteText) {
+      drawNoteText(context, layoutItem, layout);
+    }
     context.restore();
   }
 
   // mute item은 발음 사각형 없이 흰색 텍스트만 note layer 위에 표시한다.
-  for (const item of muteItems) {
-    context.save();
-    context.globalAlpha = item.renderAlpha ?? 1;
-    drawMuteText(context, layout, rowById, item);
-    context.restore();
+  if (!hideNoteText) {
+    for (const item of muteItems) {
+      context.save();
+      context.globalAlpha = item.renderAlpha ?? 1;
+      drawMuteText(context, layout, rowById, item);
+      context.restore();
+    }
   }
 
   // 전역 행 셀 rawText는 note/mute와 같은 overlay layer에 흰색 텍스트로 표시한다.
@@ -87,6 +92,7 @@ export function drawScoreNotesInRange(
   items: CanvasNoteRenderItem[],
   muteItems: CanvasMuteRenderItem[] = [],
   dirtyRange: CanvasDirtyTickRange,
+  hideNoteText = false,
 ): void {
   const rowById = createLayoutRowMap(layout);
   const renderRange = expandDirtyRangeForTextOverflow(dirtyRange, layout);
@@ -111,19 +117,23 @@ export function drawScoreNotesInRange(
     context.globalAlpha = layoutItem.renderAlpha ?? 1;
     drawNoteRectangle(context, layoutItem);
     drawNoteEffects(context, layoutItem, layout);
-    drawNoteText(context, layoutItem, layout);
+    if (!hideNoteText) {
+      drawNoteText(context, layoutItem, layout);
+    }
     context.restore();
   }
 
-  for (const item of muteItems) {
-    if (!doesTickRangeOverlap(item.startTick, item.endTick, renderRange)) {
-      continue;
-    }
+  if (!hideNoteText) {
+    for (const item of muteItems) {
+      if (!doesTickRangeOverlap(item.startTick, item.endTick, renderRange)) {
+        continue;
+      }
 
-    context.save();
-    context.globalAlpha = item.renderAlpha ?? 1;
-    drawMuteText(context, layout, rowById, item);
-    context.restore();
+      context.save();
+      context.globalAlpha = item.renderAlpha ?? 1;
+      drawMuteText(context, layout, rowById, item);
+      context.restore();
+    }
   }
 
   context.restore();

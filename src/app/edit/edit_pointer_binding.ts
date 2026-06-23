@@ -167,6 +167,40 @@ export function bindScorePointerControls(
     session.getNotePreviewRuntime().previewMidi(row.midi);
   };
 
+  const applyLoopPickForHit = (state: AppState, hit: ScoreHit): boolean => {
+    if (state.mode.kind !== "view" || state.loop.pickMode === null || !state.loop.enabled) {
+      return false;
+    }
+
+    const pickedStartTick = state.loop.pickMode === "start"
+      ? hit.col
+      : state.loop.startTick;
+    const pickedEndTick = state.loop.pickMode === "end"
+      ? hit.col + 1
+      : state.loop.endTick;
+    const normalizedLoop = normalizeLoopRange(
+      pickedStartTick,
+      pickedEndTick,
+      state.renderInput.columnCount,
+    );
+
+    session.setState({
+      ...state,
+      loop: {
+        ...state.loop,
+        ...normalizedLoop,
+        pickMode: state.loop.pickMode,
+      },
+      statusMessage: {
+        level: "info",
+        text: `Loop ${state.loop.pickMode} set: ${formatLoopRangeStatus(normalizedLoop, state.renderInput.columnCount)}`,
+      },
+    });
+    syncLeftStatus(dom, session.getState());
+    session.render();
+    return true;
+  };
+
   const applySinglePointerEdit = (
     hit: ScoreHit,
     options: {
@@ -395,6 +429,10 @@ export function bindScorePointerControls(
       return;
     }
 
+    if (applyLoopPickForHit(state, hit)) {
+      return;
+    }
+
     if (state.mode.kind === "view") {
       // view mode click은 score mutation 없이 selection/status만 갱신한다.
       session.setState(handleScoreClick(state, hit));
@@ -420,4 +458,43 @@ export function bindScorePointerControls(
   return {
     resetRepeatedClickCycle,
   };
+}
+
+/**
+ * 선택된 loop start/end tick을 score column 범위 안에서 start <= end가 되도록 정규화한다.
+ * - 인수 : startTick : 선택된 시작 tick 또는 기본값
+ * - 인수 : endTick : 선택된 끝 tick 또는 기본값
+ * - 인수 : columnCount : 현재 score column 수
+ * - 반환값 : 정규화된 loop start/end tick
+ */
+function normalizeLoopRange(
+  startTick: number | null,
+  endTick: number | null,
+  columnCount: number,
+): { startTick: number | null; endTick: number | null } {
+  const boundedStart = Math.max(0, Math.min(columnCount, startTick ?? 0));
+  const boundedEnd = Math.max(0, Math.min(columnCount, endTick ?? columnCount));
+  const normalizedStart = Math.min(boundedStart, boundedEnd);
+  const normalizedEnd = Math.max(boundedStart, boundedEnd);
+
+  return {
+    startTick: normalizedStart === 0 ? null : normalizedStart,
+    endTick: normalizedEnd === columnCount ? null : normalizedEnd,
+  };
+}
+
+/**
+ * loop range 상태 메시지용 표시 문자열을 만든다.
+ * - 인수 : loop : 정규화된 loop start/end tick
+ * - 인수 : columnCount : 현재 score column 수
+ * - 반환값 : 사용자에게 표시할 loop range 문자열
+ */
+function formatLoopRangeStatus(
+  loop: { startTick: number | null; endTick: number | null },
+  columnCount: number,
+): string {
+  const startLabel = loop.startTick === null ? "First" : `Col ${loop.startTick}`;
+  const endLabel = loop.endTick === null ? "Last" : `Col ${Math.max(0, loop.endTick - 1)}`;
+
+  return columnCount <= 0 ? "empty score" : `${startLabel} ~ ${endLabel}`;
 }

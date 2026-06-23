@@ -53,6 +53,12 @@ export function drawScoreMarkers(
   }
 
   for (const item of items) {
+    if (item.kind === "loopBoundary") {
+      drawLoopBoundaryMarker(context, layout, item);
+    }
+  }
+
+  for (const item of items) {
     if (item.kind === "bpmChange") {
       drawBpmChangeMarker(context, layout, item);
     } else if (item.kind === "gliss") {
@@ -102,6 +108,16 @@ export function drawScoreMarkersInRange(
 
     if (item.kind === "beat" || item.kind === "bar") {
       drawTimingLineMarker(context, layout, item);
+    }
+  }
+
+  for (const item of items) {
+    if (!doesMarkerOverlapDirtyRange(item, dirtyRange)) {
+      continue;
+    }
+
+    if (item.kind === "loopBoundary") {
+      drawLoopBoundaryMarker(context, layout, item);
     }
   }
 
@@ -211,7 +227,12 @@ function doesMarkerOverlapDirtyRange(
  * - 반환값 : marker가 차지하는 tick 범위
  */
 function getMarkerTickRange(item: CanvasMarkerItem): CanvasDirtyTickRange {
-  if (item.kind === "beat" || item.kind === "bar" || item.kind === "bpmChange") {
+  if (
+    item.kind === "beat" ||
+    item.kind === "bar" ||
+    item.kind === "bpmChange" ||
+    item.kind === "loopBoundary"
+  ) {
     return {
       startTick: item.tick,
       endTick: item.tick,
@@ -236,6 +257,51 @@ function getMarkerTickRange(item: CanvasMarkerItem): CanvasDirtyTickRange {
     startTick: item.tick,
     endTick: item.tick,
   };
+}
+
+/**
+ * loop start/end marker를 보라색 세로선과 짧은 label로 그린다.
+ * - 인수 : context : marker layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : item : loop start 또는 end marker
+ * - 반환값 : 없음
+ */
+function drawLoopBoundaryMarker(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  item: Extract<CanvasMarkerItem, { kind: "loopBoundary" }>,
+): void {
+  const x = columnToX(item.tick, layout);
+
+  if (x < 0 || x > layout.stageWidth) {
+    return;
+  }
+
+  context.save();
+  context.strokeStyle = "rgba(180, 90, 255, 0.95)";
+  context.lineWidth = 2;
+  context.beginPath();
+  context.moveTo(x + 0.5, 0);
+  context.lineTo(x + 0.5, layout.stageHeight);
+  context.stroke();
+
+  const label = item.role;
+  context.font = "700 12px Arial, sans-serif";
+  context.textAlign = "center";
+  context.textBaseline = "top";
+  const textWidth = context.measureText(label).width;
+  const boxWidth = textWidth + 12;
+  const boxHeight = 18;
+  const boxY = Math.max(2, layout.stageHeight - boxHeight - 4);
+  const boxX = Math.min(
+    Math.max(0, x - boxWidth / 2),
+    Math.max(0, layout.stageWidth - boxWidth),
+  );
+  context.fillStyle = "rgba(180, 90, 255, 0.36)";
+  context.fillRect(boxX, boxY, boxWidth, boxHeight);
+  context.fillStyle = "rgba(255, 255, 255, 0.82)";
+  context.fillText(label, boxX + boxWidth / 2, boxY + 3);
+  context.restore();
 }
 
 /**
