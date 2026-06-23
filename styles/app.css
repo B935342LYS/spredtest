@@ -864,6 +864,7 @@ select:disabled {
 }
 
 .score-viewer {
+  position: relative;
   display: grid;
   grid-template-columns: var(--label-width) minmax(0, 1fr);
   min-height: 0;
@@ -892,7 +893,7 @@ select:disabled {
   top: 6px;
   left: 6px;
   right: auto;
-  z-index: 30;
+  z-index: 40;
   display: grid;
   grid-template-columns: minmax(112px, 1fr) 68px;
   gap: 4px;
@@ -909,8 +910,8 @@ select:disabled {
   transition: opacity 120ms ease, transform 120ms ease;
 }
 
-.layout-area:hover .layout-toolbar,
-.layout-area:focus-within .layout-toolbar {
+.score-viewer:hover .layout-toolbar,
+.score-viewer:focus-within .layout-toolbar {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);

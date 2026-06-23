@@ -333,13 +333,13 @@
 
         <!-- Score Viewer -->
         <section class="score-viewer" aria-label="Score viewer">
+            <div class="layout-toolbar">
+                <select class="layout-preset-toolbar-select" aria-label="Layout preset">
+                    <option>Default Layout</option>
+                </select>
+                <button class="layout-modify-button" type="button">Settings</button>
+            </div>
             <aside class="layout-area">
-                <div class="layout-toolbar">
-                    <select class="layout-preset-toolbar-select" aria-label="Layout preset">
-                        <option>Default Layout</option>
-                    </select>
-                    <button class="layout-modify-button" type="button">Settings</button>
-                </div>
                 <div class="layout-canvas-stage" aria-label="Row labels">
                     <canvas class="layout-layer label-layer" width="208" height="1400"></canvas>
                 </div>
