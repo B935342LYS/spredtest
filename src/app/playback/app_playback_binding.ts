@@ -9,6 +9,7 @@ import type {
 import { syncLeftStatus } from "../app_ui_sync";
 import type { AppPlaybackRuntime } from "./app_playback";
 import { createPlaybackLoopStateFromApp } from "./app_playback";
+import type { AppNotePreviewRuntime } from "./app_note_preview";
 import type { YoutubePlaybackControl } from "../youtube/youtube_binding";
 import {
   scrollLeftToScoreSeconds,
@@ -23,6 +24,7 @@ export type PlaybackBindingSession = {
   getState(): AppState;
   setState(nextState: AppState): void;
   getPlaybackRuntime(): AppPlaybackRuntime;
+  getNotePreviewRuntime(): AppNotePreviewRuntime;
   youtubeControl?: YoutubePlaybackControl;
   resetPlaybackForCurrentState(): void;
   resetPlaybackForCurrentStatePreservingPosition(): void;
@@ -108,6 +110,13 @@ export function bindPlaybackControls(
     }
 
     session.resetNotePreviewForCurrentDom();
+  };
+
+  const updateMasterVolumeFromInput = (): void => {
+    const masterVolume = readVolumeInput(dom.volumeInput);
+
+    session.getPlaybackRuntime().backend.setMasterVolume(masterVolume);
+    session.getNotePreviewRuntime().setMasterVolume(masterVolume);
   };
 
   const syncSeekFromUserScroll = (): void => {
@@ -349,9 +358,8 @@ export function bindPlaybackControls(
       });
   });
 
-  dom.volumeInput.addEventListener("change", () => {
-    resetPlaybackForAudioOptionChange();
-  });
+  dom.volumeInput.addEventListener("input", updateMasterVolumeFromInput);
+  dom.volumeInput.addEventListener("change", updateMasterVolumeFromInput);
 
   dom.waveSelect.addEventListener("change", () => {
     resetPlaybackForAudioOptionChange();
@@ -376,4 +384,19 @@ function isEditableKeyboardTarget(target: EventTarget | null): boolean {
     target instanceof HTMLTextAreaElement ||
     target instanceof HTMLSelectElement ||
     target.isContentEditable;
+}
+
+/**
+ * volume range input 값을 0 이상 1 이하의 master volume으로 읽는다.
+ * - 인수 : input : volume range input
+ * - 반환값 : backend에 전달할 master volume
+ */
+function readVolumeInput(input: HTMLInputElement): number {
+  const volume = Number(input.value) / 100;
+
+  if (!Number.isFinite(volume)) {
+    return 0;
+  }
+
+  return Math.min(Math.max(volume, 0), 1);
 }

@@ -76,7 +76,7 @@ export function createOscillatorBackend(
   let masterGain: GainNode | null = null;
   const activeNodes = new Set<ActiveOscillatorNode>();
   const waveType = options.waveType ?? DEFAULT_WAVE_TYPE;
-  const masterVolume = clamp01(options.masterVolume ?? DEFAULT_MASTER_VOLUME);
+  let masterVolume = clamp01(options.masterVolume ?? DEFAULT_MASTER_VOLUME);
   const attackSeconds = normalizePositiveSeconds(
     options.attackSeconds ?? DEFAULT_ATTACK_SECONDS,
     DEFAULT_ATTACK_SECONDS,
@@ -109,6 +109,15 @@ export function createOscillatorBackend(
     },
     getCurrentTime(): number {
       return getOrCreateAudioContext().currentTime;
+    },
+    setMasterVolume(volume: number): void {
+      masterVolume = clamp01(volume);
+
+      if (masterGain === null || context === null) {
+        return;
+      }
+
+      masterGain.gain.setValueAtTime(getEffectiveMasterGain(masterVolume), context.currentTime);
     },
     stopAll(): void {
       const audioContext = context;
@@ -195,11 +204,11 @@ export function createOscillatorBackend(
     // 기본 note envelope는 tremolo gate와 분리해 note 전체 attack/release만 담당한다.
     gain.gain.setValueAtTime(SILENT_GAIN, startTime);
     gain.gain.linearRampToValueAtTime(
-      masterVolume * event.velocity,
+      event.velocity,
       startTime + Math.min(attackSeconds, durationSeconds / 2),
     );
     gain.gain.setValueAtTime(
-      masterVolume * event.velocity,
+      event.velocity,
       Math.max(startTime, endTime - releaseSeconds),
     );
     gain.gain.linearRampToValueAtTime(SILENT_GAIN, endTime);
@@ -281,11 +290,11 @@ export function createOscillatorBackend(
     // 단독 gliss fallback은 note와 같은 edge fade만 적용하고 내부 overlap은 사용하지 않는다.
     gain.gain.setValueAtTime(SILENT_GAIN, startTime);
     gain.gain.linearRampToValueAtTime(
-      masterVolume * event.velocity,
+      event.velocity,
       startTime + fadeSeconds,
     );
     gain.gain.setValueAtTime(
-      masterVolume * event.velocity,
+      event.velocity,
       Math.max(startTime + fadeSeconds, endTime - fadeSeconds),
     );
     gain.gain.linearRampToValueAtTime(SILENT_GAIN, endTime);
@@ -357,11 +366,11 @@ export function createOscillatorBackend(
     // chain 전체의 시작과 끝에만 fade를 적용해 내부 anchor의 발음 단절을 피한다.
     gain.gain.setValueAtTime(SILENT_GAIN, startTime);
     gain.gain.linearRampToValueAtTime(
-      masterVolume * event.velocity,
+      event.velocity,
       startTime + fadeSeconds,
     );
     gain.gain.setValueAtTime(
-      masterVolume * event.velocity,
+      event.velocity,
       Math.max(startTime + fadeSeconds, endTime - fadeSeconds),
     );
     gain.gain.linearRampToValueAtTime(SILENT_GAIN, endTime);
@@ -432,7 +441,7 @@ export function createOscillatorBackend(
 
       context = new AudioContextCtor();
       masterGain = context.createGain();
-      masterGain.gain.value = masterVolume;
+      masterGain.gain.value = getEffectiveMasterGain(masterVolume);
       masterGain.connect(context.destination);
     }
 
@@ -851,6 +860,15 @@ function clamp01(value: number): number {
   }
 
   return Math.min(Math.max(value, 0), 1);
+}
+
+/**
+ * UI volume 값을 실제 master gain 값으로 변환한다.
+ * - 인수 : volume : 0 이상 1 이하의 UI volume
+ * - 반환값 : 기존 출력 체감에 맞춘 master gain
+ */
+function getEffectiveMasterGain(volume: number): number {
+  return volume * volume;
 }
 
 /**

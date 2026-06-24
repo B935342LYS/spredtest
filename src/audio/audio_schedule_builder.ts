@@ -893,7 +893,8 @@ function createAudioGlissScheduleEvent(
   noteEvents: NoteEvent[],
   dynamicsTimeline: AnalyzedDynamicsSegment[],
 ): AudioGlissScheduleEvent | null {
-  const startSeconds = mapper.tickToSeconds(event.startAnchorTick);
+  const startTick = getAudioGlissStartTick(event, noteEvents);
+  const startSeconds = mapper.tickToSeconds(startTick);
   const endSeconds = mapper.tickToSeconds(event.endAnchorTick);
 
   if (endSeconds <= startSeconds) {
@@ -903,7 +904,7 @@ function createAudioGlissScheduleEvent(
   return {
     eventId: event.eventId,
     trackId: event.trackId,
-    startTick: event.startAnchorTick,
+    startTick,
     endTick: event.endAnchorTick,
     startSeconds,
     endSeconds,
@@ -918,7 +919,7 @@ function createAudioGlissScheduleEvent(
     effects: buildGlissTremoloEffects(event, mapper, noteEvents),
     automation: buildDynamicsGainAutomation(
       dynamicsTimeline,
-      event.startAnchorTick,
+      startTick,
       event.endAnchorTick,
       mapper,
     ),
@@ -947,7 +948,8 @@ function createAudioGlissChainScheduleEvent(
     return null;
   }
 
-  const startTick = chain.startExtensionNote?.time.startTick ?? firstEvent.startAnchorTick;
+  const firstAudioStartTick = getAudioGlissStartTick(firstEvent, noteEvents);
+  const startTick = chain.startExtensionNote?.time.startTick ?? firstAudioStartTick;
   const endTick = chain.endExtensionNote?.time.endTick ?? lastEvent.endAnchorTick;
   const startSeconds = mapper.tickToSeconds(startTick);
   const endSeconds = mapper.tickToSeconds(endTick);
@@ -958,7 +960,7 @@ function createAudioGlissChainScheduleEvent(
 
   const segments = [
     createStartExtensionGlissChainSegment(chain, mapper),
-    ...events.map((event) => createAudioGlissChainSegment(event, mapper)),
+    ...events.map((event) => createAudioGlissChainSegment(event, noteEvents, mapper)),
     createEndExtensionGlissChainSegment(chain, mapper),
   ]
     .filter((segment): segment is AudioGlissChainSegment => segment !== null);
@@ -1011,7 +1013,7 @@ function createStartExtensionGlissChainSegment(
 
   return createConstantPitchGlissChainSegment(
     noteEvent.time.startTick,
-    firstEvent.startAnchorTick,
+    getAudioGlissStartTick(firstEvent, [noteEvent]),
     noteEvent.sound.midi,
     noteEvent.sound.centOffset,
     mapper,
@@ -1086,9 +1088,11 @@ function createConstantPitchGlissChainSegment(
  */
 function createAudioGlissChainSegment(
   event: GlissEvent,
+  noteEvents: NoteEvent[],
   mapper: TickTimeMapper,
 ): AudioGlissChainSegment | null {
-  const startSeconds = mapper.tickToSeconds(event.startAnchorTick);
+  const startTick = getAudioGlissStartTick(event, noteEvents);
+  const startSeconds = mapper.tickToSeconds(startTick);
   const endSeconds = mapper.tickToSeconds(event.endAnchorTick);
 
   if (endSeconds <= startSeconds) {
@@ -1104,6 +1108,29 @@ function createAudioGlissChainSegment(
     endCentOffset: event.endSound.centOffset,
     curve: "linear",
   };
+}
+
+/**
+ * audio 재생에서 사용할 gliss 시작 tick을 결정한다.
+ * - 인수 : event : analyzer가 만든 gliss event
+ * - 인수 : noteEvents : 같은 track의 note event 목록
+ * - 반환값 : 단일 셀 start anchor는 셀 시작 tick, 그 외에는 analyzer anchor tick
+ */
+function getAudioGlissStartTick(
+  event: GlissEvent,
+  noteEvents: NoteEvent[],
+): GlissEvent["startAnchorTick"] {
+  if (event.fromKind !== "start") {
+    return event.startAnchorTick;
+  }
+
+  const noteEvent = findStartAnchorNoteEvent(event, noteEvents);
+
+  if (noteEvent === null || !isSingleSourceCellNoteEvent(noteEvent)) {
+    return event.startAnchorTick;
+  }
+
+  return cloneTimeFraction(noteEvent.time.startTick);
 }
 
 /**
@@ -1211,14 +1238,16 @@ function buildGlissTremoloEffects(
     return [];
   }
 
+  const startTick = getAudioGlissStartTick(event, noteEvents);
+
   return [
     {
       kind: "tremolo",
-      startSeconds: mapper.tickToSeconds(event.startAnchorTick),
+      startSeconds: mapper.tickToSeconds(startTick),
       endSeconds: mapper.tickToSeconds(event.endAnchorTick),
       durationTicks:
         timeFractionToNumber(event.endAnchorTick) -
-        timeFractionToNumber(event.startAnchorTick),
+        timeFractionToNumber(startTick),
       division: tremDivision,
     },
   ];

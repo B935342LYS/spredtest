@@ -14,6 +14,7 @@ const PREVIEW_MIN_INTERVAL_MS = 60;
 /** note row 입력 preview runtime 계약. */
 export type AppNotePreviewRuntime = {
   previewMidi(midi: number): void;
+  setMasterVolume(volume: number): void;
   dispose(): void;
 };
 
@@ -52,6 +53,9 @@ export function createAppNotePreviewRuntime(dom: AppDom): AppNotePreviewRuntime 
         .catch(() => {
           // 브라우저가 AudioContext 생성을 거부한 경우 입력 동작 자체는 막지 않는다.
         });
+    },
+    setMasterVolume(volume: number): void {
+      backend.setMasterVolume(volume * PREVIEW_VOLUME_SCALE);
     },
     dispose(): void {
       backend.dispose();

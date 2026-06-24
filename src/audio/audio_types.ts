@@ -193,6 +193,7 @@ export type AudioBackend = {
   ensureStarted(): Promise<void>;
   scheduleEvent(event: AudioScheduleEvent, offsetSeconds: number): void;
   getCurrentTime(): number;
+  setMasterVolume(volume: number): void;
   stopAll(): void;
   dispose(): void;
 };

@@ -6,7 +6,10 @@
 import { buildAudioSchedule } from "../../audio/audio_schedule_builder";
 import { createAudioEventQueue } from "../../audio/audio_event_queue";
 import { createAudioLookaheadScheduler } from "../../audio/audio_scheduler";
-import type { TickTimeMapper } from "../../audio/audio_types";
+import type {
+  AudioBackend,
+  TickTimeMapper,
+} from "../../audio/audio_types";
 import type { PlaybackLoopState } from "../../audio/audio_types";
 import { createOscillatorBackend } from "../../audio/oscillator_backend";
 import type { PlaybackController } from "../../audio/playback_controller";
@@ -24,6 +27,7 @@ const PLAYBACK_SCHEDULER_INTERVAL_MS = 25;
 export type AppPlaybackRuntime = {
   controller: PlaybackController;
   timeMapper: TickTimeMapper;
+  backend: AudioBackend;
 };
 
 /**
@@ -93,5 +97,6 @@ export function createAppPlaybackRuntime(
       schedulerIntervalMs: PLAYBACK_SCHEDULER_INTERVAL_MS,
     }),
     timeMapper: createTickTimeMapper(state.analysis.timingTimeline),
+    backend,
   };
 }
