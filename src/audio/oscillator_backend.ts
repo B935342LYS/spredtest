@@ -273,6 +273,7 @@ export function createOscillatorBackend(
       midiToFrequency(event.endMidi, event.endCentOffset),
       endTime,
     );
+    applyVibratoEffects(audioContext, event, oscillator, startTime, endTime, activeNode);
     applyTremoloEffects(event, tremoloGain, startTime, endTime);
     applyDynamicsAutomation(event, dynamicsGain, startTime, endTime);
     applyGainScaleAutomation(event, scaleGain, startTime, endTime);
@@ -348,6 +349,7 @@ export function createOscillatorBackend(
 
     oscillator.type = waveType;
     scheduleGlissChainFrequency(event, oscillator, startTime);
+    applyVibratoEffects(audioContext, event, oscillator, startTime, endTime, activeNode);
     applyTremoloEffects(event, tremoloGain, startTime, endTime);
     applyDynamicsAutomation(event, dynamicsGain, startTime, endTime);
     applyGainScaleAutomation(event, scaleGain, startTime, endTime);
@@ -524,7 +526,7 @@ export function createOscillatorBackend(
  */
 function applyVibratoEffects(
   audioContext: AudioContext,
-  event: AudioNoteScheduleEvent,
+  event: AudioPlayableScheduleEvent,
   oscillator: OscillatorNode,
   startTime: number,
   endTime: number,

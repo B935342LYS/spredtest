@@ -50,6 +50,12 @@ type SweepPoint = {
   delta: 1 | -1;
 };
 
+type GlissPlaybackChain = {
+  events: GlissEvent[];
+  startExtensionNote: NoteEvent | null;
+  endExtensionNote: NoteEvent | null;
+};
+
 /**
  * analyzer 결과에서 audio schedule을 만든다.
  * - 인수 : input : analyzer 결과와 재생 대상 track 목록
@@ -86,12 +92,27 @@ export function buildAudioScheduleWithMapper(
       noteEvents,
       glissEvents,
     );
-    const glissChains = buildConnectedGlissChains(glissEvents, noteEvents);
-    const chainedGlissEvents = new Set<GlissEvent>(glissChains.flat());
+    const glissChains = buildGlissPlaybackChains(
+      buildConnectedGlissChains(glissEvents, noteEvents),
+      glissEvents,
+      noteEvents,
+    );
+    const chainedGlissEvents = new Set<GlissEvent>(
+      glissChains.flatMap((chain) => chain.events),
+    );
+    const mutedNoteEvents = buildMutedGlissAnchorNoteSet(
+      noteEvents,
+      glissEvents,
+      glissChains,
+    );
 
     // 선택된 track의 note, 단독 gliss fallback, 연결 gliss chain을 audio schedule event로 변환한다.
     for (const event of trackResult.events) {
       if (isNoteEvent(event)) {
+        if (mutedNoteEvents.has(event)) {
+          continue;
+        }
+
         const noteScheduleEvent = createAudioNoteScheduleEvent(
           event,
           mapper,
@@ -387,6 +408,222 @@ function buildConnectedGlissChains(
   }
 
   return chains;
+}
+
+/**
+ * audio 재생용 gliss chain 목록을 만든다.
+ * - 인수 : connectedGlissChains : pitch가 이어지는 기존 gliss segment chain 목록
+ * - 인수 : glissEvents : 같은 track의 전체 gliss event 목록
+ * - 인수 : noteEvents : anchor와 연결된 long note를 찾기 위한 note event 목록
+ * - 반환값 : GlissPlaybackChain[] : constant pitch extension을 포함할 수 있는 재생용 chain 목록
+ */
+function buildGlissPlaybackChains(
+  connectedGlissChains: GlissEvent[][],
+  glissEvents: GlissEvent[],
+  noteEvents: NoteEvent[],
+): GlissPlaybackChain[] {
+  const chains: GlissPlaybackChain[] = [];
+  const chainedEvents = new Set<GlissEvent>();
+
+  for (const events of connectedGlissChains) {
+    const chain = createGlissPlaybackChain(events, noteEvents);
+
+    if (chain !== null) {
+      chains.push(chain);
+      for (const event of events) {
+        chainedEvents.add(event);
+      }
+    }
+  }
+
+  for (const event of glissEvents) {
+    if (chainedEvents.has(event)) {
+      continue;
+    }
+
+    const chain = createGlissPlaybackChain([event], noteEvents);
+
+    if (
+      chain !== null &&
+      (chain.events.length > 1 || chain.startExtensionNote !== null || chain.endExtensionNote !== null)
+    ) {
+      chains.push(chain);
+    }
+  }
+
+  return chains;
+}
+
+/**
+ * gliss event 목록과 양끝 long note extension을 하나의 playback chain으로 묶는다.
+ * - 인수 : events : 같은 gliss id로 이어지는 gliss event 목록
+ * - 인수 : noteEvents : 같은 track의 note event 목록
+ * - 반환값 : 재생용 chain 또는 유효하지 않으면 null
+ */
+function createGlissPlaybackChain(
+  events: GlissEvent[],
+  noteEvents: NoteEvent[],
+): GlissPlaybackChain | null {
+  const firstEvent = events[0];
+  const lastEvent = events[events.length - 1];
+
+  if (firstEvent === undefined || lastEvent === undefined) {
+    return null;
+  }
+
+  return {
+    events,
+    startExtensionNote: findStartLongNoteExtension(firstEvent, noteEvents),
+    endExtensionNote: findEndLongNoteExtension(lastEvent, noteEvents),
+  };
+}
+
+/**
+ * gliss anchor에서 독립 발음을 제거할 note event 목록을 만든다.
+ * - 인수 : noteEvents : 같은 track의 note event 목록
+ * - 인수 : glissEvents : 같은 track의 gliss event 목록
+ * - 인수 : glissChains : long note extension을 흡수한 재생용 chain 목록
+ * - 반환값 : audio schedule에서 제외할 note event 집합
+ */
+function buildMutedGlissAnchorNoteSet(
+  noteEvents: NoteEvent[],
+  glissEvents: GlissEvent[],
+  glissChains: GlissPlaybackChain[],
+): Set<NoteEvent> {
+  const mutedNoteEvents = new Set<NoteEvent>();
+
+  for (const noteEvent of noteEvents) {
+    if (isSingleCellGlissAnchorNote(noteEvent, glissEvents)) {
+      mutedNoteEvents.add(noteEvent);
+    }
+  }
+
+  for (const chain of glissChains) {
+    if (chain.startExtensionNote !== null) {
+      mutedNoteEvents.add(chain.startExtensionNote);
+    }
+
+    if (chain.endExtensionNote !== null) {
+      mutedNoteEvents.add(chain.endExtensionNote);
+    }
+  }
+
+  return mutedNoteEvents;
+}
+
+/**
+ * 단일 셀 anchor note가 실제 gliss segment의 시작/종료 anchor로 쓰였는지 확인한다.
+ * - 인수 : noteEvent : 검사할 note event
+ * - 인수 : glissEvents : 같은 track의 gliss event 목록
+ * - 반환값 : 단일 셀 anchor note를 독립 발음에서 제거해야 하는지 여부
+ */
+function isSingleCellGlissAnchorNote(
+  noteEvent: NoteEvent,
+  glissEvents: GlissEvent[],
+): boolean {
+  if (!isSingleSourceCellNoteEvent(noteEvent)) {
+    return false;
+  }
+
+  return glissEvents.some((glissEvent) =>
+    isNoteEventGlissBoundaryAnchor(noteEvent, glissEvent, "start") ||
+    isNoteEventGlissBoundaryAnchor(noteEvent, glissEvent, "end")
+  );
+}
+
+/**
+ * note event가 한 source cell의 길이와 같은 단일 셀 note인지 확인한다.
+ * - 인수 : noteEvent : 검사할 note event
+ * - 반환값 : source cell 하나만 가진 단일 셀 note 여부
+ */
+function isSingleSourceCellNoteEvent(noteEvent: NoteEvent): boolean {
+  const source = noteEvent.sourceCells[0];
+
+  if (source === undefined || noteEvent.sourceCells.length !== 1) {
+    return false;
+  }
+
+  const sourceStart = source.col;
+  const sourceEnd = source.col + 1;
+
+  return timeFractionToNumber(noteEvent.time.startTick) === sourceStart &&
+    timeFractionToNumber(noteEvent.time.endTick) === sourceEnd;
+}
+
+/**
+ * note event가 지정한 gliss event의 boundary anchor인지 확인한다.
+ * - 인수 : noteEvent : 검사할 note event
+ * - 인수 : glissEvent : 연결 기준 gliss event
+ * - 인수 : boundary : start 또는 end anchor 검사 방향
+ * - 반환값 : note event가 해당 gliss boundary anchor이면 true
+ */
+function isNoteEventGlissBoundaryAnchor(
+  noteEvent: NoteEvent,
+  glissEvent: GlissEvent,
+  boundary: "start" | "end",
+): boolean {
+  const source = boundary === "start"
+    ? glissEvent.sourceCells[0]
+    : glissEvent.sourceCells[1];
+  const role = boundary === "start" ? glissEvent.fromKind : glissEvent.toKind;
+
+  if (source === undefined) {
+    return false;
+  }
+
+  return noteEvent.glissAnchors.some((anchor) =>
+    anchor.glissId === glissEvent.glissId &&
+    anchor.role === role &&
+    sourceCellsMatch(anchor.source, source)
+  );
+}
+
+/**
+ * gliss 시작 anchor 앞쪽으로 이어진 long note를 찾는다.
+ * - 인수 : glissEvent : 시작 anchor를 가진 gliss event
+ * - 인수 : noteEvents : 같은 track의 note event 목록
+ * - 반환값 : 시작 anchor 앞 constant pitch로 흡수할 note event 또는 null
+ */
+function findStartLongNoteExtension(
+  glissEvent: GlissEvent,
+  noteEvents: NoteEvent[],
+): NoteEvent | null {
+  const noteEvent = findStartAnchorNoteEvent(glissEvent, noteEvents);
+  const source = glissEvent.sourceCells[0];
+
+  if (noteEvent === null || source === undefined) {
+    return null;
+  }
+
+  if (timeFractionToNumber(noteEvent.time.startTick) >= source.col) {
+    return null;
+  }
+
+  return noteEvent;
+}
+
+/**
+ * gliss 종료 anchor 뒤쪽으로 이어진 long note를 찾는다.
+ * - 인수 : glissEvent : 종료 anchor를 가진 gliss event
+ * - 인수 : noteEvents : 같은 track의 note event 목록
+ * - 반환값 : 종료 anchor 뒤 constant pitch로 흡수할 note event 또는 null
+ */
+function findEndLongNoteExtension(
+  glissEvent: GlissEvent,
+  noteEvents: NoteEvent[],
+): NoteEvent | null {
+  const noteEvent = findEndAnchorNoteEvent(glissEvent, noteEvents);
+  const source = glissEvent.sourceCells[1];
+
+  if (noteEvent === null || source === undefined) {
+    return null;
+  }
+
+  if (timeFractionToNumber(noteEvent.time.endTick) <= source.col + 1) {
+    return null;
+  }
+
+  return noteEvent;
 }
 
 /**
@@ -689,35 +926,41 @@ function createAudioGlissScheduleEvent(
 }
 
 /**
- * 연결된 GlissEvent 목록을 하나의 AudioGlissChainScheduleEvent로 변환한다.
- * - 인수 : events : 같은 gliss id로 연결된 analyzer gliss event 목록
+ * 재생용 GlissPlaybackChain을 하나의 AudioGlissChainScheduleEvent로 변환한다.
+ * - 인수 : chain : gliss segment와 long note extension을 담은 재생용 chain
  * - 인수 : mapper : tick/seconds 변환기
  * - 인수 : noteEvents : gliss 시작 anchor의 tremolo 정보를 찾기 위한 같은 track note event 목록
  * - 인수 : dynamicsTimeline : analyzer가 만든 dynamics timeline
  * - 반환값 : backend 예약용 gliss chain event 또는 유효 구간이 없으면 null
  */
 function createAudioGlissChainScheduleEvent(
-  events: GlissEvent[],
+  chain: GlissPlaybackChain,
   mapper: TickTimeMapper,
   noteEvents: NoteEvent[],
   dynamicsTimeline: AnalyzedDynamicsSegment[],
 ): AudioGlissChainScheduleEvent | null {
+  const events = chain.events;
   const firstEvent = events[0];
   const lastEvent = events[events.length - 1];
 
-  if (firstEvent === undefined || lastEvent === undefined || events.length < 2) {
+  if (firstEvent === undefined || lastEvent === undefined) {
     return null;
   }
 
-  const startSeconds = mapper.tickToSeconds(firstEvent.startAnchorTick);
-  const endSeconds = mapper.tickToSeconds(lastEvent.endAnchorTick);
+  const startTick = chain.startExtensionNote?.time.startTick ?? firstEvent.startAnchorTick;
+  const endTick = chain.endExtensionNote?.time.endTick ?? lastEvent.endAnchorTick;
+  const startSeconds = mapper.tickToSeconds(startTick);
+  const endSeconds = mapper.tickToSeconds(endTick);
 
   if (endSeconds <= startSeconds) {
     return null;
   }
 
-  const segments = events
-    .map((event) => createAudioGlissChainSegment(event, mapper))
+  const segments = [
+    createStartExtensionGlissChainSegment(chain, mapper),
+    ...events.map((event) => createAudioGlissChainSegment(event, mapper)),
+    createEndExtensionGlissChainSegment(chain, mapper),
+  ]
     .filter((segment): segment is AudioGlissChainSegment => segment !== null);
 
   if (segments.length === 0) {
@@ -727,21 +970,111 @@ function createAudioGlissChainScheduleEvent(
   return {
     eventId: `${firstEvent.trackId}:gliss-chain:${firstEvent.glissId}:${firstEvent.eventId}:${lastEvent.eventId}`,
     trackId: firstEvent.trackId,
-    startTick: firstEvent.startAnchorTick,
-    endTick: lastEvent.endAnchorTick,
+    startTick,
+    endTick,
     startSeconds,
     endSeconds,
     velocity: DEFAULT_VELOCITY * getTrackGain(firstEvent.trackId),
     sourceEventKind: "glissChain",
     segments,
     fadeSeconds: DEFAULT_GLISS_CROSSFADE_SECONDS,
-    effects: events.flatMap((event) => buildGlissTremoloEffects(event, mapper, noteEvents)),
+    effects: [
+      ...buildExtensionNoteEffects(chain.startExtensionNote, mapper),
+      ...events.flatMap((event) => buildGlissTremoloEffects(event, mapper, noteEvents)),
+      ...buildExtensionNoteEffects(chain.endExtensionNote, mapper),
+    ],
     automation: buildDynamicsGainAutomation(
       dynamicsTimeline,
-      firstEvent.startAnchorTick,
-      lastEvent.endAnchorTick,
+      startTick,
+      endTick,
       mapper,
     ),
+  };
+}
+
+/**
+ * gliss 시작 앞쪽 long note를 constant pitch chain segment로 변환한다.
+ * - 인수 : chain : 변환할 재생용 gliss chain
+ * - 인수 : mapper : tick/seconds 변환기
+ * - 반환값 : constant pitch segment 또는 유효하지 않으면 null
+ */
+function createStartExtensionGlissChainSegment(
+  chain: GlissPlaybackChain,
+  mapper: TickTimeMapper,
+): AudioGlissChainSegment | null {
+  const noteEvent = chain.startExtensionNote;
+  const firstEvent = chain.events[0];
+
+  if (noteEvent === null || firstEvent === undefined) {
+    return null;
+  }
+
+  return createConstantPitchGlissChainSegment(
+    noteEvent.time.startTick,
+    firstEvent.startAnchorTick,
+    noteEvent.sound.midi,
+    noteEvent.sound.centOffset,
+    mapper,
+  );
+}
+
+/**
+ * gliss 종료 뒤쪽 long note를 constant pitch chain segment로 변환한다.
+ * - 인수 : chain : 변환할 재생용 gliss chain
+ * - 인수 : mapper : tick/seconds 변환기
+ * - 반환값 : constant pitch segment 또는 유효하지 않으면 null
+ */
+function createEndExtensionGlissChainSegment(
+  chain: GlissPlaybackChain,
+  mapper: TickTimeMapper,
+): AudioGlissChainSegment | null {
+  const noteEvent = chain.endExtensionNote;
+  const lastEvent = chain.events[chain.events.length - 1];
+
+  if (noteEvent === null || lastEvent === undefined) {
+    return null;
+  }
+
+  return createConstantPitchGlissChainSegment(
+    lastEvent.endAnchorTick,
+    noteEvent.time.endTick,
+    noteEvent.sound.midi,
+    noteEvent.sound.centOffset,
+    mapper,
+  );
+}
+
+/**
+ * 같은 pitch를 유지하는 gliss chain segment를 만든다.
+ * - 인수 : startTick : segment 시작 tick
+ * - 인수 : endTick : segment 끝 tick
+ * - 인수 : midi : 유지할 MIDI pitch
+ * - 인수 : centOffset : 유지할 cent offset
+ * - 인수 : mapper : tick/seconds 변환기
+ * - 반환값 : constant pitch segment 또는 길이가 없으면 null
+ */
+function createConstantPitchGlissChainSegment(
+  startTick: NoteEvent["time"]["startTick"],
+  endTick: NoteEvent["time"]["endTick"],
+  midi: number,
+  centOffset: number,
+  mapper: TickTimeMapper,
+): AudioGlissChainSegment | null {
+  const startSeconds = mapper.tickToSeconds(startTick);
+  const endSeconds = mapper.tickToSeconds(endTick);
+
+  if (endSeconds <= startSeconds) {
+    return null;
+  }
+
+  return {
+    startSeconds,
+    endSeconds,
+    startMidi: midi,
+    startCentOffset: centOffset,
+    endMidi: midi,
+    endCentOffset: centOffset,
+    curve: "linear",
   };
 }
 
@@ -950,6 +1283,23 @@ function findStartAnchorTremoloDivision(
   }
 
   return null;
+}
+
+/**
+ * long note extension에 걸린 note effect를 gliss chain effect로 보존한다.
+ * - 인수 : noteEvent : chain에 흡수된 note event
+ * - 인수 : mapper : tick/seconds 변환기
+ * - 반환값 : audio backend가 적용할 effect 목록
+ */
+function buildExtensionNoteEffects(
+  noteEvent: NoteEvent | null,
+  mapper: TickTimeMapper,
+): AudioScheduleEffect[] {
+  if (noteEvent === null) {
+    return [];
+  }
+
+  return buildAudioScheduleEffects(noteEvent.effects, mapper);
 }
 
 /**
