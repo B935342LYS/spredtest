@@ -19,7 +19,7 @@ export type HoldEditToken = "" | "-" | "~";
 
 /** gliss modifier의 UI 입력 상태. */
 export type GlissEditInput = {
-  kind: "" | "S" | "M" | "E";
+  kind: "" | "S" | "M" | "E" | "holdStart";
   id: string;
 };
 
@@ -189,6 +189,10 @@ export function validateDefaultNoteEditInput(input: DefaultNoteEditInput): strin
     return "Gliss id must be one lowercase alphabet letter.";
   }
 
+  if (input.gliss.kind === "holdStart") {
+    return null;
+  }
+
   if (!isValidAbsolutePitch(input.absolutePitch)) {
     return "absolutePitch must be an integer MIDI number from 0 to 127.";
   }
@@ -212,6 +216,10 @@ export function validateDefaultNoteEditInput(input: DefaultNoteEditInput): strin
 export function composeDefaultNoteRawText(input: DefaultNoteEditInput): string {
   if (input.mode === "comment") {
     return `//${escapeCommentTextForMuteRawText(input.customText)}`;
+  }
+
+  if (input.gliss.kind === "holdStart") {
+    return `-@g(${input.gliss.id},S)`;
   }
 
   const tokens: string[] = [];
