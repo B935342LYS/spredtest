@@ -16,7 +16,10 @@ import type {
   HoldEditToken,
 } from "./edit_default";
 import type { TupletEditDraft } from "./edit_tuplet";
-import { resolveAutoDefaultText } from "../pitch_label";
+import {
+  resolveAutoDefaultText,
+  resolveAutoPitchInputs,
+} from "../pitch_label";
 import { parseNoteCell } from "../../core/parse/parse_note_cell";
 import { DEFAULT_ACTIVE_TRACK_IDS } from "../../track/track_control";
 
@@ -193,7 +196,7 @@ export function composeTupletSlotTextFromRow(
     };
   }
 
-  const input = resolveAutoDefaultText(
+  const input = resolveAutoPitchInputs(
     state,
     readDefaultNoteEditInput(dom),
     hit.rowId,

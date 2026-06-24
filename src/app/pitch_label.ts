@@ -6,6 +6,9 @@ import type { RowId } from "../core/score/types";
 import type { AppState } from "./app_types";
 import type { DefaultNoteEditInput } from "./edit/edit_default";
 
+export const AUTO_HARMONIC_2OCTAVE_ABSOLUTE_PITCH = "autoHarmonic2Octave";
+export const AUTO_HARMONIC_2OCTAVE_OUT_OF_RANGE = "autoHarmonic2OctaveOutOfRange";
+
 /**
  * MIDI note number를 계이름 문자열로 변환한다.
  * - 인수 : midi : MIDI note number
@@ -30,15 +33,44 @@ export function formatPitchName(midi: number, accidental: "sharp" | "flat"): str
  */
 export function buildAutoDefaultText(input: DefaultNoteEditInput, rowMidi: number): string {
   const accidental = input.mode === "autoFlat" ? "flat" : "sharp";
-  const baseMidi = input.absolutePitch.trim() === ""
-    ? rowMidi
-    : Number.parseInt(input.absolutePitch, 10);
+  const harmonicMidi = isAutoHarmonicAbsolutePitch(input.absolutePitch)
+    ? resolveAutoHarmonicAbsolutePitch(rowMidi)
+    : null;
+  const baseMidi = harmonicMidi !== null
+    ? Number.parseInt(harmonicMidi, 10)
+    : input.absolutePitch.trim() === ""
+      ? rowMidi
+      : Number.parseInt(input.absolutePitch, 10);
   const microPitch = input.microPitch.trim() === ""
     ? 0
     : Number.parseFloat(input.microPitch);
   const suffix = microPitch > 0 ? "+" : microPitch < 0 ? "-" : "";
 
   return `${formatPitchName(baseMidi, accidental)}${suffix}`;
+}
+
+/**
+ * absolutePitch 입력이 하모닉스 2옥타브 자동 입력 preset인지 확인한다.
+ * - 인수 : value : absolutePitch select에서 읽은 값
+ * - 반환값 : AUTO◇ preset이면 true
+ */
+export function isAutoHarmonicAbsolutePitch(value: string): boolean {
+  return value === AUTO_HARMONIC_2OCTAVE_ABSOLUTE_PITCH;
+}
+
+/**
+ * note row MIDI를 기준으로 하모닉스 2옥타브 위 absolutePitch를 계산한다.
+ * - 인수 : rowMidi : 기준 note row MIDI note number
+ * - 반환값 : MIDI 범위 안의 absolutePitch 문자열 또는 범위 초과 시 null
+ */
+export function resolveAutoHarmonicAbsolutePitch(rowMidi: number): string | null {
+  const midi = rowMidi + 24;
+
+  if (midi < 0 || midi > 127) {
+    return null;
+  }
+
+  return String(midi);
 }
 
 /**
@@ -53,14 +85,10 @@ export function resolveAutoDefaultText(
   input: DefaultNoteEditInput,
   rowId: RowId | null,
 ): DefaultNoteEditInput {
-  if (input.mode !== "autoSharp" && input.mode !== "autoFlat") {
-    return input;
-  }
-
   if (rowId === null) {
     return {
       ...input,
-      autoText: "",
+      autoText: input.mode === "autoSharp" || input.mode === "autoFlat" ? "" : input.autoText,
     };
   }
 
@@ -69,13 +97,51 @@ export function resolveAutoDefaultText(
   if (row?.type !== "note") {
     return {
       ...input,
-      autoText: "",
+      autoText: input.mode === "autoSharp" || input.mode === "autoFlat" ? "" : input.autoText,
     };
   }
 
   return {
     ...input,
-    autoText: buildAutoDefaultText(input, row.midi),
+    autoText: input.mode === "autoSharp" || input.mode === "autoFlat"
+      ? buildAutoDefaultText(input, row.midi)
+      : input.autoText,
+  };
+}
+
+/**
+ * 현재 입력 상태에 note row 문맥을 반영해 rawText 합성용 AUTO 입력을 채운다.
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : input : 현재 Default/Pitch 입력 상태
+ * - 인수 : rowId : AUTO 기준으로 사용할 rowId
+ * - 반환값 : AUTO defaultText와 AUTO◇ pitch가 반영된 rawText 합성용 입력 상태
+ */
+export function resolveAutoPitchInputs(
+  state: AppState,
+  input: DefaultNoteEditInput,
+  rowId: RowId | null,
+): DefaultNoteEditInput {
+  const nextInput = resolveAutoDefaultText(state, input, rowId);
+
+  if (!isAutoHarmonicAbsolutePitch(input.absolutePitch)) {
+    return nextInput;
+  }
+
+  if (rowId === null) {
+    return nextInput;
+  }
+
+  const row = state.document.indexes.rowById.get(rowId);
+
+  if (row?.type !== "note") {
+    return nextInput;
+  }
+
+  const absolutePitch = resolveAutoHarmonicAbsolutePitch(row.midi);
+
+  return {
+    ...nextInput,
+    absolutePitch: absolutePitch ?? AUTO_HARMONIC_2OCTAVE_OUT_OF_RANGE,
   };
 }
 
@@ -85,6 +151,12 @@ export function resolveAutoDefaultText(
  * - 반환값 : 없음
  */
 export function populateAbsolutePitchOptions(select: HTMLSelectElement): void {
+  const autoHarmonicOption = document.createElement("option");
+
+  autoHarmonicOption.value = AUTO_HARMONIC_2OCTAVE_ABSOLUTE_PITCH;
+  autoHarmonicOption.textContent = "AUTO◇ +2oct";
+  select.appendChild(autoHarmonicOption);
+
   for (let midi = 127; midi >= 1; midi -= 1) {
     const option = document.createElement("option");
 

@@ -146,10 +146,11 @@
                         Video
                         <input class="youtube-video-input" type="text" maxlength="128" placeholder="URL or ID">
                     </label>
-                    <label class="compact-field">
+                    <label class="compact-field" title="YouTube sync can vary by device and browser. Adjust the offset on this device.">
                         Offset (ms)
-                        <input class="youtube-offset-input" type="number" value="0" min="-60000" max="60000" step="100">
+                        <input class="youtube-offset-input" type="number" value="0" min="-60000" max="60000" step="100" aria-describedby="youtube-offset-help">
                     </label>
+                    <span id="youtube-offset-help" class="visually-hidden">YouTube sync can vary by device and browser. Adjust the offset on this device.</span>
                     <button class="youtube-reload-button" type="button">Reload</button>
                     <span class="status-pill youtube-status">No video</span>
                 </div>

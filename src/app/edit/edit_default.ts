@@ -3,6 +3,11 @@
  * defaultText와 후속 modifier 조합은 이 모듈에 모은다.
  */
 
+import {
+  AUTO_HARMONIC_2OCTAVE_ABSOLUTE_PITCH,
+  AUTO_HARMONIC_2OCTAVE_OUT_OF_RANGE,
+} from "../pitch_label";
+
 const DEFAULT_TEXT_ESCAPE_CHARS = new Set(["\\", "/", "@", "|", "(", ")", "-", "~"]);
 const COMMENT_TEXT_ESCAPE_CHARS = new Set(["\\", "/", "@", "|", "(", ")", "-", "~"]);
 
@@ -152,6 +157,13 @@ export function hasEffectiveAbsolutePitch(value: string): boolean {
     return false;
   }
 
+  if (
+    value === AUTO_HARMONIC_2OCTAVE_ABSOLUTE_PITCH ||
+    value === AUTO_HARMONIC_2OCTAVE_OUT_OF_RANGE
+  ) {
+    return false;
+  }
+
   return Number.parseInt(value, 10) !== 0;
 }
 
@@ -191,6 +203,14 @@ export function validateDefaultNoteEditInput(input: DefaultNoteEditInput): strin
 
   if (input.gliss.kind === "holdStart") {
     return null;
+  }
+
+  if (input.absolutePitch === AUTO_HARMONIC_2OCTAVE_ABSOLUTE_PITCH) {
+    return "AUTO◇ requires a note row selection.";
+  }
+
+  if (input.absolutePitch === AUTO_HARMONIC_2OCTAVE_OUT_OF_RANGE) {
+    return "AUTO◇ pitch exceeds MIDI range.";
   }
 
   if (!isValidAbsolutePitch(input.absolutePitch)) {

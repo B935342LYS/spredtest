@@ -158,6 +158,14 @@ export function applyScoreCellRawTextBatch(
         message: `Cell rawText must be ${MAX_CELL_RAW_TEXT_LENGTH} characters or fewer.`,
       };
     }
+
+    if (isProtectedGlobalStartCellDelete(edit)) {
+      return {
+        ok: false,
+        level: "warning",
+        message: "Global row column 0 values can be changed but cannot be deleted.",
+      };
+    }
   }
 
   const nextScore = cloneScoreFileForTextEdits(score, edits);
@@ -200,6 +208,17 @@ type GroupedScoreTextEdits = {
   globalEdits: ScoreTextEdit[];
   deleteCount: number;
 };
+
+/**
+ * 전역 행의 첫 열 값을 삭제하려는 edit인지 확인한다.
+ * - 인수 : edit : 적용할 score cell 편집 명령
+ * - 반환값 : global row col 0 삭제이면 true
+ */
+function isProtectedGlobalStartCellDelete(edit: ScoreTextEdit): boolean {
+  return edit.selection.rowKind === "global" &&
+    edit.selection.col === 0 &&
+    edit.rawText.trim().length === 0;
+}
 
 /**
  * score text edit batch를 적용 대상별로 묶는다.

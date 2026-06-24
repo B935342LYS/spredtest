@@ -14,7 +14,7 @@ import {
   resolveTupletHeadPlacementHit,
   setActiveTupletSlotText,
 } from "./edit_controller";
-import { resolveAutoDefaultText } from "../pitch_label";
+import { resolveAutoPitchInputs } from "../pitch_label";
 import type { ScoreTextEdit } from "./edit_apply";
 import { composeEditRawText } from "./edit_core";
 import { composeNumberRawTextForHit } from "./edit_number";
@@ -183,7 +183,7 @@ export function composeSingleEditForHit(
         })
       : composeEditRawText({
           kind: "default",
-          input: resolveAutoDefaultText(state, mode.tool.input, hit.rowId),
+          input: resolveAutoPitchInputs(state, mode.tool.input, hit.rowId),
         });
 
   if (editRawText.kind === "blocked") {
@@ -308,7 +308,7 @@ export function composeDragRawTextForHit(
 
   const editRawText = composeEditRawText({
     kind: "default",
-    input: resolveAutoDefaultText(state, mode.tool.input, hit.rowId),
+    input: resolveAutoPitchInputs(state, mode.tool.input, hit.rowId),
   });
 
   if (editRawText.kind === "blocked") {

@@ -19,7 +19,7 @@ import type {
   UiStatusMessage,
 } from "./app_types";
 import { composeEditRawText } from "./edit/edit_core";
-import { resolveAutoDefaultText } from "./pitch_label";
+import { resolveAutoPitchInputs } from "./pitch_label";
 import { isTrackId } from "../track/track_control";
 
 /**
@@ -123,7 +123,7 @@ export function syncCurrentRawTextPreview(dom: AppDom, state: AppState): void {
       })
     : composeEditRawText({
         kind: "default",
-        input: resolveAutoDefaultText(
+        input: resolveAutoPitchInputs(
           state,
           state.mode.tool.input,
           state.selection?.rowId ?? null,
