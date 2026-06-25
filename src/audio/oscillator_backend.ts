@@ -50,6 +50,11 @@ const TREMOLO_GATE_RAMP_SECONDS = 0.002;
 const MAX_ACTIVE_VOICES = 256;
 const MAX_TREMOLO_PULSES = 2048;
 
+type EdgeEnvelope = {
+  attackEndTime: number;
+  releaseStartTime: number;
+};
+
 /**
  * MIDI note number와 cent offset을 주파수로 변환한다.
  * - 인수 : midi : MIDI note number. A4는 69이다.
@@ -202,16 +207,14 @@ export function createOscillatorBackend(
     applyGainScaleAutomation(event, scaleGain, startTime, endTime);
 
     // 기본 note envelope는 tremolo gate와 분리해 note 전체 attack/release만 담당한다.
-    gain.gain.setValueAtTime(SILENT_GAIN, startTime);
-    gain.gain.linearRampToValueAtTime(
+    scheduleEdgeGainEnvelope(
+      gain.gain,
+      startTime,
+      endTime,
       event.velocity,
-      startTime + Math.min(attackSeconds, durationSeconds / 2),
+      attackSeconds,
+      releaseSeconds,
     );
-    gain.gain.setValueAtTime(
-      event.velocity,
-      Math.max(startTime, endTime - releaseSeconds),
-    );
-    gain.gain.linearRampToValueAtTime(SILENT_GAIN, endTime);
 
     if (tremoloGain !== null) {
       oscillator.connect(tremoloGain);
@@ -288,16 +291,14 @@ export function createOscillatorBackend(
     applyGainScaleAutomation(event, scaleGain, startTime, endTime);
 
     // 단독 gliss fallback은 note와 같은 edge fade만 적용하고 내부 overlap은 사용하지 않는다.
-    gain.gain.setValueAtTime(SILENT_GAIN, startTime);
-    gain.gain.linearRampToValueAtTime(
+    scheduleEdgeGainEnvelope(
+      gain.gain,
+      startTime,
+      endTime,
       event.velocity,
-      startTime + fadeSeconds,
+      fadeSeconds,
+      fadeSeconds,
     );
-    gain.gain.setValueAtTime(
-      event.velocity,
-      Math.max(startTime + fadeSeconds, endTime - fadeSeconds),
-    );
-    gain.gain.linearRampToValueAtTime(SILENT_GAIN, endTime);
 
     if (tremoloGain !== null) {
       oscillator.connect(tremoloGain);
@@ -364,16 +365,14 @@ export function createOscillatorBackend(
     applyGainScaleAutomation(event, scaleGain, startTime, endTime);
 
     // chain 전체의 시작과 끝에만 fade를 적용해 내부 anchor의 발음 단절을 피한다.
-    gain.gain.setValueAtTime(SILENT_GAIN, startTime);
-    gain.gain.linearRampToValueAtTime(
+    scheduleEdgeGainEnvelope(
+      gain.gain,
+      startTime,
+      endTime,
       event.velocity,
-      startTime + fadeSeconds,
+      fadeSeconds,
+      fadeSeconds,
     );
-    gain.gain.setValueAtTime(
-      event.velocity,
-      Math.max(startTime + fadeSeconds, endTime - fadeSeconds),
-    );
-    gain.gain.linearRampToValueAtTime(SILENT_GAIN, endTime);
 
     if (tremoloGain !== null) {
       oscillator.connect(tremoloGain);
@@ -771,6 +770,73 @@ function scheduleTremoloGate(
   if (restoreToUnity) {
     gain.linearRampToValueAtTime(1, Math.min(endTime + rampSeconds, endTime + 0.01));
   }
+}
+
+/**
+ * 짧은 note/gliss에서도 시간이 역전되지 않는 edge gain envelope를 예약한다.
+ * - 인수 : gain : event 전체 envelope를 담당하는 GainNode AudioParam
+ * - 인수 : startTime : event 시작 audio time
+ * - 인수 : endTime : event 종료 audio time
+ * - 인수 : velocity : sustain gain 값
+ * - 인수 : requestedAttackSeconds : 요청된 attack 길이
+ * - 인수 : requestedReleaseSeconds : 요청된 release 길이
+ * - 반환값 : 없음
+ */
+function scheduleEdgeGainEnvelope(
+  gain: AudioParam,
+  startTime: number,
+  endTime: number,
+  velocity: number,
+  requestedAttackSeconds: number,
+  requestedReleaseSeconds: number,
+): void {
+  if (endTime <= startTime) {
+    return;
+  }
+
+  const envelope = createEdgeEnvelope(
+    startTime,
+    endTime,
+    requestedAttackSeconds,
+    requestedReleaseSeconds,
+  );
+
+  gain.setValueAtTime(SILENT_GAIN, startTime);
+  gain.linearRampToValueAtTime(velocity, envelope.attackEndTime);
+  gain.setValueAtTime(velocity, envelope.releaseStartTime);
+  gain.linearRampToValueAtTime(SILENT_GAIN, endTime);
+}
+
+/**
+ * attack/release automation 시간이 항상 단조 증가하도록 envelope 경계를 만든다.
+ * - 인수 : startTime : event 시작 audio time
+ * - 인수 : endTime : event 종료 audio time
+ * - 인수 : requestedAttackSeconds : 요청된 attack 길이
+ * - 인수 : requestedReleaseSeconds : 요청된 release 길이
+ * - 반환값 : attack 종료와 release 시작 시간
+ */
+export function createEdgeEnvelope(
+  startTime: number,
+  endTime: number,
+  requestedAttackSeconds: number,
+  requestedReleaseSeconds: number,
+): EdgeEnvelope {
+  const durationSeconds = Math.max(0, endTime - startTime);
+  const attackSeconds = Math.min(
+    Math.max(0, requestedAttackSeconds),
+    durationSeconds / 2,
+  );
+  const releaseSeconds = Math.min(
+    Math.max(0, requestedReleaseSeconds),
+    Math.max(0, durationSeconds - attackSeconds),
+  );
+  const attackEndTime = startTime + attackSeconds;
+  const releaseStartTime = Math.max(attackEndTime, endTime - releaseSeconds);
+
+  return {
+    attackEndTime,
+    releaseStartTime,
+  };
 }
 
 /**
