@@ -304,6 +304,10 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
   dom.tupletModeToggle.classList.toggle("off", !isTupletMode);
   dom.tupletFinalizeButton.classList.toggle("on", isTupletTool);
   dom.tupletFinalizeButton.classList.toggle("off", !isTupletTool || isPletExtendTool);
+  dom.undoButton.disabled = isBusy || state.history.undoStack.length === 0;
+  dom.undoButton.title = state.history.undoStack.at(-1)?.label ?? "Undo";
+  dom.redoButton.disabled = isBusy || state.history.redoStack.length === 0;
+  dom.redoButton.title = state.history.redoStack.at(-1)?.label ?? "Redo";
   dom.jsonLoadButton.disabled = isBusy;
   dom.jsonDownloadButton.disabled = isBusy;
   dom.localSaveButton.disabled = isBusy;

@@ -34,6 +34,7 @@ import {
   applyScoreCellRawTextBatch,
 } from "./edit/edit_apply";
 import type { ScoreTextEdit } from "./edit/edit_apply";
+import { createUndoHistoryState } from "./edit/edit_history";
 import type {
   AppState,
   LoopState,
@@ -208,6 +209,7 @@ export function createInitialState(
     speedScale: 1,
     textOff: false,
     loop: { ...DEFAULT_LOOP_STATE },
+    history: createUndoHistoryState(),
     mode: { kind: "view" },
     busy: { kind: "idle" },
     statusMessage: {
@@ -351,6 +353,7 @@ export function applyExpandColumnsToState(
     parsed: artifacts.parsed,
     analysis: artifacts.analysis,
     renderInput: artifacts.renderInput,
+    history: createUndoHistoryState(state.history.maxEntries),
     loop: { ...DEFAULT_LOOP_STATE },
     statusMessage: {
       level: "info",
@@ -432,6 +435,7 @@ export function applyTrimRightColumnsToState(
     pastePreview: {
       anchorCol: null,
     },
+    history: createUndoHistoryState(state.history.maxEntries),
     loop: { ...DEFAULT_LOOP_STATE },
     statusMessage: {
       level: "info",
@@ -486,6 +490,7 @@ export function applyClearAllScoreToState(
     pastePreview: {
       anchorCol: null,
     },
+    history: createUndoHistoryState(state.history.maxEntries),
     loop: { ...DEFAULT_LOOP_STATE },
     statusMessage: {
       level: "info",
@@ -637,6 +642,7 @@ export function applyLayoutDraftEditToState(
     pastePreview: {
       anchorCol: null,
     },
+    history: createUndoHistoryState(state.history.maxEntries),
     loop: { ...DEFAULT_LOOP_STATE },
     statusMessage: {
       level: "info",

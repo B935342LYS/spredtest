@@ -46,7 +46,10 @@ export type PointerBindingSession = {
   setState(nextState: AppState): void;
   render(): void;
   getNotePreviewRuntime(): AppNotePreviewRuntime;
-  applyScoreTextEdits(edits: ScoreTextEdit[]): void;
+  applyScoreTextEdits(edits: ScoreTextEdit[], options?: { label?: string }): void;
+  beginScoreEditHistoryTransaction(label: string): void;
+  endScoreEditHistoryTransaction(): void;
+  cancelScoreEditHistoryTransaction(): void;
 };
 
 /** pointer binding이 edit panel 등 외부 입력 변경에 제공하는 control 객체. */
@@ -74,10 +77,38 @@ export function bindScorePointerControls(
   let lastPreviewHitKey: string | null = null;
   let lastPointerColumn: number | null = null;
   let dragEditRafId: number | null = null;
+  let isDragHistoryTransactionOpen = false;
   const pendingDragEdits = new Map<string, ScoreTextEdit>();
 
   const resetRepeatedClickCycle = (): void => {
     repeatedClickCycle = null;
+  };
+
+  const beginDragHistoryTransaction = (): void => {
+    if (isDragHistoryTransactionOpen) {
+      return;
+    }
+
+    isDragHistoryTransactionOpen = true;
+    session.beginScoreEditHistoryTransaction("Drag edit");
+  };
+
+  const endDragHistoryTransaction = (): void => {
+    if (!isDragHistoryTransactionOpen) {
+      return;
+    }
+
+    isDragHistoryTransactionOpen = false;
+    session.endScoreEditHistoryTransaction();
+  };
+
+  const cancelDragHistoryTransaction = (): void => {
+    if (!isDragHistoryTransactionOpen) {
+      return;
+    }
+
+    isDragHistoryTransactionOpen = false;
+    session.cancelScoreEditHistoryTransaction();
   };
 
   const getSelectionForHit = (hit: ScoreHit): ScoreSelection => ({
@@ -352,7 +383,9 @@ export function bindScorePointerControls(
     });
     syncRangeSelectionOverlay(dom, session.getState());
     syncPastePreviewOverlay(dom, session.getState());
-    session.applyScoreTextEdits(result.edits);
+    session.applyScoreTextEdits(result.edits, {
+      label: `Delete ${result.edits.length} cells`,
+    });
   };
 
   const copyRangeSelection = (): void => {
@@ -428,7 +461,9 @@ export function bindScorePointerControls(
     });
     syncRangeSelectionOverlay(dom, session.getState());
     syncPastePreviewOverlay(dom, session.getState());
-    session.applyScoreTextEdits(result.edits);
+    session.applyScoreTextEdits(result.edits, {
+      label: `Paste ${result.edits.length} cells`,
+    });
   };
 
   const applyLoopPickForHit = (state: AppState, hit: ScoreHit): boolean => {
@@ -646,6 +681,7 @@ export function bindScorePointerControls(
       dragEdit.isDragging = true;
       startedDragThisMove = true;
       resetRepeatedClickCycle();
+      beginDragHistoryTransaction();
       if (dragEdit.startHit !== null) {
         const startEdits = addDragEditForHit(dragEdit, dragEdit.startHit, {
           getSelectionForHit,
@@ -716,6 +752,7 @@ export function bindScorePointerControls(
 
     if (completedDrag.isDragging) {
       flushPendingDragEdits();
+      endDragHistoryTransaction();
       resetNotePreviewHit();
       return;
     }
@@ -744,6 +781,7 @@ export function bindScorePointerControls(
 
     dragEdit = null;
     flushPendingDragEdits();
+    endDragHistoryTransaction();
     resetNotePreviewHit();
   });
 

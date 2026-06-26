@@ -104,6 +104,8 @@ export function collectAppDom(): AppDom {
     numberRawInput: queryElement(".number-raw-input", HTMLInputElement),
     numberRampButtons,
     currentRawTextPreview: queryElement(".current-raw-text-preview", HTMLElement),
+    undoButton: queryElement(".undo-button", HTMLButtonElement),
+    redoButton: queryElement(".redo-button", HTMLButtonElement),
     jsonLoadButton: queryElement(".json-load-button", HTMLButtonElement),
     jsonDownloadButton: queryElement(".json-download-button", HTMLButtonElement),
     jsonLoadInput: queryElement(".json-load-input", HTMLInputElement),

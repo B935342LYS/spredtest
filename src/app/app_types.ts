@@ -16,6 +16,7 @@ import type {
   CanvasScoreLayout,
 } from "../renderer/canvas_types";
 import type { DefaultNoteEditInput } from "./edit/edit_default";
+import type { ScoreEditSelection } from "./edit/edit_apply";
 import type { TupletEditDraft } from "./edit/edit_tuplet";
 import type { LayoutDraftBundle } from "./layout/layout_types";
 
@@ -116,6 +117,27 @@ export type LoopState = {
   pickMode: LoopPickMode | null;
 };
 
+/** undo/redo가 복원할 단일 cell rawText 변경 기록. */
+export type CellHistoryPatch = {
+  selection: ScoreEditSelection;
+  beforeRawText: string | null;
+  afterRawText: string | null;
+};
+
+/** 사용자의 한 번의 score edit 의도를 되돌리기 위한 history entry. */
+export type UndoHistoryEntry = {
+  id: string;
+  label: string;
+  patches: CellHistoryPatch[];
+};
+
+/** score JSON에 저장하지 않는 app session용 undo/redo stack 상태. */
+export type UndoHistoryState = {
+  undoStack: UndoHistoryEntry[];
+  redoStack: UndoHistoryEntry[];
+  maxEntries: number;
+};
+
 /** 문서, 파생 산출물, UI 모드를 함께 보관하는 앱 상태. */
 export type AppState = {
   document: RuntimeDocument;
@@ -129,6 +151,7 @@ export type AppState = {
   speedScale: number;
   textOff: boolean;
   loop: LoopState;
+  history: UndoHistoryState;
   mode: AppMode;
   busy: AppBusyState;
   statusMessage: UiStatusMessage;
@@ -168,6 +191,8 @@ export type AppDom = {
   numberRawInput: HTMLInputElement;
   numberRampButtons: HTMLButtonElement[];
   currentRawTextPreview: HTMLElement;
+  undoButton: HTMLButtonElement;
+  redoButton: HTMLButtonElement;
   jsonLoadButton: HTMLButtonElement;
   jsonDownloadButton: HTMLButtonElement;
   jsonLoadInput: HTMLInputElement;

@@ -12,6 +12,14 @@ import { bindFileControls } from "./app_file_binding";
 import { bindViewControls } from "./app_view_binding";
 import type { ScoreTextEdit } from "./edit/edit_apply";
 import {
+  buildCellHistoryPatches,
+  createScoreTextEditsFromHistoryPatches,
+  createUndoHistoryEntryId,
+  popRedoHistoryEntry,
+  popUndoHistoryEntry,
+  pushUndoHistoryEntry,
+} from "./edit/edit_history";
+import {
   createScoreTextEditPartialPlan,
   getScoreTextEditRedrawScope,
 } from "../orchestration/partial_rebuild/partial_rebuild_app_plan";
@@ -49,7 +57,14 @@ import {
   bindYoutubeControls,
   type YoutubePlaybackControl,
 } from "./youtube/youtube_binding";
+import type { ScoreFile } from "../core/score/types";
 import templateScoreJson from "../assets/templates/default-score.json?raw";
+
+type ScoreEditHistoryTransaction = {
+  label: string;
+  beforeScore: ScoreFile;
+  edits: ScoreTextEdit[];
+};
 
 /**
  * sample JSON을 로드하고 base canvas renderer를 실행한다.
@@ -78,6 +93,7 @@ async function boot(): Promise<void> {
   let youtubeControl: YoutubePlaybackControl;
   let stopPlaybackAnimation = (): void => {};
   let resetRepeatedClickCycle = (): void => {};
+  let activeHistoryTransaction: ScoreEditHistoryTransaction | null = null;
 
   const render = (): void => {
     state = renderApp(dom, state);
@@ -155,11 +171,20 @@ async function boot(): Promise<void> {
     notePreviewRuntime = createAppNotePreviewRuntime(dom);
   };
 
-  const applyScoreTextEdits = (edits: ScoreTextEdit[]): void => {
+  const applyScoreTextEdits = (
+    edits: ScoreTextEdit[],
+    options: {
+      label?: string;
+      recordHistory?: boolean;
+      statusText?: string;
+    } = {},
+  ): void => {
     if (edits.length === 0) {
       return;
     }
 
+    const shouldRecordHistory = options.recordHistory !== false &&
+      activeHistoryTransaction === null;
     const previousState = state;
 
     state = {
@@ -171,6 +196,38 @@ async function boot(): Promise<void> {
 
     // 모아둔 rawText 편집을 하나의 full rebuild 경로로 넘겨 드래그 입력 중 rebuild 반복을 피한다.
     state = applyRawTextBatchEditToState(state, edits);
+
+    if (activeHistoryTransaction !== null && options.recordHistory !== false) {
+      activeHistoryTransaction.edits.push(...edits);
+    }
+
+    if (shouldRecordHistory) {
+      const patches = buildCellHistoryPatches(
+        previousState.document.score,
+        state.document.score,
+        edits,
+      );
+
+      state = {
+        ...state,
+        history: pushUndoHistoryEntry(state.history, {
+          id: createUndoHistoryEntryId(),
+          label: options.label ?? createDefaultHistoryLabel(edits),
+          patches,
+        }),
+      };
+    }
+
+    if (options.statusText !== undefined) {
+      state = {
+        ...state,
+        statusMessage: {
+          level: "info",
+          text: options.statusText,
+        },
+      };
+    }
+
     const partialPlan = createScoreTextEditPartialPlan({
       previousState,
       nextState: state,
@@ -190,6 +247,113 @@ async function boot(): Promise<void> {
 
     renderAfterScoreTextEdit(edits, partialPlan);
     resetPlaybackForCurrentStatePreservingPosition();
+  };
+
+  const beginScoreEditHistoryTransaction = (label: string): void => {
+    if (activeHistoryTransaction !== null) {
+      return;
+    }
+
+    activeHistoryTransaction = {
+      label,
+      beforeScore: state.document.score,
+      edits: [],
+    };
+  };
+
+  const endScoreEditHistoryTransaction = (): void => {
+    if (activeHistoryTransaction === null) {
+      return;
+    }
+
+    const transaction = activeHistoryTransaction;
+
+    activeHistoryTransaction = null;
+
+    if (transaction.edits.length === 0) {
+      return;
+    }
+
+    const patches = buildCellHistoryPatches(
+      transaction.beforeScore,
+      state.document.score,
+      transaction.edits,
+    );
+
+    state = {
+      ...state,
+      history: pushUndoHistoryEntry(state.history, {
+        id: createUndoHistoryEntryId("drag"),
+        label: transaction.label,
+        patches,
+      }),
+    };
+    syncLeftStatus(dom, state);
+    syncUiControls(dom, state);
+  };
+
+  const cancelScoreEditHistoryTransaction = (): void => {
+    activeHistoryTransaction = null;
+  };
+
+  const applyUndo = (): void => {
+    if (state.busy.kind !== "idle") {
+      return;
+    }
+
+    const result = popUndoHistoryEntry(state.history);
+
+    if (result.entry === null) {
+      return;
+    }
+
+    state = {
+      ...state,
+      history: result.history,
+      selection: null,
+      rangeSelection: null,
+      rangeClipboard: null,
+      pastePreview: {
+        anchorCol: null,
+      },
+    };
+    applyScoreTextEdits(
+      createScoreTextEditsFromHistoryPatches(result.entry.patches, "before"),
+      {
+        recordHistory: false,
+        statusText: `Undid: ${result.entry.label}`,
+      },
+    );
+  };
+
+  const applyRedo = (): void => {
+    if (state.busy.kind !== "idle") {
+      return;
+    }
+
+    const result = popRedoHistoryEntry(state.history);
+
+    if (result.entry === null) {
+      return;
+    }
+
+    state = {
+      ...state,
+      history: result.history,
+      selection: null,
+      rangeSelection: null,
+      rangeClipboard: null,
+      pastePreview: {
+        anchorCol: null,
+      },
+    };
+    applyScoreTextEdits(
+      createScoreTextEditsFromHistoryPatches(result.entry.patches, "after"),
+      {
+        recordHistory: false,
+        statusText: `Redid: ${result.entry.label}`,
+      },
+    );
   };
 
   const loadScoreJsonText = (jsonText: string, sourceLabel: string): void => {
@@ -240,6 +404,9 @@ async function boot(): Promise<void> {
     resetPlaybackForCurrentStatePreservingPosition,
     resetNotePreviewForCurrentDom,
     applyScoreTextEdits,
+    beginScoreEditHistoryTransaction,
+    endScoreEditHistoryTransaction,
+    cancelScoreEditHistoryTransaction,
     get youtubeControl(): YoutubePlaybackControl {
       return youtubeControl;
     },
@@ -248,6 +415,34 @@ async function boot(): Promise<void> {
   render();
   syncPlaybackUi(dom, state, playbackRuntime);
   setStatus(0, "template auto load: done");
+
+  dom.undoButton.addEventListener("click", () => {
+    applyUndo();
+  });
+  dom.redoButton.addEventListener("click", () => {
+    applyRedo();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (isEditableKeyboardTarget(event.target)) {
+      return;
+    }
+
+    const key = event.key.toLowerCase();
+
+    if ((event.ctrlKey || event.metaKey) && key === "z" && !event.shiftKey) {
+      event.preventDefault();
+      applyUndo();
+      return;
+    }
+
+    if (
+      ((event.ctrlKey || event.metaKey) && event.shiftKey && key === "z") ||
+      (event.ctrlKey && key === "y")
+    ) {
+      event.preventDefault();
+      applyRedo();
+    }
+  }, { capture: true });
 
   youtubeControl = bindYoutubeControls(dom, appSession);
   bindViewControls(dom, appSession);
@@ -261,6 +456,39 @@ async function boot(): Promise<void> {
       resetRepeatedClickCycle();
     },
   });
+}
+
+/**
+ * edit batch의 기본 undo history label을 만든다.
+ * - 인수 : edits : 적용된 score text edit 목록
+ * - 반환값 : Undo button tooltip과 status에 사용할 짧은 label
+ */
+function createDefaultHistoryLabel(edits: readonly ScoreTextEdit[]): string {
+  if (edits.length === 1) {
+    const edit = edits[0];
+
+    return edit === undefined
+      ? "Edit cell"
+      : `Edit ${edit.selection.rowId}:${edit.selection.col}`;
+  }
+
+  return `Edit ${edits.length} cells`;
+}
+
+/**
+ * keyboard shortcut이 텍스트 입력 DOM을 가로채면 안 되는지 확인한다.
+ * - 인수 : target : keyboard event target
+ * - 반환값 : 텍스트 편집 대상 여부
+ */
+function isEditableKeyboardTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target.isContentEditable;
 }
 
 /**
