@@ -20,6 +20,31 @@ export const MAX_SCORE_JSON_BYTES = 8 * 1024 * 1024;
 /** localStorage에 저장할 Score JSON 최대 UTF-8 byte 수. */
 export const MAX_LOCAL_SCORE_JSON_BYTES = 3 * 1024 * 1024;
 
+/** YouTube offset 최소 ms 값. */
+export const MIN_YOUTUBE_OFFSET_MS = -60000;
+
+/** YouTube offset 최대 ms 값. */
+export const MAX_YOUTUBE_OFFSET_MS = 60000;
+
+/** YouTube offset UI step ms 값. */
+export const YOUTUBE_OFFSET_STEP_MS = 100;
+
+/**
+ * YouTube offset 값을 저장 가능한 ms 범위 안으로 제한한다.
+ * - 인수 : offsetMs : 사용자가 입력했거나 JSON에서 읽은 offset ms
+ * - 반환값 : 허용 범위 안으로 제한된 정수 offset ms
+ */
+export function clampYoutubeOffsetMs(offsetMs: number): number {
+  if (!Number.isFinite(offsetMs)) {
+    return 0;
+  }
+
+  return Math.min(
+    Math.max(Math.trunc(offsetMs), MIN_YOUTUBE_OFFSET_MS),
+    MAX_YOUTUBE_OFFSET_MS,
+  );
+}
+
 /**
  * UTF-8 기준 byte 길이를 계산한다.
  * - 인수 : text : byte 길이를 계산할 문자열

@@ -15,9 +15,11 @@ import type {
 } from "./types";
 import {
   MAX_CELL_RAW_TEXT_LENGTH,
+  MAX_YOUTUBE_OFFSET_MS,
   MAX_ROW_DEFINITIONS,
   MAX_ROW_HEIGHT,
   MAX_SCORE_COLUMN_COUNT,
+  MIN_YOUTUBE_OFFSET_MS,
 } from "./score_limits";
 
 /**
@@ -199,6 +201,38 @@ function validateRequiredTopLevelFields(
 }
 
 /**
+ * musicData.youtube 저장 필드의 최소 형태와 offset 범위를 확인한다.
+ * - 인수 : musicData : ScoreFile 후보의 musicData 객체
+ * - 반환값 : 필드 형태 오류 또는 통과 결과
+ */
+function validateYoutubeSyncShape(musicData: Record<string, unknown>): ScoreValidationError | null {
+  if (!isRecord(musicData.youtube)) {
+    return invalidShape("musicData.youtube must be an object.", "musicData.youtube");
+  }
+
+  const youtube = musicData.youtube;
+  const offsetMs = youtube.offsetMs;
+
+  if (typeof youtube.videoId !== "string") {
+    return invalidShape("musicData.youtube.videoId must be a string.", "musicData.youtube.videoId");
+  }
+
+  if (
+    typeof offsetMs !== "number" ||
+    !Number.isInteger(offsetMs) ||
+    offsetMs < MIN_YOUTUBE_OFFSET_MS ||
+    offsetMs > MAX_YOUTUBE_OFFSET_MS
+  ) {
+    return invalidShape(
+      `musicData.youtube.offsetMs must be an integer from ${MIN_YOUTUBE_OFFSET_MS} to ${MAX_YOUTUBE_OFFSET_MS}.`,
+      "musicData.youtube.offsetMs",
+    );
+  }
+
+  return null;
+}
+
+/**
  * 후속 검증에서 직접 접근하는 주요 필드의 기본 형태를 확인한다.
  * - 인수 : score : 필수 최상위 필드 존재 확인을 통과한 ScoreFile 후보 객체
  * - 반환값 : ScoreValidationError | null : 필드 형태 오류 또는 통과 결과
@@ -214,6 +248,11 @@ function validateBasicShapes(
   // musicData는 표시용 메타데이터 묶음이므로 객체 형태가 필요하다.
   if (!isRecord(score.musicData)) {
     return invalidShape("musicData must be an object.", "musicData");
+  }
+
+  const youtubeSyncError = validateYoutubeSyncShape(score.musicData);
+  if (youtubeSyncError !== null) {
+    return youtubeSyncError;
   }
 
   // instData.strings에 접근하기 전에 instData 자체가 객체인지 먼저 확인한다.

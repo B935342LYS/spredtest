@@ -10,6 +10,12 @@ import type {
 import { syncLeftStatus } from "../app_ui_sync";
 import { applyYoutubeSyncEditToState } from "../app_runtime";
 import { readIntegerInput } from "../app_view_actions";
+import {
+  clampYoutubeOffsetMs,
+  MAX_YOUTUBE_OFFSET_MS,
+  MIN_YOUTUBE_OFFSET_MS,
+  YOUTUBE_OFFSET_STEP_MS,
+} from "../../core/score/score_limits";
 import { createYoutubePlayer } from "./youtube_player";
 import {
   isYoutubeBeforeVideoStart,
@@ -25,6 +31,10 @@ import { parseYoutubeVideoId } from "./youtube_url";
 
 const DRIFT_CHECK_INTERVAL_MS = 1000;
 const SEEK_COOLDOWN_MS = 500;
+
+type YoutubeSeekOptions = {
+  forceSeek?: boolean;
+};
 
 /** YouTube binding이 app 상태와 playback runtime을 조회하기 위한 session 입력. */
 export type YoutubeBindingSession = {
@@ -59,6 +69,8 @@ export function bindYoutubeControls(
   let driftIntervalId: ReturnType<typeof setInterval> | null = null;
   let isBeforeVideoStart = false;
   let lastSeekAtMs = 0;
+
+  syncYoutubeOffsetInputBounds();
 
   const fillInputsFromScore = (): void => {
     const youtube = session.getState().document.score.musicData.youtube;
@@ -160,7 +172,7 @@ export function bindYoutubeControls(
     }
 
     if (session.getPlaybackRuntime().controller.isPlaying()) {
-      const canPlayVideo = syncPlayerToCurrentScoreTime();
+      const canPlayVideo = syncPlayerToCurrentScoreTime({ forceSeek: true });
 
       if (canPlayVideo) {
         player?.play();
@@ -187,7 +199,7 @@ export function bindYoutubeControls(
         }
 
         if (session.getPlaybackRuntime().controller.isPlaying()) {
-          const canPlayVideo = syncPlayerToCurrentScoreTime();
+          const canPlayVideo = syncPlayerToCurrentScoreTime({ forceSeek: true });
 
           if (canPlayVideo) {
             player?.play();
@@ -223,7 +235,7 @@ export function bindYoutubeControls(
         return;
       }
 
-      const canPlayVideo = syncPlayerToCurrentScoreTime();
+      const canPlayVideo = syncPlayerToCurrentScoreTime({ forceSeek: true });
 
       if (canPlayVideo) {
         player.play();
@@ -237,7 +249,7 @@ export function bindYoutubeControls(
     },
     stop(): void {
       stopDriftCheck();
-      syncPlayerToScoreSeconds(0);
+      syncPlayerToScoreSeconds(0, { forceSeek: true });
       player?.pause();
     },
     seekToCurrentScoreTime(): void {
@@ -245,7 +257,7 @@ export function bindYoutubeControls(
         return;
       }
 
-      syncPlayerToCurrentScoreTime();
+      syncPlayerToCurrentScoreTime({ forceSeek: true });
     },
     dispose(): void {
       stopDriftCheck();
@@ -278,19 +290,24 @@ export function bindYoutubeControls(
    * - 인수 : 없음
    * - 반환값 : 없음
    */
-  function syncPlayerToCurrentScoreTime(): boolean {
+  function syncPlayerToCurrentScoreTime(options: YoutubeSeekOptions = {}): boolean {
     const scoreSeconds = session.getPlaybackRuntime().controller.getCurrentScoreSeconds();
 
-    return syncPlayerToScoreSeconds(scoreSeconds);
+    return syncPlayerToScoreSeconds(scoreSeconds, options);
   }
 
   /**
    * 지정한 score time 기준으로 YouTube player를 seek한다.
    * - 인수 : scoreSeconds : 기준 score seconds
+   * - 인수 : options : 명시적 사용자 seek인지 여부
    * - 반환값 : YouTube 영상을 지금 재생할 수 있는지 여부
    */
-  function syncPlayerToScoreSeconds(scoreSeconds: number): boolean {
+  function syncPlayerToScoreSeconds(
+    scoreSeconds: number,
+    options: YoutubeSeekOptions = {},
+  ): boolean {
     const youtube = session.getState().document.score.musicData.youtube;
+    const shouldForceSeek = options.forceSeek === true;
 
     if (player === null) {
       return false;
@@ -298,7 +315,7 @@ export function bindYoutubeControls(
 
     // 음수 offset으로 영상 시작 전이면 0초에 한 번만 정렬하고 score playback만 진행한다.
     if (isYoutubeBeforeVideoStart(scoreSeconds, youtube.offsetMs)) {
-      if (!isBeforeVideoStart) {
+      if (!isBeforeVideoStart || shouldForceSeek) {
         player.seekTo(0);
         lastSeekAtMs = Date.now();
       }
@@ -313,7 +330,7 @@ export function bindYoutubeControls(
 
     isBeforeVideoStart = false;
 
-    if (isCrossingStartBoundary || canSeekNow()) {
+    if (shouldForceSeek || isCrossingStartBoundary || canSeekNow()) {
       player.seekTo(youtubeSeconds);
       lastSeekAtMs = Date.now();
     }
@@ -372,6 +389,17 @@ export function bindYoutubeControls(
   }
 
   /**
+   * YouTube offset input의 HTML 범위 속성을 저장 정책 상수와 동기화한다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
+  function syncYoutubeOffsetInputBounds(): void {
+    dom.youtubeOffsetInput.min = String(MIN_YOUTUBE_OFFSET_MS);
+    dom.youtubeOffsetInput.max = String(MAX_YOUTUBE_OFFSET_MS);
+    dom.youtubeOffsetInput.step = String(YOUTUBE_OFFSET_STEP_MS);
+  }
+
+  /**
    * drift 확인 interval을 중지한다.
    * - 인수 : 없음
    * - 반환값 : 없음
@@ -415,11 +443,14 @@ function readYoutubeInputs(dom: AppDom, state: AppState): YoutubeSyncInput | nul
     dom.youtubeOffsetInput,
     state.document.score.musicData.youtube.offsetMs,
   );
+  const boundedOffsetMs = clampYoutubeOffsetMs(offsetMs);
+
+  dom.youtubeOffsetInput.value = String(boundedOffsetMs);
 
   if (rawVideoInput.length === 0) {
     return {
       videoId: "",
-      offsetMs,
+      offsetMs: boundedOffsetMs,
     };
   }
 
@@ -431,6 +462,6 @@ function readYoutubeInputs(dom: AppDom, state: AppState): YoutubeSyncInput | nul
 
   return {
     videoId,
-    offsetMs,
+    offsetMs: boundedOffsetMs,
   };
 }

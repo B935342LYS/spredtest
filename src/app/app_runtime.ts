@@ -46,6 +46,7 @@ import type { LayoutDraftBundle } from "./layout/layout_types";
 import { DEFAULT_ACTIVE_TRACK_IDS } from "../track/track_control";
 import { touchScoreUpdatedAt } from "./score_timestamp";
 import {
+  clampYoutubeOffsetMs,
   MAX_SCORE_COLUMN_COUNT,
 } from "../core/score/score_limits";
 
@@ -559,13 +560,14 @@ export function applyYoutubeSyncEditToState(
   videoId: string,
   offsetMs: number,
 ): AppState {
+  const boundedOffsetMs = clampYoutubeOffsetMs(offsetMs);
   const nextScore = touchScoreUpdatedAt({
     ...state.document.score,
     musicData: {
       ...state.document.score.musicData,
       youtube: {
         videoId,
-        offsetMs,
+        offsetMs: boundedOffsetMs,
       },
     },
   });
