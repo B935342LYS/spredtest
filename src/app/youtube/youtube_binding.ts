@@ -12,6 +12,7 @@ import { applyYoutubeSyncEditToState } from "../app_runtime";
 import { readIntegerInput } from "../app_view_actions";
 import { createYoutubePlayer } from "./youtube_player";
 import {
+  isYoutubeBeforeVideoStart,
   scoreSecondsToYoutubeSeconds,
   shouldResyncYoutubeDrift,
 } from "./youtube_sync";
@@ -23,6 +24,7 @@ import type {
 import { parseYoutubeVideoId } from "./youtube_url";
 
 const DRIFT_CHECK_INTERVAL_MS = 1000;
+const SEEK_COOLDOWN_MS = 500;
 
 /** YouTube binding이 app 상태와 playback runtime을 조회하기 위한 session 입력. */
 export type YoutubeBindingSession = {
@@ -55,6 +57,8 @@ export function bindYoutubeControls(
   let modeState: YoutubeModeState = { kind: "off" };
   let player: YoutubePlayerHandle | null = null;
   let driftIntervalId: ReturnType<typeof setInterval> | null = null;
+  let isBeforeVideoStart = false;
+  let lastSeekAtMs = 0;
 
   const fillInputsFromScore = (): void => {
     const youtube = session.getState().document.score.musicData.youtube;
@@ -67,6 +71,8 @@ export function bindYoutubeControls(
     stopDriftCheck();
     player?.dispose();
     player = null;
+    isBeforeVideoStart = false;
+    lastSeekAtMs = 0;
     dom.youtubeToggle.checked = false;
     fillInputsFromScore();
     syncYoutubeStatus("No video", "off");
@@ -76,6 +82,7 @@ export function bindYoutubeControls(
   const setYoutubeModeOff = (message: string, level: "off" | "error" = "off"): void => {
     stopDriftCheck();
     player?.pause();
+    isBeforeVideoStart = false;
     dom.youtubeToggle.checked = false;
     modeState = level === "error" ? { kind: "error", message } : { kind: "off" };
     syncYoutubeStatus(message, level);
@@ -153,7 +160,12 @@ export function bindYoutubeControls(
     }
 
     if (session.getPlaybackRuntime().controller.isPlaying()) {
-      player?.play();
+      const canPlayVideo = syncPlayerToCurrentScoreTime();
+
+      if (canPlayVideo) {
+        player?.play();
+      }
+
       startDriftCheck();
       return;
     }
@@ -175,7 +187,12 @@ export function bindYoutubeControls(
         }
 
         if (session.getPlaybackRuntime().controller.isPlaying()) {
-          player?.play();
+          const canPlayVideo = syncPlayerToCurrentScoreTime();
+
+          if (canPlayVideo) {
+            player?.play();
+          }
+
           startDriftCheck();
           return;
         }
@@ -206,8 +223,12 @@ export function bindYoutubeControls(
         return;
       }
 
-      syncPlayerToCurrentScoreTime();
-      player.play();
+      const canPlayVideo = syncPlayerToCurrentScoreTime();
+
+      if (canPlayVideo) {
+        player.play();
+      }
+
       startDriftCheck();
     },
     pause(): void {
@@ -257,21 +278,47 @@ export function bindYoutubeControls(
    * - 인수 : 없음
    * - 반환값 : 없음
    */
-  function syncPlayerToCurrentScoreTime(): void {
+  function syncPlayerToCurrentScoreTime(): boolean {
     const scoreSeconds = session.getPlaybackRuntime().controller.getCurrentScoreSeconds();
 
-    syncPlayerToScoreSeconds(scoreSeconds);
+    return syncPlayerToScoreSeconds(scoreSeconds);
   }
 
   /**
    * 지정한 score time 기준으로 YouTube player를 seek한다.
    * - 인수 : scoreSeconds : 기준 score seconds
-   * - 반환값 : 없음
+   * - 반환값 : YouTube 영상을 지금 재생할 수 있는지 여부
    */
-  function syncPlayerToScoreSeconds(scoreSeconds: number): void {
+  function syncPlayerToScoreSeconds(scoreSeconds: number): boolean {
     const youtube = session.getState().document.score.musicData.youtube;
 
-    player?.seekTo(scoreSecondsToYoutubeSeconds(scoreSeconds, youtube.offsetMs));
+    if (player === null) {
+      return false;
+    }
+
+    // 음수 offset으로 영상 시작 전이면 0초에 한 번만 정렬하고 score playback만 진행한다.
+    if (isYoutubeBeforeVideoStart(scoreSeconds, youtube.offsetMs)) {
+      if (!isBeforeVideoStart) {
+        player.seekTo(0);
+        lastSeekAtMs = Date.now();
+      }
+
+      player.pause();
+      isBeforeVideoStart = true;
+      return false;
+    }
+
+    const youtubeSeconds = scoreSecondsToYoutubeSeconds(scoreSeconds, youtube.offsetMs);
+    const isCrossingStartBoundary = isBeforeVideoStart;
+
+    isBeforeVideoStart = false;
+
+    if (isCrossingStartBoundary || canSeekNow()) {
+      player.seekTo(youtubeSeconds);
+      lastSeekAtMs = Date.now();
+    }
+
+    return true;
   }
 
   /**
@@ -290,10 +337,38 @@ export function bindYoutubeControls(
       const youtube = session.getState().document.score.musicData.youtube;
       const scoreSeconds = session.getPlaybackRuntime().controller.getCurrentScoreSeconds();
 
+      if (isYoutubeBeforeVideoStart(scoreSeconds, youtube.offsetMs)) {
+        syncPlayerToScoreSeconds(scoreSeconds);
+        return;
+      }
+
+      if (isBeforeVideoStart) {
+        const canPlayVideo = syncPlayerToScoreSeconds(scoreSeconds);
+
+        if (canPlayVideo) {
+          player.play();
+        }
+
+        return;
+      }
+
+      if (!canSeekNow()) {
+        return;
+      }
+
       if (shouldResyncYoutubeDrift(scoreSeconds, player.getCurrentTime(), youtube.offsetMs)) {
         syncPlayerToScoreSeconds(scoreSeconds);
       }
     }, DRIFT_CHECK_INTERVAL_MS);
+  }
+
+  /**
+   * 최근 seek 직후 YouTube iframe 반영 지연 중인지 확인한다.
+   * - 인수 : 없음
+   * - 반환값 : 새 seek를 보내도 되는지 여부
+   */
+  function canSeekNow(): boolean {
+    return Date.now() - lastSeekAtMs >= SEEK_COOLDOWN_MS;
   }
 
   /**
