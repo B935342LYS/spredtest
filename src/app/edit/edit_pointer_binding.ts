@@ -9,9 +9,14 @@ import type {
   ScoreSelection,
 } from "../app_types";
 import { handleScoreClick } from "./edit_controller";
-import { syncLeftStatus } from "../app_ui_sync";
+import {
+  syncLeftStatus,
+  syncPastePreviewOverlay,
+  syncRangeSelectionOverlay,
+} from "../app_ui_sync";
 import type { AppNotePreviewRuntime } from "../playback/app_note_preview";
 import { hitTestScoreCell } from "../score_hit_test";
+import { xToColumn } from "../../renderer/canvas_coordinate";
 import type { ScoreTextEdit } from "./edit_apply";
 import {
   composeDragRawTextForHit,
@@ -25,6 +30,12 @@ import {
   type DragEditState,
   type RepeatedClickCycleState,
 } from "./edit_pointer";
+import {
+  copyRangeSelectionToClipboard,
+  createDeleteEditsForRangeSelection,
+  createPasteEditsFromClipboard,
+  createScoreRangeSelection,
+} from "./edit_range_selection";
 
 const DRAG_START_DISTANCE_PX = 4;
 const NOTE_ROW_HIT_SLOP_PX = 14;
@@ -55,8 +66,13 @@ export function bindScorePointerControls(
 ): PointerBindingControl {
   let repeatedClickCycle: RepeatedClickCycleState | null = null;
   let dragEdit: DragEditState | null = null;
+  let rangeDrag: {
+    pointerId: number;
+    anchorHit: ScoreHit;
+  } | null = null;
   let suppressNextClick = false;
   let lastPreviewHitKey: string | null = null;
+  let lastPointerColumn: number | null = null;
   let dragEditRafId: number | null = null;
   const pendingDragEdits = new Map<string, ScoreTextEdit>();
 
@@ -142,6 +158,91 @@ export function bindScorePointerControls(
     });
   };
 
+  const getPointerColumn = (event: MouseEvent, state = session.getState()): number | null => {
+    if (state.layout === null) {
+      return null;
+    }
+
+    const rect = dom.scoreStage.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const col = Math.floor(xToColumn(x, state.layout));
+
+    if (x < 0 || x >= state.layout.scoreContentWidth || col < 0 || col >= state.layout.columnCount) {
+      return null;
+    }
+
+    return col;
+  };
+
+  const clearPastePreview = (): void => {
+    const state = session.getState();
+
+    if (state.pastePreview.anchorCol === null) {
+      return;
+    }
+
+    const nextState = {
+      ...state,
+      pastePreview: {
+        anchorCol: null,
+      },
+    };
+
+    session.setState(nextState);
+    syncPastePreviewOverlay(dom, nextState);
+  };
+
+  const clearPasteState = (): void => {
+    const state = session.getState();
+
+    if (state.rangeClipboard === null && state.pastePreview.anchorCol === null) {
+      return;
+    }
+
+    const nextState = {
+      ...state,
+      rangeClipboard: null,
+      pastePreview: {
+        anchorCol: null,
+      },
+    };
+
+    session.setState(nextState);
+    syncPastePreviewOverlay(dom, nextState);
+  };
+
+  const updatePastePreviewForPointer = (event: MouseEvent): void => {
+    const state = session.getState();
+    const col = getPointerColumn(event, state);
+
+    lastPointerColumn = col;
+
+    if (
+      state.mode.kind !== "edit" ||
+      state.busy.kind !== "idle" ||
+      state.rangeClipboard === null
+    ) {
+      if (state.pastePreview.anchorCol !== null) {
+        clearPastePreview();
+      }
+      return;
+    }
+
+    if (col === state.pastePreview.anchorCol) {
+      return;
+    }
+
+    const nextState = {
+      ...state,
+      pastePreview: {
+        anchorCol: col,
+      },
+    };
+
+    session.setState(nextState);
+    syncPastePreviewOverlay(dom, nextState);
+  };
+
   const resetNotePreviewHit = (): void => {
     lastPreviewHitKey = null;
   };
@@ -165,6 +266,169 @@ export function bindScorePointerControls(
 
     lastPreviewHitKey = previewHitKey;
     session.getNotePreviewRuntime().previewMidi(row.midi);
+  };
+
+  const setStatusMessage = (level: AppState["statusMessage"]["level"], text: string): void => {
+    session.setState({
+      ...session.getState(),
+      statusMessage: {
+        level,
+        text,
+      },
+    });
+    syncLeftStatus(dom, session.getState());
+  };
+
+  const updateRangeSelection = (anchorHit: ScoreHit, currentHit: ScoreHit): void => {
+    const state = session.getState();
+
+    if (state.layout === null) {
+      return;
+    }
+
+    const rangeSelection = createScoreRangeSelection(
+      state.layout,
+      state.activeTrackIds,
+      anchorHit,
+      currentHit,
+    );
+
+    if (rangeSelection === null) {
+      return;
+    }
+
+    const nextState: AppState = {
+      ...state,
+      rangeSelection,
+      pastePreview: {
+        anchorCol: null,
+      },
+      statusMessage: {
+        level: "info",
+        text: `Selected ${rangeSelection.rowIds.length} row(s), ${rangeSelection.endColExclusive - rangeSelection.startCol} col(s).`,
+      },
+    };
+
+    session.setState(nextState);
+    syncLeftStatus(dom, nextState);
+    syncRangeSelectionOverlay(dom, nextState);
+    syncPastePreviewOverlay(dom, nextState);
+  };
+
+  const deleteRangeSelection = (): void => {
+    const state = session.getState();
+
+    if (state.mode.kind !== "edit" || state.rangeSelection === null) {
+      return;
+    }
+
+    const result = createDeleteEditsForRangeSelection(
+      state.document.score,
+      state.rangeSelection,
+    );
+
+    if (result.edits.length === 0) {
+      const protectedText = result.protectedGlobalStartCellCount > 0
+        ? ` Protected ${result.protectedGlobalStartCellCount} required start cell(s).`
+        : "";
+
+      setStatusMessage("warning", `No selected cells to delete.${protectedText}`);
+      return;
+    }
+
+    session.setState({
+      ...state,
+      rangeSelection: null,
+      rangeClipboard: null,
+      pastePreview: {
+        anchorCol: null,
+      },
+      statusMessage: {
+        level: "info",
+        text: result.protectedGlobalStartCellCount > 0
+          ? `Deleting ${result.edits.length} cell(s). Protected ${result.protectedGlobalStartCellCount} required start cell(s).`
+          : `Deleting ${result.edits.length} selected cell(s).`,
+      },
+    });
+    syncRangeSelectionOverlay(dom, session.getState());
+    syncPastePreviewOverlay(dom, session.getState());
+    session.applyScoreTextEdits(result.edits);
+  };
+
+  const copyRangeSelection = (): void => {
+    const state = session.getState();
+
+    if (state.rangeSelection === null) {
+      return;
+    }
+
+    const rangeClipboard = copyRangeSelectionToClipboard(
+      state.document.score,
+      state.rangeSelection,
+    );
+    const anchorCol = lastPointerColumn ?? state.rangeSelection.startCol;
+
+    session.setState({
+      ...state,
+      rangeSelection: null,
+      rangeClipboard,
+      pastePreview: {
+        anchorCol,
+      },
+      statusMessage: {
+        level: "info",
+        text: `Copied ${rangeClipboard.cells.length} cell(s). Move mouse and press Ctrl+V to paste.`,
+      },
+    });
+    syncLeftStatus(dom, session.getState());
+    syncRangeSelectionOverlay(dom, session.getState());
+    syncPastePreviewOverlay(dom, session.getState());
+  };
+
+  const pasteRangeClipboard = (): void => {
+    const state = session.getState();
+
+    if (state.mode.kind !== "edit" || state.layout === null || state.rangeClipboard === null) {
+      return;
+    }
+
+    const anchorCol = state.pastePreview.anchorCol ??
+      state.rangeSelection?.startCol ??
+      state.selection?.col ??
+      null;
+
+    if (anchorCol === null) {
+      setStatusMessage("warning", "Paste needs a score column.");
+      return;
+    }
+
+    const result = createPasteEditsFromClipboard(
+      state.document.score,
+      state.layout,
+      state.rangeClipboard,
+      anchorCol,
+    );
+
+    if (result.edits.length === 0) {
+      setStatusMessage("warning", "Nothing to paste at this location.");
+      return;
+    }
+
+    session.setState({
+      ...state,
+      rangeSelection: null,
+      rangeClipboard: null,
+      pastePreview: {
+        anchorCol: null,
+      },
+      statusMessage: {
+        level: "info",
+        text: `Pasting ${result.edits.length} cell(s).`,
+      },
+    });
+    syncRangeSelectionOverlay(dom, session.getState());
+    syncPastePreviewOverlay(dom, session.getState());
+    session.applyScoreTextEdits(result.edits);
   };
 
   const applyLoopPickForHit = (state: AppState, hit: ScoreHit): boolean => {
@@ -208,6 +472,25 @@ export function bindScorePointerControls(
       forceDelete: boolean;
     },
   ): void => {
+    const currentState = session.getState();
+
+    if (
+      currentState.rangeSelection !== null ||
+      currentState.rangeClipboard !== null ||
+      currentState.pastePreview.anchorCol !== null
+    ) {
+      session.setState({
+        ...currentState,
+        rangeSelection: null,
+        rangeClipboard: null,
+        pastePreview: {
+          anchorCol: null,
+        },
+      });
+      syncRangeSelectionOverlay(dom, session.getState());
+      syncPastePreviewOverlay(dom, session.getState());
+    }
+
     const result = composeSingleEditForHit(
       dom,
       session.getState(),
@@ -242,6 +525,8 @@ export function bindScorePointerControls(
   dom.scoreStage.addEventListener("pointerdown", (event) => {
     const state = session.getState();
 
+    lastPointerColumn = getPointerColumn(event, state);
+
     if (
       state.busy.kind !== "idle" ||
       state.layout === null ||
@@ -257,10 +542,31 @@ export function bindScorePointerControls(
     }
 
     resetNotePreviewHit();
-    playNotePreviewForHit(hit);
 
     event.preventDefault();
     suppressNextClick = true;
+
+    if (event.ctrlKey && event.button === 0) {
+      if (hit !== null && (hit.rowKind === "note" || hit.rowKind === "global")) {
+        rangeDrag = {
+          pointerId: event.pointerId,
+          anchorHit: hit,
+        };
+        updateRangeSelection(hit, hit);
+        dom.scoreStage.setPointerCapture(event.pointerId);
+        return;
+      }
+
+      setStatusMessage("warning", "Range selection needs a note or global cell.");
+      return;
+    }
+
+    if (event.ctrlKey && event.button === 2) {
+      setStatusMessage("warning", "Ctrl + right drag is not used for range selection.");
+      return;
+    }
+
+    playNotePreviewForHit(hit);
 
     const button = event.button as 0 | 2;
     const dragRawText = hit === null
@@ -307,8 +613,26 @@ export function bindScorePointerControls(
   });
 
   dom.scoreStage.addEventListener("pointermove", (event) => {
+    if (rangeDrag !== null && rangeDrag.pointerId === event.pointerId) {
+      if (session.getState().busy.kind !== "idle" || session.getState().layout === null) {
+        return;
+      }
+
+      const hit = getPointerEditHit(event);
+
+      if (hit !== null) {
+        updateRangeSelection(rangeDrag.anchorHit, hit);
+      }
+
+      return;
+    }
+
+    if (dragEdit === null) {
+      updatePastePreviewForPointer(event);
+      return;
+    }
+
     if (
-      dragEdit === null ||
       dragEdit.pointerId !== event.pointerId ||
       session.getState().busy.kind !== "idle" ||
       session.getState().layout === null
@@ -363,7 +687,22 @@ export function bindScorePointerControls(
     queueDragEdits(expandEditsForActiveTracks(edits));
   });
 
+  dom.scoreStage.addEventListener("pointerleave", () => {
+    lastPointerColumn = null;
+    clearPastePreview();
+  });
+
   dom.scoreStage.addEventListener("pointerup", (event) => {
+    if (rangeDrag !== null && rangeDrag.pointerId === event.pointerId) {
+      rangeDrag = null;
+
+      if (dom.scoreStage.hasPointerCapture(event.pointerId)) {
+        dom.scoreStage.releasePointerCapture(event.pointerId);
+      }
+
+      return;
+    }
+
     if (dragEdit === null || dragEdit.pointerId !== event.pointerId) {
       return;
     }
@@ -394,6 +733,11 @@ export function bindScorePointerControls(
   });
 
   dom.scoreStage.addEventListener("pointercancel", (event) => {
+    if (rangeDrag !== null && rangeDrag.pointerId === event.pointerId) {
+      rangeDrag = null;
+      return;
+    }
+
     if (dragEdit === null || dragEdit.pointerId !== event.pointerId) {
       return;
     }
@@ -440,6 +784,18 @@ export function bindScorePointerControls(
       return;
     }
 
+    if (state.rangeSelection !== null) {
+      session.setState({
+        ...state,
+        rangeSelection: null,
+        pastePreview: {
+          anchorCol: null,
+        },
+      });
+      syncRangeSelectionOverlay(dom, session.getState());
+      syncPastePreviewOverlay(dom, session.getState());
+    }
+
     applySinglePointerEdit(hit, {
       useClickCycle: true,
       forceDelete: false,
@@ -455,9 +811,71 @@ export function bindScorePointerControls(
     event.preventDefault();
   });
 
+  document.addEventListener("keydown", (event) => {
+    if (isEditableKeyboardTarget(event.target)) {
+      return;
+    }
+
+    const state = session.getState();
+
+    if (state.busy.kind !== "idle") {
+      return;
+    }
+
+    if (event.key === "Delete" || event.key === "Backspace") {
+      if (state.rangeSelection !== null && state.mode.kind === "edit") {
+        event.preventDefault();
+        deleteRangeSelection();
+      }
+
+      return;
+    }
+
+    if (event.key === "Escape") {
+      if (state.rangeClipboard !== null || state.pastePreview.anchorCol !== null) {
+        event.preventDefault();
+        clearPasteState();
+      }
+
+      return;
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
+      if (state.rangeSelection !== null) {
+        event.preventDefault();
+        copyRangeSelection();
+      }
+
+      return;
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v") {
+      if (state.mode.kind === "edit" && state.rangeClipboard !== null) {
+        event.preventDefault();
+        pasteRangeClipboard();
+      }
+    }
+  });
+
   return {
     resetRepeatedClickCycle,
   };
+}
+
+/**
+ * keyboard shortcut이 텍스트 입력 DOM을 가로채면 안 되는지 확인한다.
+ * - 인수 : target : keyboard event target
+ * - 반환값 : 텍스트 편집 대상 여부
+ */
+function isEditableKeyboardTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target.isContentEditable;
 }
 
 /**

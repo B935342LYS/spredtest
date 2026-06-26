@@ -215,6 +215,11 @@ export function createInitialState(
       text: formatLoadedColumnStatus(document.score),
     },
     selection: null,
+    rangeSelection: null,
+    rangeClipboard: null,
+    pastePreview: {
+      anchorCol: null,
+    },
     layout: null,
     defaultLayoutDraft: createLayoutDraftBundle(document.score),
   };
@@ -423,6 +428,10 @@ export function applyTrimRightColumnsToState(
     selection: state.selection !== null && state.selection.col >= nextColumnCount
       ? null
       : state.selection,
+    rangeSelection: null,
+    pastePreview: {
+      anchorCol: null,
+    },
     loop: { ...DEFAULT_LOOP_STATE },
     statusMessage: {
       level: "info",
@@ -473,6 +482,10 @@ export function applyClearAllScoreToState(
     analysis: artifacts.analysis,
     renderInput: artifacts.renderInput,
     selection: null,
+    rangeSelection: null,
+    pastePreview: {
+      anchorCol: null,
+    },
     loop: { ...DEFAULT_LOOP_STATE },
     statusMessage: {
       level: "info",
@@ -620,6 +633,10 @@ export function applyLayoutDraftEditToState(
     renderInput: artifacts.renderInput,
     selection: null,
     layout: null,
+    rangeSelection: null,
+    pastePreview: {
+      anchorCol: null,
+    },
     loop: { ...DEFAULT_LOOP_STATE },
     statusMessage: {
       level: "info",

@@ -69,6 +69,36 @@ export type ScoreSelection = ScoreHit & {
   trackId: TrackId;
 };
 
+/** edit mode에서 Ctrl+drag로 선택한 score cell 영역. */
+export type ScoreRangeSelection = {
+  rowKind: "note" | "global";
+  startRowId: RowId;
+  endRowId: RowId;
+  rowIds: RowId[];
+  startCol: number;
+  endColExclusive: number;
+  trackIds: TrackId[];
+};
+
+/** range copy/paste가 사용하는 runtime clipboard 데이터. */
+export type ScoreRangeClipboard = {
+  rowKind: "note" | "global";
+  sourceRowIds: RowId[];
+  width: number;
+  trackIds: TrackId[];
+  cells: {
+    rowOffset: number;
+    colOffset: number;
+    trackId?: TrackId;
+    rawText: string;
+  }[];
+};
+
+/** range clipboard 붙여넣기 위치를 마우스 hover column으로 미리 보여주는 상태. */
+export type PastePreviewState = {
+  anchorCol: number | null;
+};
+
 /** 현재 score가 앱에 들어온 출처. timestamp 저장 정책을 결정할 때 사용한다. */
 export type ScoreOrigin = "template" | "loaded" | "saved";
 
@@ -103,6 +133,9 @@ export type AppState = {
   busy: AppBusyState;
   statusMessage: UiStatusMessage;
   selection: ScoreSelection | null;
+  rangeSelection: ScoreRangeSelection | null;
+  rangeClipboard: ScoreRangeClipboard | null;
+  pastePreview: PastePreviewState;
   layout: CanvasScoreLayout | null;
   defaultLayoutDraft: LayoutDraftBundle;
 };
@@ -113,6 +146,8 @@ export type AppDom = {
   scoreViewer: HTMLElement;
   scoreArea: HTMLElement;
   scoreStage: HTMLElement;
+  selectionOverlay: HTMLElement;
+  pastePreviewOverlay: HTMLElement;
   layoutStage: HTMLElement;
   target: CanvasRenderTarget;
   editToggle: HTMLInputElement;

@@ -6,6 +6,7 @@ import {
   renderCanvasScore,
   renderCanvasScorePartial,
 } from "../renderer/canvas_score_renderer";
+import { CANVAS_METRICS } from "../renderer/canvas_theme";
 import type {
   CanvasDirtyTickRange,
   CanvasMarkerItem,
@@ -147,6 +148,101 @@ export function syncCurrentRawTextPreview(dom: AppDom, state: AppState): void {
 }
 
 /**
+ * range selection overlay DOM을 현재 renderer layout에 맞춰 갱신한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : 없음
+ */
+export function syncRangeSelectionOverlay(dom: AppDom, state: AppState): void {
+  dom.selectionOverlay.replaceChildren();
+
+  if (state.rangeSelection === null || state.layout === null) {
+    return;
+  }
+
+  const rowById = new Map(state.layout.rows.map((row) => [row.rowId, row]));
+  const left = state.rangeSelection.startCol * state.layout.columnWidth;
+  const width = Math.max(
+    1,
+    (state.rangeSelection.endColExclusive - state.rangeSelection.startCol) *
+      state.layout.columnWidth,
+  );
+  const selectionRows = state.rangeSelection.rowIds
+    .map((rowId) => rowById.get(rowId))
+    .filter((row): row is NonNullable<typeof row> => row !== undefined);
+
+  if (selectionRows.length === 0) {
+    return;
+  }
+
+  const top = Math.min(...selectionRows.map((row) => row.y));
+  const bottom = Math.max(...selectionRows.map((row) => row.y + row.height));
+  const rect = document.createElement("div");
+
+  // 실제 bulk 대상은 note/global row만 유지하되, 시각 표시는 gap을 포함한 하나의 박스로 그린다.
+  rect.className = "selection-rect";
+  rect.style.left = `${left}px`;
+  rect.style.top = `${top}px`;
+  rect.style.width = `${width}px`;
+  rect.style.height = `${Math.max(1, bottom - top)}px`;
+  dom.selectionOverlay.replaceChildren(rect);
+}
+
+/**
+ * range clipboard 붙여넣기 preview overlay DOM을 현재 hover column에 맞춰 갱신한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : 없음
+ */
+export function syncPastePreviewOverlay(dom: AppDom, state: AppState): void {
+  dom.pastePreviewOverlay.replaceChildren();
+
+  if (
+    state.mode.kind !== "edit" ||
+    state.layout === null ||
+    state.rangeClipboard === null ||
+    state.pastePreview.anchorCol === null
+  ) {
+    return;
+  }
+
+  const rowById = new Map(state.layout.rows.map((row) => [row.rowId, row]));
+  const fragment = document.createDocumentFragment();
+
+  for (const cell of state.rangeClipboard.cells) {
+    const rowId = state.rangeClipboard.sourceRowIds[cell.rowOffset];
+    const row = rowId === undefined ? undefined : rowById.get(rowId);
+    const col = state.pastePreview.anchorCol + cell.colOffset;
+
+    if (
+      row === undefined ||
+      row.kind !== state.rangeClipboard.rowKind ||
+      col < 0 ||
+      col >= state.layout.columnCount
+    ) {
+      continue;
+    }
+
+    const rect = document.createElement("div");
+    const previewHeight = Math.max(
+      CANVAS_METRICS.minNoteHeight,
+      CANVAS_METRICS.baseNoteRenderHeight * getLayoutZoom(state.layout),
+    );
+    const previewTop = row.y + row.height / 2 - previewHeight / 2;
+
+    // clipboard의 원본 rowId와 hover column을 조합해 실제 붙여넣기 위치만 가볍게 표시한다.
+    rect.className = "paste-preview-rect";
+    rect.style.left = `${col * state.layout.columnWidth}px`;
+    rect.style.top = `${previewTop}px`;
+    rect.style.width = `${Math.max(1, state.layout.columnWidth)}px`;
+    rect.style.height = `${Math.max(1, previewHeight)}px`;
+    fragment.append(rect);
+  }
+
+  dom.pastePreviewOverlay.replaceChildren(fragment);
+}
+
+/**
  * edit/busy 상태에 따라 최소 구현 대상 UI control을 활성화한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
  * - 인수 : state : 현재 앱 상태
@@ -221,6 +317,8 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
   syncTrackToggleButtons(dom, state);
   syncViewOptionControls(dom, state);
   syncCurrentRawTextPreview(dom, state);
+  syncRangeSelectionOverlay(dom, state);
+  syncPastePreviewOverlay(dom, state);
 }
 
 /**
@@ -521,10 +619,27 @@ export function renderApp(dom: AppDom, state: AppState): AppState {
   syncLayoutScroll(dom.scoreArea, dom.layoutStage);
   syncRendererStatus(state, result);
 
-  return {
+  const nextState = {
     ...state,
     layout: result.layout,
   };
+
+  syncRangeSelectionOverlay(dom, nextState);
+  syncPastePreviewOverlay(dom, nextState);
+  return nextState;
+}
+
+/**
+ * renderer layout에서 현재 zoom 배율을 추정한다.
+ * - 인수 : layout : renderer가 계산한 현재 score layout
+ * - 반환값 : base note height에 곱할 zoom 배율
+ */
+function getLayoutZoom(layout: AppState["layout"]): number {
+  if (layout === null || layout.layoutLabelWidth <= 0) {
+    return 1;
+  }
+
+  return layout.layoutLabelWidth / CANVAS_METRICS.baseLayoutLabelWidth;
 }
 
 /**
@@ -566,10 +681,14 @@ export function renderAppPartial(
   syncLayoutScroll(dom.scoreArea, dom.layoutStage);
   syncRendererStatus(state, result);
 
-  return {
+  const nextState = {
     ...state,
     layout: result.layout,
   };
+
+  syncRangeSelectionOverlay(dom, nextState);
+  syncPastePreviewOverlay(dom, nextState);
+  return nextState;
 }
 
 /**
@@ -592,8 +711,12 @@ export function renderDynamicViewportLayers(dom: AppDom, state: AppState): AppSt
     null,
   );
 
-  return {
+  const nextState = {
     ...state,
     layout: result.layout,
   };
+
+  syncRangeSelectionOverlay(dom, nextState);
+  syncPastePreviewOverlay(dom, nextState);
+  return nextState;
 }

@@ -82,6 +82,8 @@ export function collectAppDom(): AppDom {
     scoreViewer: queryElement(".score-viewer", HTMLElement),
     scoreArea: queryElement(".score-area", HTMLElement),
     scoreStage: queryElement(".score-canvas-stage", HTMLElement),
+    selectionOverlay: queryElement(".selection-overlay", HTMLElement),
+    pastePreviewOverlay: queryElement(".paste-preview-overlay", HTMLElement),
     layoutStage: queryElement(".layout-canvas-stage", HTMLElement),
     target: createCanvasRenderTarget(),
     editToggle: queryElement("#edit-mode-toggle", HTMLInputElement),
