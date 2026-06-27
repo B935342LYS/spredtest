@@ -43,11 +43,13 @@ const DEFAULT_DYNAMICS_GAIN = 1;
 type GainScaleSpan = {
   startSeconds: number;
   endSeconds: number;
+  pitchKey: string;
   gainScale: number;
 };
 
 type SweepPoint = {
   seconds: number;
+  pitchKey: string;
   delta: 1 | -1;
 };
 
@@ -195,7 +197,7 @@ export function buildAudioScheduleWithMapper(
 }
 
 /**
- * 실제로 동시에 울리는 schedule event 수를 기준으로 event별 gain scale automation을 추가한다.
+ * 같은 pitch로 동시에 울리는 schedule event 수를 기준으로 event별 gain scale automation을 추가한다.
  * - 인수 : events : 초 단위로 변환된 발음 이벤트 목록
  * - 반환값 : gainScale automation이 추가된 발음 이벤트 목록
  */
@@ -234,7 +236,7 @@ function applyOverlapGainScaleAutomation(
 }
 
 /**
- * sweep-line으로 전체 score 시간의 동시 발음 수 span을 만든다.
+ * sweep-line으로 전체 score 시간의 같은 pitch 동시 발음 수 span을 만든다.
  * - 인수 : events : 전체 발음 event 목록
  * - 반환값 : gainScaleSpan[] : 인접 event 경계 사이의 gainScale 목록
  */
@@ -242,13 +244,13 @@ function buildGainScaleSpans(
   events: AudioScheduleEvent[],
 ): GainScaleSpan[] {
   const points: SweepPoint[] = events.flatMap((event) => [
-    { seconds: event.startSeconds, delta: 1 as const },
-    { seconds: event.endSeconds, delta: -1 as const },
+    { seconds: event.startSeconds, pitchKey: getGainScalePitchKey(event), delta: 1 as const },
+    { seconds: event.endSeconds, pitchKey: getGainScalePitchKey(event), delta: -1 as const },
   ])
     .filter((point) => Number.isFinite(point.seconds))
     .sort(compareSweepPoints);
   const spans: GainScaleSpan[] = [];
-  let activeCount = 0;
+  const activeCountsByPitchKey = new Map<string, number>();
   let index = 0;
 
   while (index < points.length) {
@@ -258,21 +260,35 @@ function buildGainScaleSpans(
       break;
     }
 
-    // 같은 시각의 end/start delta를 모두 반영한 activeCount가 다음 span의 동시 발음 수이다.
+    // 같은 시각의 end/start delta를 모두 반영한 pitch별 active count가 다음 span의 동시 발음 수이다.
     let nextIndex = index;
     while (nextIndex < points.length && points[nextIndex]?.seconds === currentSeconds) {
-      activeCount += points[nextIndex]?.delta ?? 0;
+      const point = points[nextIndex];
+
+      if (point !== undefined) {
+        const nextActiveCount = (activeCountsByPitchKey.get(point.pitchKey) ?? 0) + point.delta;
+
+        if (nextActiveCount > 0) {
+          activeCountsByPitchKey.set(point.pitchKey, nextActiveCount);
+        } else {
+          activeCountsByPitchKey.delete(point.pitchKey);
+        }
+      }
+
       nextIndex += 1;
     }
 
     const nextSeconds = points[nextIndex]?.seconds;
 
-    if (nextSeconds !== undefined && nextSeconds > currentSeconds && activeCount > 0) {
-      spans.push({
-        startSeconds: currentSeconds,
-        endSeconds: nextSeconds,
-        gainScale: 1 / activeCount,
-      });
+    if (nextSeconds !== undefined && nextSeconds > currentSeconds) {
+      for (const [pitchKey, activeCount] of activeCountsByPitchKey) {
+        spans.push({
+          startSeconds: currentSeconds,
+          endSeconds: nextSeconds,
+          pitchKey,
+          gainScale: 1 / activeCount,
+        });
+      }
     }
 
     index = nextIndex;
@@ -292,6 +308,10 @@ function compareSweepPoints(left: SweepPoint, right: SweepPoint): number {
     return left.seconds - right.seconds;
   }
 
+  if (left.pitchKey !== right.pitchKey) {
+    return left.pitchKey.localeCompare(right.pitchKey);
+  }
+
   return left.delta - right.delta;
 }
 
@@ -308,6 +328,7 @@ function mergeAdjacentGainScaleSpans(spans: GainScaleSpan[]): GainScaleSpan[] {
 
     if (
       previous !== undefined &&
+      previous.pitchKey === span.pitchKey &&
       previous.gainScale === span.gainScale &&
       previous.endSeconds === span.startSeconds
     ) {
@@ -333,6 +354,7 @@ function buildGainScaleAutomationForEvent(
   startSpanIndex: number,
 ): AudioAutomationEvent[] {
   const automation: AudioAutomationEvent[] = [];
+  const eventPitchKey = getGainScalePitchKey(event);
 
   for (let index = startSpanIndex; index < gainScaleSpans.length; index += 1) {
     const span = gainScaleSpans[index];
@@ -343,6 +365,10 @@ function buildGainScaleAutomationForEvent(
 
     if (span.startSeconds >= event.endSeconds) {
       break;
+    }
+
+    if (span.pitchKey !== eventPitchKey) {
+      continue;
     }
 
     const startSeconds = Math.max(event.startSeconds, span.startSeconds);
@@ -363,6 +389,20 @@ function buildGainScaleAutomationForEvent(
   }
 
   return mergeAdjacentConstantGainScaleAutomation(automation);
+}
+
+/**
+ * 같은 pitch 중복 보정에 사용할 event pitch key를 만든다.
+ * - 인수 : event : gain scale 계산 대상 schedule event
+ * - 반환값 : 같은 pitch면 같은 문자열, 움직이는 pitch면 event별 고유 문자열
+ */
+function getGainScalePitchKey(event: AudioScheduleEvent): string {
+  if (event.sourceEventKind === "note") {
+    return `note:${event.midi}:${event.centOffset}`;
+  }
+
+  // gliss/glissChain은 시간에 따라 pitch가 움직이므로 같은 pitch 중복 보정 그룹에 넣지 않는다.
+  return `moving:${event.eventId}`;
 }
 
 /**
