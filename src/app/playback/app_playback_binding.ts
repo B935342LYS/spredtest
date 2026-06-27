@@ -30,7 +30,7 @@ import {
   clearGameJudgeOverlay,
   showGameJudgeOverlay,
 } from "../game/game_judge_overlay";
-import { openPracticeResultDialog, syncGameModeUi } from "../game/game_ui";
+import { openPracticeResultDialogForState, syncGameModeUi } from "../game/game_ui";
 import {
   scrollLeftToScoreSeconds,
   scrollToScoreSeconds,
@@ -198,7 +198,7 @@ export function bindPlaybackControls(
         session.setState(nextState);
         syncGameModeUi(dom, nextState);
         syncLeftStatus(dom, nextState);
-        openPracticeResultDialog(dom, nextState.gameMode.summary);
+        openPracticeResultDialogForState(dom, nextState);
         return;
       }
 

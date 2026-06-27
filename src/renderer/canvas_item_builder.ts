@@ -7,6 +7,7 @@ import type {
   AnalyzedEvent,
   GlissEvent,
   MuteEvent,
+  NoteEffectSegment,
   NoteEvent,
   SourceCellRef,
   TimeFraction,
@@ -28,6 +29,7 @@ import type {
   CanvasMarkerItem,
   CanvasMuteRenderItem,
   CanvasNoteRenderItem,
+  CanvasNoteEffectSegment,
 } from "./canvas_types";
 
 /**
@@ -48,32 +50,7 @@ export function buildCanvasNoteRenderItems(
         continue;
       }
 
-      items.push({
-        sourceEventId: event.eventId,
-        rowId: event.display.rowId,
-        displayCentOffset: event.display.centOffset,
-        startTick: timeFractionToNumber(event.time.startTick),
-        endTick: timeFractionToNumber(event.time.endTick),
-        midi: event.sound.midi,
-        text: event.text,
-        displayShape: getNoteDisplayShape(event),
-        displayTextAnchors: event.displayTextAnchors.map((anchor) => ({
-          sourceRowId: anchor.source.rowId,
-          sourceCol: anchor.source.col,
-          sourceSlotIndex: anchor.source.slotIndex,
-          startTick: timeFractionToNumber(anchor.time.startTick),
-          endTick: timeFractionToNumber(anchor.time.endTick),
-          text: anchor.text,
-        })),
-        effects: event.effects.map((effect) => ({
-          startTick: timeFractionToNumber(effect.time.startTick),
-          endTick: timeFractionToNumber(effect.time.endTick),
-          vib: effect.vib,
-          tremDivision: effect.trem?.division ?? null,
-        })),
-        trackId: event.trackId,
-        renderAlpha: getTrackRenderAlpha(activeTrackIds, event.trackId),
-      });
+      items.push(...createCanvasNoteRenderItemsForEvent(event, activeTrackIds));
     }
   }
 
@@ -90,23 +67,239 @@ export function buildCanvasNoteRenderItems(
 }
 
 /**
- * note event의 renderer 표시 형태를 결정한다.
+ * 단일 NoteEvent를 renderer note item 목록으로 변환한다.
  * - 인수 : event : analyzer가 확정한 note event
- * - 반환값 : 일반 사각형 또는 tuplet gliss용 시작점 정사각형 표시 형태
+ * - 인수 : activeTrackIds : renderer alpha에 반영할 active track 목록
+ * - 반환값 : 기본 note item과 필요한 tuplet gliss anchor square item 목록
  */
-function getNoteDisplayShape(event: NoteEvent): CanvasNoteRenderItem["displayShape"] {
-  if (
-    event.tuplet !== null &&
-    event.tuplet !== undefined &&
-    event.glissAnchors.some((anchor) =>
-      (anchor.role === "start" || anchor.role === "mid") &&
-      timeRangeToDuration(anchor.time) >= 1
-    )
-  ) {
-    return "anchorSquare";
+function createCanvasNoteRenderItemsForEvent(
+  event: NoteEvent,
+  activeTrackIds: readonly TrackId[],
+): CanvasNoteRenderItem[] {
+  const anchorSquareCandidates = getTupletGlissAnchorSquareCandidates(event);
+  const renderAlpha = getTrackRenderAlpha(activeTrackIds, event.trackId);
+  const eventStartTick = timeFractionToNumber(event.time.startTick);
+  const eventEndTick = timeFractionToNumber(event.time.endTick);
+  const baseShape = shouldUseBaseAnchorSquare(event, anchorSquareCandidates)
+    ? "anchorSquare"
+    : "rect";
+  const items = baseShape === "anchorSquare"
+    ? [createBaseCanvasNoteRenderItem(event, eventStartTick, eventEndTick, "anchorSquare", renderAlpha)]
+    : createRectItemsAroundAnchorSquares(event, anchorSquareCandidates, renderAlpha);
+
+  // hold로 병합된 tuplet slot gliss anchor는 note event 시작점과 다르므로 별도 정사각형 item으로 보강한다.
+  for (const anchor of anchorSquareCandidates) {
+    if (isSameTimeRange(anchor.time, event.time)) {
+      continue;
+    }
+
+    items.push(createTupletGlissAnchorSquareItem(event, anchor, renderAlpha));
   }
 
-  return "rect";
+  return items;
+}
+
+/**
+ * NoteEvent의 기본 표시 item을 만든다.
+ * - 인수 : event : analyzer가 확정한 note event
+ * - 인수 : startTick : renderer item 시작 tick
+ * - 인수 : endTick : renderer item 끝 tick
+ * - 인수 : displayShape : rect 또는 anchorSquare 표시 형태
+ * - 인수 : renderAlpha : active track 상태가 반영된 alpha 값
+ * - 반환값 : canvas note renderer가 소비할 note item
+ */
+function createBaseCanvasNoteRenderItem(
+  event: NoteEvent,
+  startTick: number,
+  endTick: number,
+  displayShape: CanvasNoteRenderItem["displayShape"],
+  renderAlpha: number,
+): CanvasNoteRenderItem {
+  return {
+    sourceEventId: event.eventId,
+    rowId: event.display.rowId,
+    displayCentOffset: event.display.centOffset,
+    startTick,
+    endTick,
+    midi: event.sound.midi,
+    text: event.text,
+    displayShape,
+    displayTextAnchors: event.displayTextAnchors
+      .filter((anchor) =>
+        rangesOverlap(
+          startTick,
+          endTick,
+          timeFractionToNumber(anchor.time.startTick),
+          timeFractionToNumber(anchor.time.endTick),
+        )
+      )
+      .map((anchor) => ({
+        sourceRowId: anchor.source.rowId,
+        sourceCol: anchor.source.col,
+        sourceSlotIndex: anchor.source.slotIndex,
+        startTick: timeFractionToNumber(anchor.time.startTick),
+        endTick: timeFractionToNumber(anchor.time.endTick),
+        text: anchor.text,
+      })),
+    effects: convertEffectSegments(event.effects),
+    trackId: event.trackId,
+    renderAlpha,
+  };
+}
+
+/**
+ * hold 병합 note의 rect를 내부 gliss anchor square 구간 앞뒤로 나눠 만든다.
+ * - 인수 : event : analyzer가 확정한 note event
+ * - 인수 : anchors : 정사각형 표시가 필요한 tuplet gliss anchor 목록
+ * - 인수 : renderAlpha : active track 상태가 반영된 alpha 값
+ * - 반환값 : anchor square 구간을 제외한 rect item 목록
+ */
+function createRectItemsAroundAnchorSquares(
+  event: NoteEvent,
+  anchors: readonly NoteEvent["glissAnchors"][number][],
+  renderAlpha: number,
+): CanvasNoteRenderItem[] {
+  const rectRanges = subtractAnchorRangesFromEvent(event, anchors);
+
+  return rectRanges.map((range) =>
+    createBaseCanvasNoteRenderItem(event, range.startTick, range.endTick, "rect", renderAlpha)
+  );
+}
+
+/**
+ * NoteEvent 시간 범위에서 내부 anchor square 시간 범위를 제외한 rect 범위를 만든다.
+ * - 인수 : event : analyzer가 확정한 note event
+ * - 인수 : anchors : 정사각형 표시가 필요한 tuplet gliss anchor 목록
+ * - 반환값 : rect로 그릴 tick 범위 목록
+ */
+function subtractAnchorRangesFromEvent(
+  event: NoteEvent,
+  anchors: readonly NoteEvent["glissAnchors"][number][],
+): Array<{ startTick: number; endTick: number }> {
+  const eventStartTick = timeFractionToNumber(event.time.startTick);
+  const eventEndTick = timeFractionToNumber(event.time.endTick);
+  const rectRanges: Array<{ startTick: number; endTick: number }> = [];
+  let cursorTick = eventStartTick;
+  const internalAnchors = anchors
+    .map((anchor) => ({
+      startTick: timeFractionToNumber(anchor.time.startTick),
+      endTick: timeFractionToNumber(anchor.time.endTick),
+    }))
+    .filter((range) =>
+      range.startTick > eventStartTick &&
+      range.endTick < eventEndTick + 1e-9 &&
+      range.endTick > range.startTick
+    )
+    .sort((left, right) => left.startTick - right.startTick || left.endTick - right.endTick);
+
+  // note event 내부에서 별도 square가 그려질 anchor 구간만 rect에서 제외한다.
+  for (const anchorRange of internalAnchors) {
+    if (anchorRange.startTick > cursorTick) {
+      rectRanges.push({
+        startTick: cursorTick,
+        endTick: anchorRange.startTick,
+      });
+    }
+
+    cursorTick = Math.max(cursorTick, anchorRange.endTick);
+  }
+
+  if (cursorTick < eventEndTick) {
+    rectRanges.push({
+      startTick: cursorTick,
+      endTick: eventEndTick,
+    });
+  }
+
+  return rectRanges;
+}
+
+/**
+ * note event 안에서 정사각형 표시가 필요한 긴 tuplet gliss anchor를 고른다.
+ * - 인수 : event : analyzer가 확정한 note event
+ * - 반환값 : start/mid 역할이고 1 tick 이상인 tuplet slot gliss anchor 목록
+ */
+function getTupletGlissAnchorSquareCandidates(event: NoteEvent): NoteEvent["glissAnchors"] {
+  return event.glissAnchors.filter((anchor) =>
+    anchor.source.slotIndex !== undefined &&
+    (anchor.role === "start" || anchor.role === "mid") &&
+    timeRangeToDuration(anchor.time) >= 1
+  );
+}
+
+/**
+ * 기본 note item 자체를 정사각형으로 바꿀 수 있는지 확인한다.
+ * - 인수 : event : analyzer가 확정한 note event
+ * - 인수 : anchors : 정사각형 표시 후보 anchor 목록
+ * - 반환값 : note event와 anchor 시간이 같으면 true
+ */
+function shouldUseBaseAnchorSquare(
+  event: NoteEvent,
+  anchors: readonly NoteEvent["glissAnchors"][number][],
+): boolean {
+  return anchors.some((anchor) => isSameTimeRange(anchor.time, event.time));
+}
+
+/**
+ * hold 병합 note 안의 gliss anchor를 별도 정사각형 note item으로 만든다.
+ * - 인수 : event : anchor가 들어 있는 note event
+ * - 인수 : anchor : 정사각형으로 표시할 tuplet gliss anchor
+ * - 인수 : renderAlpha : active track 상태가 반영된 alpha 값
+ * - 반환값 : anchor 시간/위치를 가진 정사각형 note item
+ */
+function createTupletGlissAnchorSquareItem(
+  event: NoteEvent,
+  anchor: NoteEvent["glissAnchors"][number],
+  renderAlpha: number,
+): CanvasNoteRenderItem {
+  return {
+    sourceEventId: event.eventId,
+    rowId: anchor.display.rowId,
+    displayCentOffset: anchor.display.centOffset,
+    startTick: timeFractionToNumber(anchor.time.startTick),
+    endTick: timeFractionToNumber(anchor.time.endTick),
+    midi: event.sound.midi,
+    text: "",
+    displayShape: "anchorSquare",
+    displayTextAnchors: event.displayTextAnchors
+      .filter((textAnchor) => sourceCellsMatch(textAnchor.source, anchor.source))
+      .map((textAnchor) => ({
+        sourceRowId: textAnchor.source.rowId,
+        sourceCol: textAnchor.source.col,
+        sourceSlotIndex: textAnchor.source.slotIndex,
+        startTick: timeFractionToNumber(textAnchor.time.startTick),
+        endTick: timeFractionToNumber(textAnchor.time.endTick),
+        text: textAnchor.text,
+      })),
+    effects: convertEffectSegments(event.effects),
+    trackId: event.trackId,
+    renderAlpha,
+  };
+}
+
+/**
+ * analyzer effect segment를 renderer note effect segment로 변환한다.
+ * - 인수 : effects : NoteEvent의 effect segment 목록
+ * - 반환값 : canvas note renderer가 소비할 effect segment 목록
+ */
+function convertEffectSegments(effects: readonly NoteEffectSegment[]): CanvasNoteEffectSegment[] {
+  return effects.map((effect) => ({
+    startTick: timeFractionToNumber(effect.time.startTick),
+    endTick: timeFractionToNumber(effect.time.endTick),
+    vib: effect.vib,
+    tremDivision: effect.trem?.division ?? null,
+  }));
+}
+
+/**
+ * 두 TimeRange가 같은 시작/끝 tick을 갖는지 확인한다.
+ * - 인수 : left : 왼쪽 시간 범위
+ * - 인수 : right : 오른쪽 시간 범위
+ * - 반환값 : 시작/끝 tick이 같으면 true
+ */
+function isSameTimeRange(left: TimeRange, right: TimeRange): boolean {
+  return timeFractionToNumber(left.startTick) === timeFractionToNumber(right.startTick) &&
+    timeFractionToNumber(left.endTick) === timeFractionToNumber(right.endTick);
 }
 
 /**

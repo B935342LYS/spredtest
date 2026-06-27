@@ -521,13 +521,13 @@
                         <tr>
                             <td>Ok</td>
                             <td>50-99 cent</td>
-                            <td>60%</td>
+                            <td>66.7%</td>
                             <td>Added</td>
                         </tr>
                         <tr>
                             <td>Bad</td>
                             <td>100-199 cent</td>
-                            <td>20%</td>
+                            <td>33.3%</td>
                             <td>Added</td>
                         </tr>
                         <tr>
@@ -548,8 +548,12 @@
                             <td>No timing text. Pitch judge stays unchanged.</td>
                         </tr>
                         <tr>
-                            <th scope="row">80-249 ms</th>
+                            <th scope="row">80-149 ms</th>
                             <td>Shows small early or late text. Pitch judge stays unchanged.</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">150-249 ms</th>
+                            <td>Shows small early or late text. Final judge is downgraded to Bad.</td>
                         </tr>
                         <tr>
                             <th scope="row">250 ms or more</th>
@@ -595,13 +599,23 @@
                 <h2>Practice Result</h2>
                 <button type="submit" class="practice-result-close-button" aria-label="Close">Close</button>
             </div>
+            <div class="practice-result-meta">
+                <span>Title <strong class="result-title">unknown</strong></span>
+                <span>Artist <strong class="result-artist">unknown</strong></span>
+                <span>Tracks <strong class="result-tracks">Basic</strong></span>
+            </div>
             <div class="practice-result-grid">
                 <span>Accuracy <strong class="result-accuracy">0%</strong></span>
+                <span>Timing <strong class="result-timing-accuracy">0%</strong></span>
                 <span>Score <strong class="result-score">0</strong></span>
                 <span>Perfect <strong class="result-perfect-count">0</strong></span>
                 <span>Ok <strong class="result-ok-count">0</strong></span>
                 <span>Bad <strong class="result-bad-count">0</strong></span>
                 <span>Miss <strong class="result-miss-count">0</strong></span>
+                <span>On Time <strong class="result-timing-on-time-count">0</strong></span>
+                <span>Early/Late <strong class="result-timing-early-late-count">0</strong></span>
+                <span>Timing Bad <strong class="result-timing-bad-count">0</strong></span>
+                <span>Timing Miss <strong class="result-timing-miss-count">0</strong></span>
                 <span>Max Combo <strong class="result-best-combo">0</strong></span>
             </div>
         </form>

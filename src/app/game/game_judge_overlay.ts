@@ -48,7 +48,9 @@ export function showGameJudgeOverlay(
 
   const label = document.createElement("div");
   const showCombo = sample.label === "Perfect" || sample.label === "Ok";
-  const showTiming = sample.timing.kind === "early" || sample.timing.kind === "late";
+  const showTiming = sample.timing.kind === "early" ||
+    sample.timing.kind === "late" ||
+    sample.timing.kind === "bad";
   const labelHeight = JUDGE_OVERLAY_LABEL_LINE_HEIGHT +
     (showCombo ? JUDGE_OVERLAY_COMBO_LINE_HEIGHT : 0) +
     (showTiming ? JUDGE_OVERLAY_TIMING_LINE_HEIGHT : 0);
@@ -73,9 +75,12 @@ export function showGameJudgeOverlay(
 
   if (showTiming) {
     const timingLine = document.createElement("div");
+    const timingText = sample.timing.kind === "bad"
+      ? sample.timing.direction
+      : sample.timing.kind;
 
-    timingLine.className = `game-judge-timing game-judge-timing-${sample.timing.kind}`;
-    timingLine.textContent = sample.timing.kind;
+    timingLine.className = `game-judge-timing game-judge-timing-${timingText}`;
+    timingLine.textContent = timingText;
     label.append(timingLine);
   }
 

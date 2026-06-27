@@ -685,6 +685,10 @@ select:disabled {
 }
 
 .game-diagnostic-line span {
+  display: inline-flex;
+  justify-content: space-between;
+  gap: 4px;
+  min-width: 76px;
   padding: 2px 5px;
   border: 1px solid #d7e7dc;
   border-radius: 999px;
@@ -693,7 +697,16 @@ select:disabled {
 }
 
 .game-diagnostic-line strong {
+  display: inline-block;
+  min-width: 34px;
   color: var(--text);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.game-diagnostic-line .game-mic-state {
+  min-width: 42px;
+  text-align: left;
 }
 
 .game-score-grid {
@@ -1510,6 +1523,24 @@ select:disabled {
   gap: 8px;
 }
 
+.practice-result-meta {
+  display: grid;
+  gap: 8px;
+}
+
+.practice-result-meta span {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fafafa;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .practice-result-grid span {
   display: flex;
   justify-content: space-between;
@@ -1521,6 +1552,19 @@ select:disabled {
   background: #fafafa;
   color: var(--muted);
   font-size: 12px;
+}
+
+.practice-result-grid strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.practice-result-meta strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .practice-result-grid strong {

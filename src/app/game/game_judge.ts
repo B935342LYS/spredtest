@@ -23,6 +23,7 @@ const OK_ERROR_CENT = 100;
 const BAD_ERROR_CENT = 200;
 const PREVIOUS_NOTE_GRACE_SECONDS = 0.03334;
 const TIMING_DISPLAY_THRESHOLD_MS = 80;
+const TIMING_BAD_THRESHOLD_MS = 150;
 const TIMING_MISS_THRESHOLD_MS = 250;
 const TIMING_MAX_MATCH_MS = 500;
 const DEFAULT_TRACK_DIFFICULTY: Record<TrackId, number> = {
@@ -199,7 +200,7 @@ export function judgeGameScoringSample(
   const timingMatch = timing === undefined
     ? createEmptyTimingMatch()
     : judgeTimingForTarget(selectedTarget, timing);
-  const label = timingMatch.result.kind === "miss" ? "Miss" : pitchLabel;
+  const label = applyTimingDowngrade(pitchLabel, timingMatch.result);
   const pitchAccuracy = getPitchAccuracy(label);
   const difficulty = trackDifficulty[selectedTarget.trackId];
   const scoreContribution = label === "Miss" ? 0 : difficulty * pitchAccuracy;
@@ -292,6 +293,17 @@ function judgeTimingForTarget(
     };
   }
 
+  if (absOffsetMs >= TIMING_BAD_THRESHOLD_MS) {
+    return {
+      result: {
+        kind: "bad",
+        direction: offsetMs < 0 ? "early" : "late",
+        offsetMs,
+      },
+      onsetId: selectedOnset.id,
+    };
+  }
+
   if (absOffsetMs >= TIMING_DISPLAY_THRESHOLD_MS) {
     return {
       result: {
@@ -340,19 +352,33 @@ export function applyGameScoringSample(
   const okCount = summary.okCount + (sample.label === "Ok" ? 1 : 0);
   const badCount = summary.badCount + (sample.label === "Bad" ? 1 : 0);
   const missCount = summary.missCount + (sample.label === "Miss" ? 1 : 0);
+  const timingOnTimeCount = summary.timingOnTimeCount +
+    (sample.timingOnsetId !== null && sample.timing.kind === "none" ? 1 : 0);
+  const timingEarlyLateCount = summary.timingEarlyLateCount +
+    (sample.timing.kind === "early" || sample.timing.kind === "late" ? 1 : 0);
+  const timingBadCount = summary.timingBadCount + (sample.timing.kind === "bad" ? 1 : 0);
+  const timingMissCount = summary.timingMissCount + (sample.timing.kind === "miss" ? 1 : 0);
   const currentCombo = sample.label === "Perfect" || sample.label === "Ok"
     ? summary.currentCombo + 1
     : 0;
   const scoredSampleCount = perfectCount + okCount + badCount + missCount;
+  const timingSampleCount = timingOnTimeCount + timingEarlyLateCount + timingBadCount + timingMissCount;
   const previousAccuracySum = getAccuracySum(summary);
   const nextAccuracySum = previousAccuracySum + sample.pitchAccuracy;
+  const previousTimingAccuracySum = getTimingAccuracySum(summary);
+  const nextTimingAccuracySum = previousTimingAccuracySum + getTimingAccuracy(sample);
 
   return {
     accuracyPercent: scoredSampleCount === 0 ? 0 : (nextAccuracySum / scoredSampleCount) * 100,
+    timingAccuracyPercent: timingSampleCount === 0 ? 0 : (nextTimingAccuracySum / timingSampleCount) * 100,
     perfectCount,
     okCount,
     badCount,
     missCount,
+    timingOnTimeCount,
+    timingEarlyLateCount,
+    timingBadCount,
+    timingMissCount,
     currentCombo,
     bestCombo: Math.max(summary.bestCombo, currentCombo),
     score: summary.score + sample.scoreContribution,
@@ -404,6 +430,27 @@ function classifyPitchError(errorCent: number): GameScoringSampleResult["label"]
 }
 
 /**
+ * timing 판정 결과를 최종 pitch label 강등에 반영한다.
+ * - 인수 : pitchLabel : pitch 오차만으로 계산한 판정 label
+ * - 인수 : timing : onset timing 판정 결과
+ * - 반환값 : timing miss/bad 강등을 반영한 최종 label
+ */
+function applyTimingDowngrade(
+  pitchLabel: GameScoringSampleResult["label"],
+  timing: GameTimingJudgeResult,
+): GameScoringSampleResult["label"] {
+  if (timing.kind === "miss") {
+    return "Miss";
+  }
+
+  if (timing.kind === "bad" && (pitchLabel === "Perfect" || pitchLabel === "Ok")) {
+    return "Bad";
+  }
+
+  return pitchLabel;
+}
+
+/**
  * 판정 label을 점수 계산용 정확도로 바꾼다.
  * - 인수 : label : scoring sample 판정 label
  * - 반환값 : 0 이상 1 이하 pitch accuracy
@@ -413,10 +460,33 @@ function getPitchAccuracy(label: GameScoringSampleResult["label"]): number {
     case "Perfect":
       return 1;
     case "Ok":
-      return 0.6;
+      return 2 / 3;
     case "Bad":
-      return 0.2;
+      return 1 / 3;
     case "Miss":
+      return 0;
+  }
+}
+
+/**
+ * timing 판정 결과를 timing accuracy 계산용 값으로 바꾼다.
+ * - 인수 : sample : scoring sample 결과
+ * - 반환값 : timing onset이 매칭되었으면 0 이상 1 이하 값, 아니면 0
+ */
+function getTimingAccuracy(sample: GameScoringSampleResult): number {
+  if (sample.timingOnsetId === null) {
+    return 0;
+  }
+
+  switch (sample.timing.kind) {
+    case "none":
+      return 1;
+    case "early":
+    case "late":
+      return 2 / 3;
+    case "bad":
+      return 1 / 3;
+    case "miss":
       return 0;
   }
 }
@@ -435,6 +505,22 @@ function getAccuracySum(summary: GameScoreSummary): number {
   return scoredSampleCount === 0
     ? 0
     : (summary.accuracyPercent / 100) * scoredSampleCount;
+}
+
+/**
+ * summary에 누적된 timing accuracy 합계를 복원한다.
+ * - 인수 : summary : 현재 점수 집계
+ * - 반환값 : timing 판정 sample의 accuracy 합계
+ */
+function getTimingAccuracySum(summary: GameScoreSummary): number {
+  const timingSampleCount = summary.timingOnTimeCount +
+    summary.timingEarlyLateCount +
+    summary.timingBadCount +
+    summary.timingMissCount;
+
+  return timingSampleCount === 0
+    ? 0
+    : (summary.timingAccuracyPercent / 100) * timingSampleCount;
 }
 
 /**

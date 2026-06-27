@@ -39,10 +39,15 @@ export function formatGameSyncOffsetMs(value: number): string {
 /** 게임 모드 화면에 표시할 scoring sample 집계값. */
 export type GameScoreSummary = {
   accuracyPercent: number;
+  timingAccuracyPercent: number;
   perfectCount: number;
   okCount: number;
   badCount: number;
   missCount: number;
+  timingOnTimeCount: number;
+  timingEarlyLateCount: number;
+  timingBadCount: number;
+  timingMissCount: number;
   currentCombo: number;
   bestCombo: number;
   score: number;
@@ -84,6 +89,7 @@ export type GameTimingJudgeResult =
   | { kind: "none"; offsetMs: null }
   | { kind: "early"; offsetMs: number }
   | { kind: "late"; offsetMs: number }
+  | { kind: "bad"; direction: "early" | "late"; offsetMs: number }
   | { kind: "miss"; offsetMs: number };
 
 /** scoring interval 하나에서 생성된 판정 결과. */
@@ -117,10 +123,15 @@ export type GameModeState =
 export function createEmptyGameScoreSummary(): GameScoreSummary {
   return {
     accuracyPercent: 0,
+    timingAccuracyPercent: 0,
     perfectCount: 0,
     okCount: 0,
     badCount: 0,
     missCount: 0,
+    timingOnTimeCount: 0,
+    timingEarlyLateCount: 0,
+    timingBadCount: 0,
+    timingMissCount: 0,
     currentCombo: 0,
     bestCombo: 0,
     score: 0,
