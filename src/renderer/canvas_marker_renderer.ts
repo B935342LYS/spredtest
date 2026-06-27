@@ -189,6 +189,27 @@ export function drawScoreOverlayMarkersInRange(
 }
 
 /**
+ * display text 아래에 위치해야 하는 gliss 연결선만 note layer에 그린다.
+ * - 인수 : context : note layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : items : marker 표시 item 목록
+ * - 반환값 : 없음
+ */
+export function drawScoreGlissMarkers(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  items: CanvasMarkerItem[],
+): void {
+  const rowById = createLayoutRowMap(layout);
+
+  for (const item of items) {
+    if (item.kind === "gliss") {
+      drawGlissMarker(context, layout, rowById, item);
+    }
+  }
+}
+
+/**
  * layout row를 rowId 기준 Map으로 만든다.
  * - 인수 : layout : CSS pixel 기준 score layout
  * - 반환값 : Map<string, CanvasLayoutRow> : marker item row 조회용 Map

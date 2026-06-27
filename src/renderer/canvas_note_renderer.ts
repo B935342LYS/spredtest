@@ -38,12 +38,14 @@ export function drawScoreNotes(
   muteItems: CanvasMuteRenderItem[] = [],
   globalTextItems: CanvasGlobalTextRenderItem[] = [],
   hideNoteText = false,
+  drawBetweenNoteBodyAndText?: (context: CanvasRenderingContext2D) => void,
 ): void {
   context.clearRect(0, 0, layout.stageWidth, layout.stageHeight);
 
   const rowById = createLayoutRowMap(layout);
+  const layoutItems: CanvasNoteLayoutItem[] = [];
 
-  // analyzer note item을 CSS pixel 좌표 item으로 변환한 뒤 note rectangle과 text를 그린다.
+  // analyzer note item을 CSS pixel 좌표 item으로 변환한 뒤 note rectangle/effect를 먼저 그린다.
   for (const item of items) {
     const layoutItem = createNoteLayoutItem(item, rowById, layout);
 
@@ -51,14 +53,24 @@ export function drawScoreNotes(
       continue;
     }
 
+    layoutItems.push(layoutItem);
     context.save();
     context.globalAlpha = layoutItem.renderAlpha ?? 1;
     drawNoteRectangle(context, layoutItem);
     drawNoteEffects(context, layoutItem, layout);
-    if (!hideNoteText) {
-      drawNoteText(context, layoutItem, layout);
-    }
     context.restore();
+  }
+
+  // gliss 연결선처럼 note 사각형 위, display text 아래에 와야 하는 표시를 중간 단계에 그린다.
+  drawBetweenNoteBodyAndText?.(context);
+
+  if (!hideNoteText) {
+    for (const layoutItem of layoutItems) {
+      context.save();
+      context.globalAlpha = layoutItem.renderAlpha ?? 1;
+      drawNoteText(context, layoutItem, layout);
+      context.restore();
+    }
   }
 
   // mute item은 발음 사각형 없이 흰색 텍스트만 note layer 위에 표시한다.
@@ -93,15 +105,17 @@ export function drawScoreNotesInRange(
   muteItems: CanvasMuteRenderItem[] = [],
   dirtyRange: CanvasDirtyTickRange,
   hideNoteText = false,
+  drawBetweenNoteBodyAndText?: (context: CanvasRenderingContext2D) => void,
 ): void {
   const rowById = createLayoutRowMap(layout);
   const renderRange = expandDirtyRangeForTextOverflow(dirtyRange, layout);
+  const layoutItems: CanvasNoteLayoutItem[] = [];
 
   clearNoteRowsInRange(context, layout, dirtyRange);
   context.save();
   clipDirtyRange(context, layout, dirtyRange);
 
-  // clear padding 영역에 걸친 인접 note/mute까지 다시 그려 텍스트 overflow가 잘리지 않게 한다.
+  // clear padding 영역에 걸친 인접 note까지 다시 그려 텍스트 overflow가 잘리지 않게 한다.
   for (const item of items) {
     if (!doesTickRangeOverlap(item.startTick, item.endTick, renderRange)) {
       continue;
@@ -113,14 +127,23 @@ export function drawScoreNotesInRange(
       continue;
     }
 
+    layoutItems.push(layoutItem);
     context.save();
     context.globalAlpha = layoutItem.renderAlpha ?? 1;
     drawNoteRectangle(context, layoutItem);
     drawNoteEffects(context, layoutItem, layout);
-    if (!hideNoteText) {
-      drawNoteText(context, layoutItem, layout);
-    }
     context.restore();
+  }
+
+  drawBetweenNoteBodyAndText?.(context);
+
+  if (!hideNoteText) {
+    for (const layoutItem of layoutItems) {
+      context.save();
+      context.globalAlpha = layoutItem.renderAlpha ?? 1;
+      drawNoteText(context, layoutItem, layout);
+      context.restore();
+    }
   }
 
   if (!hideNoteText) {

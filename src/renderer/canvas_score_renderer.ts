@@ -15,6 +15,7 @@ import {
   drawScoreStaticRowBackground,
 } from "./canvas_grid_renderer";
 import {
+  drawScoreGlissMarkers,
   drawScoreMarkers,
   drawScoreOverlayMarkersInRange,
   drawScoreOverlayMarkers,
@@ -92,6 +93,8 @@ export function renderCanvasScore(
     const visibleNoteMarkerItems = measurePerf("renderer.full.filterVisibleNoteMarkers", () =>
       filterVisibleMarkerItems(noteMarkerItems, viewportRange)
     );
+    const visibleBaseNoteMarkerItems = getBaseNoteMarkerItems(visibleNoteMarkerItems);
+    const visibleGlissMarkerItems = getGlissMarkerItems(visibleNoteMarkerItems);
     const visibleNoteItems = measurePerf("renderer.full.filterVisibleNoteItems", () =>
       filterVisibleNoteItems(noteItems, viewportRange)
     );
@@ -123,7 +126,7 @@ export function renderCanvasScore(
       drawScoreMarkers(
         target.noteMarker.context,
         layout,
-        visibleNoteMarkerItems,
+        visibleBaseNoteMarkerItems,
       )
     );
     measurePerf("renderer.full.drawNotes", () =>
@@ -134,6 +137,7 @@ export function renderCanvasScore(
         visibleMuteItems,
         visibleGlobalTextItems,
         options.hideNoteText === true,
+        (context) => drawScoreGlissMarkers(context, layout, visibleGlissMarkerItems),
       )
     );
     measurePerf("renderer.full.drawOverlayMarkers", () =>
@@ -156,7 +160,7 @@ export function renderCanvasScore(
     drawScoreMarkers(target.marker.context, layout, globalAndLoopMarkerItems)
   );
   measurePerf("renderer.full.drawNoteMarkers", () =>
-    drawScoreMarkers(target.noteMarker.context, layout, noteMarkerItems)
+    drawScoreMarkers(target.noteMarker.context, layout, getBaseNoteMarkerItems(noteMarkerItems))
   );
   measurePerf("renderer.full.drawNotes", () =>
     drawScoreNotes(
@@ -166,6 +170,7 @@ export function renderCanvasScore(
       muteItems,
       globalTextItems,
       options.hideNoteText === true,
+      (context) => drawScoreGlissMarkers(context, layout, getGlissMarkerItems(noteMarkerItems)),
     )
   );
   measurePerf("renderer.full.drawOverlayMarkers", () =>
@@ -236,6 +241,8 @@ export function renderCanvasScorePartial(
     const visibleNoteMarkerItems = measurePerf("renderer.partial.note.filterVisibleNoteMarkers", () =>
       filterVisibleMarkerItems(noteMarkerItems, viewportRange)
     );
+    const visibleBaseNoteMarkerItems = getBaseNoteMarkerItems(visibleNoteMarkerItems);
+    const visibleGlissMarkerItems = getGlissMarkerItems(visibleNoteMarkerItems);
     const visibleNoteItems = measurePerf("renderer.partial.note.filterVisibleNoteItems", () =>
       filterVisibleNoteItems(noteItems, viewportRange)
     );
@@ -299,7 +306,7 @@ export function renderCanvasScorePartial(
       drawScoreMarkers(
         target.noteMarker.context,
         layout,
-        visibleNoteMarkerItems,
+        visibleBaseNoteMarkerItems,
       )
     );
     measurePerf("renderer.partial.note.drawNotes", () =>
@@ -310,6 +317,7 @@ export function renderCanvasScorePartial(
         visibleMuteItems,
         visibleGlobalTextItems,
         options.hideNoteText === true,
+        (context) => drawScoreGlissMarkers(context, layout, visibleGlissMarkerItems),
       )
     );
     measurePerf("renderer.partial.note.drawOverlayMarkers", () =>
@@ -382,6 +390,12 @@ export function renderCanvasScorePartial(
         filterVisibleMuteItems(muteItems, viewportRange),
         filterVisibleGlobalTextItems(globalTextItems, viewportRange),
         options.hideNoteText === true,
+        (context) =>
+          drawScoreGlissMarkers(
+            context,
+            layout,
+            getGlissMarkerItems(filterVisibleMarkerItems(noteMarkerItems, viewportRange)),
+          ),
       )
     );
     measurePerf("renderer.partial.global.drawOverlayMarkers", () =>
@@ -399,7 +413,7 @@ export function renderCanvasScorePartial(
 
   if (scope === "note") {
     if (dirtyTickRange === null || dirtyTickRange === undefined) {
-      drawScoreMarkers(target.noteMarker.context, layout, noteMarkerItems);
+      drawScoreMarkers(target.noteMarker.context, layout, getBaseNoteMarkerItems(noteMarkerItems));
       drawScoreNotes(
         target.note.context,
         layout,
@@ -407,11 +421,24 @@ export function renderCanvasScorePartial(
         muteItems,
         globalTextItems,
         options.hideNoteText === true,
+        (context) => drawScoreGlissMarkers(context, layout, getGlissMarkerItems(noteMarkerItems)),
+      );
+      drawScoreOverlayMarkers(target.note.context, layout, noteMarkerItems);
+    } else if (getGlissMarkerItems(noteMarkerItems).length > 0) {
+      // gliss 연결선은 note layer로 올라오므로 dirty 범위 밖의 잔상을 막기 위해 note layer를 전체 갱신한다.
+      drawScoreMarkers(target.noteMarker.context, layout, getBaseNoteMarkerItems(noteMarkerItems));
+      drawScoreNotes(
+        target.note.context,
+        layout,
+        noteItems,
+        muteItems,
+        globalTextItems,
+        options.hideNoteText === true,
+        (context) => drawScoreGlissMarkers(context, layout, getGlissMarkerItems(noteMarkerItems)),
       );
       drawScoreOverlayMarkers(target.note.context, layout, noteMarkerItems);
     } else {
-      // gliss 연결선은 endpoint 편집만으로도 전체 기울기가 바뀌므로 note marker layer는 전체를 다시 그린다.
-      drawScoreMarkers(target.noteMarker.context, layout, noteMarkerItems);
+      drawScoreMarkers(target.noteMarker.context, layout, getBaseNoteMarkerItems(noteMarkerItems));
       drawScoreNotesInRange(
         target.note.context,
         layout,
@@ -567,4 +594,22 @@ function getNoteMarkerItems(
   }
 
   return [];
+}
+
+/**
+ * note marker layer에 남겨둘 gliss 이외의 note marker 목록을 반환한다.
+ * - 인수 : items : note marker item 목록
+ * - 반환값 : CanvasMarkerItem[] : note marker layer에 직접 그릴 item 목록
+ */
+function getBaseNoteMarkerItems(items: CanvasMarkerItem[]): CanvasMarkerItem[] {
+  return items.filter((item) => item.kind !== "gliss");
+}
+
+/**
+ * note 사각형 위, display text 아래에 그릴 gliss 연결선 목록을 반환한다.
+ * - 인수 : items : note marker item 목록
+ * - 반환값 : CanvasMarkerItem[] : note layer 중간 단계에 그릴 gliss item 목록
+ */
+function getGlissMarkerItems(items: CanvasMarkerItem[]): CanvasMarkerItem[] {
+  return items.filter((item) => item.kind === "gliss");
 }
