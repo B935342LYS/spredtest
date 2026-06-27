@@ -15,23 +15,15 @@ import type {
   GameScoreSummary,
   GameScoringSampleResult,
 } from "./game_types";
-import {
-  resolvePitchClassCandidateMidiWithHysteresis,
-  type GamePitchCorrectionState,
-} from "./game_pitch_math";
 
 const PERFECT_ERROR_CENT = 50;
 const OK_ERROR_CENT = 100;
 const BAD_ERROR_CENT = 200;
+const PREVIOUS_NOTE_GRACE_SECONDS = 0.03334;
 const DEFAULT_TRACK_DIFFICULTY: Record<TrackId, number> = {
   basic: 1,
   optional: 1.2,
   extra: 1.5,
-};
-
-/** scoring sample 판정에 적용할 입력 pitch 보정 옵션. */
-export type GameScoringCorrectionOptions = {
-  state: GamePitchCorrectionState;
 };
 
 /**
@@ -88,7 +80,7 @@ export function collectGameJudgeTargetsAtSeconds(
       const startSeconds = mapper.tickToSeconds(event.time.startTick);
       const endSeconds = mapper.tickToSeconds(event.time.endTick);
 
-      if (scoreSeconds < startSeconds || scoreSeconds >= endSeconds) {
+      if (scoreSeconds < startSeconds || scoreSeconds >= endSeconds + PREVIOUS_NOTE_GRACE_SECONDS) {
         continue;
       }
 
@@ -153,7 +145,6 @@ export function hasRemainingGameJudgeTarget(
  * - 인수 : targets : 현재 score time에 겹친 판정 후보 목록
  * - 인수 : scoreSeconds : 현재 score time
  * - 인수 : trackDifficulty : track별 점수 가중 난이도
- * - 인수 : correction : 표시용 pitch dot과 같은 hysteresis 보정을 적용할 선택 옵션
  * - 반환값 : 유효 pitch와 target이 있으면 sample, 아니면 null
  */
 export function judgeGameScoringSample(
@@ -161,7 +152,6 @@ export function judgeGameScoringSample(
   targets: readonly GameJudgeTarget[],
   scoreSeconds: number,
   trackDifficulty: Record<TrackId, number>,
-  correction?: GameScoringCorrectionOptions,
 ): GameScoringSampleResult | null {
   if (
     frame === null ||
@@ -173,13 +163,7 @@ export function judgeGameScoringSample(
     return null;
   }
 
-  const inputCent = resolveScoringInputCent(
-    frame.midi,
-    frame.centOffset,
-    frame.capturedAtMs,
-    targets,
-    correction,
-  );
+  const inputCent = frame.midi * 100 + frame.centOffset;
   let selectedTarget: GameJudgeTarget | null = null;
   let selectedErrorCent = Number.POSITIVE_INFINITY;
 
@@ -217,41 +201,6 @@ export function judgeGameScoringSample(
 }
 
 /**
- * scoring에 사용할 입력 pitch cent 값을 만든다.
- * - 인수 : midi : 최신 마이크 pitch frame의 MIDI note
- * - 인수 : centOffset : 최신 마이크 pitch frame의 cent offset
- * - 인수 : capturedAtMs : 최신 마이크 pitch frame 캡처 시각
- * - 인수 : targets : 현재 score time에 겹친 판정 후보 목록
- * - 인수 : correction : hysteresis 기반 보정 옵션
- * - 반환값 : 원 입력 또는 target 옥타브 주변으로 보정된 절대 cent 값
- */
-function resolveScoringInputCent(
-  midi: number,
-  centOffset: number,
-  capturedAtMs: number,
-  targets: readonly GameJudgeTarget[],
-  correction: GameScoringCorrectionOptions | undefined,
-): number {
-  if (correction === undefined) {
-    return midi * 100 + centOffset;
-  }
-
-  // 표시용 pitch dot과 같은 target 후보를 사용해 짧은 detector octave/jump 흔들림을 점수에서도 완화한다.
-  const correctedMidi = resolvePitchClassCandidateMidiWithHysteresis(
-    midi,
-    centOffset,
-    targets.map((target) => ({
-      midi: target.targetMidi,
-      centOffset: target.targetCentOffset,
-    })),
-    capturedAtMs,
-    correction.state,
-  );
-
-  return correctedMidi * 100;
-}
-
-/**
  * scoreDifficulty 저장값을 사용자 표시용 track difficulty로 정규화한다.
  * - 인수 : scoreDifficulty : ScoreFile musicData의 track별 난이도 값
  * - 반환값 : 0, 누락, 비정상 값을 기본 난이도로 대체한 map
@@ -283,14 +232,12 @@ export function applyGameScoringSample(
   const currentCombo = sample.label === "Perfect" || sample.label === "Ok"
     ? summary.currentCombo + 1
     : 0;
-  const hitSampleCount = perfectCount + okCount + badCount;
+  const scoredSampleCount = perfectCount + okCount + badCount + missCount;
   const previousAccuracySum = getAccuracySum(summary);
-  const nextAccuracySum = sample.label === "Miss"
-    ? previousAccuracySum
-    : previousAccuracySum + sample.pitchAccuracy;
+  const nextAccuracySum = previousAccuracySum + sample.pitchAccuracy;
 
   return {
-    accuracyPercent: hitSampleCount === 0 ? 0 : (nextAccuracySum / hitSampleCount) * 100,
+    accuracyPercent: scoredSampleCount === 0 ? 0 : (nextAccuracySum / scoredSampleCount) * 100,
     perfectCount,
     okCount,
     badCount,
@@ -364,16 +311,19 @@ function getPitchAccuracy(label: GameScoringSampleResult["label"]): number {
 }
 
 /**
- * summary에 누적된 hit sample accuracy 합계를 복원한다.
+ * summary에 누적된 scoring sample accuracy 합계를 복원한다.
  * - 인수 : summary : 현재 점수 집계
- * - 반환값 : hit sample accuracy 합계
+ * - 반환값 : Miss를 0% 샘플로 포함한 accuracy 합계
  */
 function getAccuracySum(summary: GameScoreSummary): number {
-  const hitSampleCount = summary.perfectCount + summary.okCount + summary.badCount;
+  const scoredSampleCount = summary.perfectCount +
+    summary.okCount +
+    summary.badCount +
+    summary.missCount;
 
-  return hitSampleCount === 0
+  return scoredSampleCount === 0
     ? 0
-    : (summary.accuracyPercent / 100) * hitSampleCount;
+    : (summary.accuracyPercent / 100) * scoredSampleCount;
 }
 
 /**

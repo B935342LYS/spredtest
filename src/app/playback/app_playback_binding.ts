@@ -16,7 +16,6 @@ import {
   isGameModeLocked,
   type GameScoreSummary,
 } from "../game/game_types";
-import { createGamePitchCorrectionState } from "../game/game_pitch_math";
 import {
   applyGameSyncOffsetSeconds,
   applyGameScoringSample,
@@ -77,7 +76,6 @@ export function bindPlaybackControls(
   let suppressScrollSeek = false;
   let lastPlaybackScoreSeconds: number | null = null;
   let lastGameScoringSeconds: number | null = null;
-  let gameScoringCorrectionState = createGamePitchCorrectionState();
   let countdownAudioContext: AudioContext | null = null;
 
   /**
@@ -145,7 +143,6 @@ export function bindPlaybackControls(
         targets,
         judgeScoreSeconds,
         normalizeGameTrackDifficulty(state.document.score.musicData.scoreDifficulty),
-        { state: gameScoringCorrectionState },
       );
 
       if (sample === null) {
@@ -177,7 +174,6 @@ export function bindPlaybackControls(
     }
     lastPlaybackScoreSeconds = null;
     lastGameScoringSeconds = null;
-    gameScoringCorrectionState = createGamePitchCorrectionState();
     clearGameJudgeOverlay(dom);
   };
 
@@ -321,7 +317,6 @@ export function bindPlaybackControls(
     }
 
     lastGameScoringSeconds = null;
-    gameScoringCorrectionState = createGamePitchCorrectionState();
     clearGameJudgeOverlay(dom);
     session.setState({
       ...currentState,
