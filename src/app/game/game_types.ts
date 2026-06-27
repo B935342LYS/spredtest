@@ -4,6 +4,38 @@
 
 import type { TrackId } from "../../core/score/types";
 
+export const DEFAULT_GAME_SYNC_OFFSET_MS = 90;
+export const MIN_GAME_SYNC_OFFSET_MS = -200;
+export const MAX_GAME_SYNC_OFFSET_MS = 200;
+export const GAME_SYNC_OFFSET_STEP_MS = 10;
+
+/**
+ * Sync 보정값을 허용 범위와 step에 맞춘다.
+ * - 인수 : value : 사용자가 조정한 ms 값
+ * - 반환값 : -200ms~+200ms 범위의 10ms 단위 값
+ */
+export function normalizeGameSyncOffsetMs(value: number): number {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_GAME_SYNC_OFFSET_MS;
+  }
+
+  const stepped = Math.round(value / GAME_SYNC_OFFSET_STEP_MS) * GAME_SYNC_OFFSET_STEP_MS;
+
+  return Math.min(Math.max(stepped, MIN_GAME_SYNC_OFFSET_MS), MAX_GAME_SYNC_OFFSET_MS);
+}
+
+/**
+ * Sync ms 값을 사용자 표시 문자열로 만든다.
+ * - 인수 : value : Sync ms 값
+ * - 반환값 : +90 ms 형식의 문자열
+ */
+export function formatGameSyncOffsetMs(value: number): string {
+  const normalized = normalizeGameSyncOffsetMs(value);
+  const sign = normalized >= 0 ? "+" : "";
+
+  return `${sign}${normalized} ms`;
+}
+
 /** 게임 모드 화면에 표시할 scoring sample 집계값. */
 export type GameScoreSummary = {
   accuracyPercent: number;

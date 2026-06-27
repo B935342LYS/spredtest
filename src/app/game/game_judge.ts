@@ -35,6 +35,25 @@ export type GameScoringCorrectionOptions = {
 };
 
 /**
+ * Sync 입력 지연 보정값을 적용한 판정용 score seconds를 만든다.
+ * - 인수 : scoreSeconds : playback controller가 보고한 현재 score time
+ * - 인수 : syncOffsetMs : 사용자가 조정한 Sync ms 값
+ * - 반환값 : 0초 이상으로 clamp된 판정용 score time
+ */
+export function applyGameSyncOffsetSeconds(
+  scoreSeconds: number,
+  syncOffsetMs: number,
+): number {
+  if (!Number.isFinite(scoreSeconds)) {
+    return 0;
+  }
+
+  const boundedOffsetMs = Number.isFinite(syncOffsetMs) ? syncOffsetMs : 0;
+
+  return Math.max(0, scoreSeconds - boundedOffsetMs / 1000);
+}
+
+/**
  * 현재 score seconds에 걸친 active track note target을 만든다.
  * - 인수 : analysis : analyzer 결과
  * - 인수 : activeTrackIds : 현재 practice 대상 active track 목록

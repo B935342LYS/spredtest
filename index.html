@@ -142,6 +142,7 @@
                 <div class="game-panel" data-state="off" aria-live="polite">
                     <div class="game-panel-head">
                         <button type="button" class="game-rules-button">Rules</button>
+                        <button type="button" class="game-sync-button">Sync <strong class="game-sync-value">+90 ms</strong></button>
                         <span class="status-pill game-status">off</span>
                     </div>
                     <p class="game-notice">Pitch judging is a practice aid and may not be exact. Use a microphone and headphones in a quiet place.</p>
@@ -468,6 +469,30 @@
         </form>
     </dialog>
 
+    <!-- Practice Sync Dialog -->
+    <dialog id="practice-sync" class="practice-sync-dialog">
+        <form method="dialog" class="practice-sync-form">
+            <div class="dialog-title-row">
+                <h2>Sync</h2>
+                <button type="button" class="practice-sync-close-button" aria-label="Close">Close</button>
+            </div>
+            <p class="practice-sync-help">Adjust Sync until your input marker lands near the center.</p>
+            <div class="practice-sync-meter" aria-label="Practice sync timing meter">
+                <div class="practice-sync-center"></div>
+                <div class="practice-sync-beat"></div>
+                <div class="practice-sync-marker"></div>
+            </div>
+            <div class="practice-sync-controls">
+                <button type="button" class="practice-sync-start-button">Start</button>
+                <button type="button" class="practice-sync-minus-button">-10 ms</button>
+                <strong class="practice-sync-value">+90 ms</strong>
+                <button type="button" class="practice-sync-plus-button">+10 ms</button>
+                <button type="button" class="practice-sync-reset-button">Reset</button>
+                <button type="button" class="practice-sync-apply-button">Apply</button>
+            </div>
+        </form>
+    </dialog>
+
     <!-- Practice Rules Dialog -->
     <dialog id="practice-rules" class="practice-rules-dialog">
         <form method="dialog" class="practice-rules-form">
@@ -558,7 +583,7 @@
                 <span>Ok <strong class="result-ok-count">0</strong></span>
                 <span>Bad <strong class="result-bad-count">0</strong></span>
                 <span>Miss <strong class="result-miss-count">0</strong></span>
-                <span>Best Combo <strong class="result-best-combo">0</strong></span>
+                <span>Max Combo <strong class="result-best-combo">0</strong></span>
             </div>
         </form>
     </dialog>

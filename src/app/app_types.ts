@@ -152,6 +152,7 @@ export type AppState = {
   speedScale: number;
   textOff: boolean;
   loop: LoopState;
+  gameSyncOffsetMs: number;
   gameMode: GameModeState;
   history: UndoHistoryState;
   mode: AppMode;
@@ -222,7 +223,19 @@ export type AppDom = {
   layoutModifyButton: HTMLButtonElement;
   detailsButton: HTMLButtonElement;
   practiceModeButton: HTMLButtonElement;
+  gameSyncButton: HTMLButtonElement;
+  gameSyncValue: HTMLElement;
   gameRulesButton: HTMLButtonElement;
+  practiceSyncDialog: HTMLDialogElement;
+  practiceSyncCloseButton: HTMLButtonElement;
+  practiceSyncStartButton: HTMLButtonElement;
+  practiceSyncMinusButton: HTMLButtonElement;
+  practiceSyncPlusButton: HTMLButtonElement;
+  practiceSyncResetButton: HTMLButtonElement;
+  practiceSyncApplyButton: HTMLButtonElement;
+  practiceSyncValue: HTMLElement;
+  practiceSyncMarker: HTMLElement;
+  practiceSyncBeat: HTMLElement;
   practiceRulesDialog: HTMLDialogElement;
   practiceResultDialog: HTMLDialogElement;
   resultAccuracy: HTMLElement;

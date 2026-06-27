@@ -211,6 +211,7 @@ select:disabled {
 }
 
 .app-shell[data-menu-theme="dark"] .menu-area .game-rules-button,
+.app-shell[data-menu-theme="dark"] .menu-area .game-sync-button,
 .app-shell[data-menu-theme="dark"] .menu-area .game-notice,
 .app-shell[data-menu-theme="dark"] .menu-area .game-diagnostic-line span,
 .app-shell[data-menu-theme="dark"] .menu-area .game-score-grid span {
@@ -218,7 +219,8 @@ select:disabled {
   background: #25372f;
 }
 
-.app-shell[data-menu-theme="dark"] .menu-area .game-rules-button {
+.app-shell[data-menu-theme="dark"] .menu-area .game-rules-button,
+.app-shell[data-menu-theme="dark"] .menu-area .game-sync-button {
   color: #d7f3df;
 }
 
@@ -643,6 +645,24 @@ select:disabled {
   background: #ffffff;
   color: #2c6044;
   font-size: 12px;
+}
+
+.game-sync-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 0 7px;
+  border: 1px solid #8ab79b;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #2c6044;
+  font-size: 12px;
+}
+
+.game-sync-button strong {
+  color: #2563eb;
+  font-size: 10px;
 }
 
 .game-notice {
@@ -1435,14 +1455,16 @@ select:disabled {
   background: rgb(23 32 38 / 52%);
 }
 
-.practice-rules-dialog {
+.practice-rules-dialog,
+.practice-sync-dialog {
   width: min(640px, calc(100vw - 32px));
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--text);
 }
 
-.practice-rules-dialog::backdrop {
+.practice-rules-dialog::backdrop,
+.practice-sync-dialog::backdrop {
   background: rgb(23 32 38 / 52%);
 }
 
@@ -1487,6 +1509,89 @@ select:disabled {
 
 .practice-result-grid strong {
   color: var(--text);
+}
+
+.practice-sync-form {
+  display: grid;
+  gap: 14px;
+}
+
+.practice-sync-form h2 {
+  margin: 0;
+}
+
+.practice-sync-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.practice-sync-meter {
+  position: relative;
+  height: 72px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f8fafc, #ffffff);
+}
+
+.practice-sync-center {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  background: #111827;
+  transform: translateX(-1px);
+}
+
+.practice-sync-beat {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgb(37 99 235 / 24%);
+  opacity: 0;
+  transform: translateX(-50%) scale(0.75);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.practice-sync-beat.flash {
+  opacity: 1;
+  transform: translateX(-50%) scale(1.15);
+}
+
+.practice-sync-marker {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #16a34a;
+  box-shadow: 0 0 0 3px rgb(22 163 74 / 18%);
+  opacity: 0;
+  transform: translateX(-50%);
+  transition: left 80ms ease, opacity 120ms ease;
+}
+
+.practice-sync-marker.visible {
+  opacity: 1;
+}
+
+.practice-sync-controls {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, auto));
+  align-items: center;
+  gap: 8px;
+}
+
+.practice-sync-value {
+  min-width: 64px;
+  text-align: center;
+  color: #2563eb;
 }
 
 .practice-rules-form {

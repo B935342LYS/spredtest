@@ -9,6 +9,7 @@ import type {
 import {
   type GamePitchFrame,
   type GameScoreSummary,
+  formatGameSyncOffsetMs,
   getGameScoreSummary,
   isGameModeLocked,
   isGameModeOpen,
@@ -66,6 +67,8 @@ export function syncGameModeUi(dom: AppDom, state: AppState): void {
   dom.gameMissCount.textContent = String(summary.missCount);
   dom.gameCombo.textContent = String(summary.bestCombo);
   dom.gameScore.textContent = String(Math.round(summary.score));
+  dom.gameSyncValue.textContent = formatGameSyncOffsetMs(state.gameSyncOffsetMs);
+  dom.practiceSyncValue.textContent = formatGameSyncOffsetMs(state.gameSyncOffsetMs);
   syncGameDiagnostics(dom, getVisiblePitchFrame(state));
   dom.practiceModeButton.disabled = state.busy.kind !== "idle" && !isLocked;
   dom.practiceModeButton.textContent = isOpen ? "exit practice" : "practice mode (beta)";

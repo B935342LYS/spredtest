@@ -18,6 +18,7 @@ import {
 } from "../game/game_types";
 import { createGamePitchCorrectionState } from "../game/game_pitch_math";
 import {
+  applyGameSyncOffsetSeconds,
   applyGameScoringSample,
   collectGameJudgeTargetsAtSeconds,
   hasRemainingGameJudgeTarget,
@@ -101,12 +102,13 @@ export function bindPlaybackControls(
     lastGameScoringSeconds = scoreSeconds;
 
     try {
+      const judgeScoreSeconds = applyGameSyncOffsetSeconds(scoreSeconds, state.gameSyncOffsetMs);
       const mapper = createTickTimeMapper(state.analysis.timingTimeline);
       const hasRemainingTarget = hasRemainingGameJudgeTarget(
         state.analysis,
         state.activeTrackIds,
         mapper,
-        scoreSeconds,
+        judgeScoreSeconds,
       );
 
       if (!hasRemainingTarget) {
@@ -136,12 +138,12 @@ export function bindPlaybackControls(
         state.analysis,
         state.activeTrackIds,
         mapper,
-        scoreSeconds,
+        judgeScoreSeconds,
       );
       const sample = judgeGameScoringSample(
         state.gameMode.pitchFrame,
         targets,
-        scoreSeconds,
+        judgeScoreSeconds,
         normalizeGameTrackDifficulty(state.document.score.musicData.scoreDifficulty),
         { state: gameScoringCorrectionState },
       );
