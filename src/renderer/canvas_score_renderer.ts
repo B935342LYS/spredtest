@@ -145,6 +145,7 @@ export function renderCanvasScore(
         target.note.context,
         layout,
         visibleNoteMarkerItems,
+        { showTupletContainers: options.showTupletContainers },
       )
     );
 
@@ -174,7 +175,12 @@ export function renderCanvasScore(
     )
   );
   measurePerf("renderer.full.drawOverlayMarkers", () =>
-    drawScoreOverlayMarkers(target.note.context, layout, noteMarkerItems)
+    drawScoreOverlayMarkers(
+      target.note.context,
+      layout,
+      noteMarkerItems,
+      { showTupletContainers: options.showTupletContainers },
+    )
   );
 
   return {
@@ -325,6 +331,7 @@ export function renderCanvasScorePartial(
         target.note.context,
         layout,
         visibleNoteMarkerItems,
+        { showTupletContainers: options.showTupletContainers },
       )
     );
 
@@ -403,6 +410,7 @@ export function renderCanvasScorePartial(
         target.note.context,
         layout,
         filterVisibleMarkerItems(noteMarkerItems, viewportRange),
+        { showTupletContainers: options.showTupletContainers },
       )
     );
 
@@ -423,7 +431,12 @@ export function renderCanvasScorePartial(
         options.hideNoteText === true,
         (context) => drawScoreGlissMarkers(context, layout, getGlissMarkerItems(noteMarkerItems)),
       );
-      drawScoreOverlayMarkers(target.note.context, layout, noteMarkerItems);
+      drawScoreOverlayMarkers(
+        target.note.context,
+        layout,
+        noteMarkerItems,
+        { showTupletContainers: options.showTupletContainers },
+      );
     } else if (getGlissMarkerItems(noteMarkerItems).length > 0) {
       // gliss 연결선은 note layer로 올라오므로 dirty 범위 밖의 잔상을 막기 위해 note layer를 전체 갱신한다.
       drawScoreMarkers(target.noteMarker.context, layout, getBaseNoteMarkerItems(noteMarkerItems));
@@ -436,7 +449,12 @@ export function renderCanvasScorePartial(
         options.hideNoteText === true,
         (context) => drawScoreGlissMarkers(context, layout, getGlissMarkerItems(noteMarkerItems)),
       );
-      drawScoreOverlayMarkers(target.note.context, layout, noteMarkerItems);
+      drawScoreOverlayMarkers(
+        target.note.context,
+        layout,
+        noteMarkerItems,
+        { showTupletContainers: options.showTupletContainers },
+      );
     } else {
       drawScoreMarkers(target.noteMarker.context, layout, getBaseNoteMarkerItems(noteMarkerItems));
       drawScoreNotesInRange(
@@ -447,7 +465,13 @@ export function renderCanvasScorePartial(
         dirtyTickRange,
         options.hideNoteText === true,
       );
-      drawScoreOverlayMarkersInRange(target.note.context, layout, noteMarkerItems, dirtyTickRange);
+      drawScoreOverlayMarkersInRange(
+        target.note.context,
+        layout,
+        noteMarkerItems,
+        dirtyTickRange,
+        { showTupletContainers: options.showTupletContainers },
+      );
     }
   } else {
     drawScoreMarkers(target.marker.context, layout, globalAndLoopMarkerItems);

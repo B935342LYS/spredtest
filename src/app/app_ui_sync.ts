@@ -513,6 +513,7 @@ export function createRenderOptions(
     zoom,
     speedScale: state.speedScale,
     hideNoteText: state.textOff,
+    showTupletContainers: state.mode.kind === "edit",
     loopMarkers,
     devicePixelRatio: window.devicePixelRatio || 1,
     dynamicViewport,

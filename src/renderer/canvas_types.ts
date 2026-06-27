@@ -53,6 +53,7 @@ export type CanvasRenderOptions = {
   zoom: number;
   speedScale?: number;
   hideNoteText?: boolean;
+  showTupletContainers?: boolean;
   loopMarkers?: CanvasMarkerItem[];
   devicePixelRatio: number;
   columnWidth?: number;

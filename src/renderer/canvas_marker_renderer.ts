@@ -149,7 +149,12 @@ export function drawScoreOverlayMarkers(
   context: CanvasRenderingContext2D,
   layout: CanvasScoreLayout,
   items: CanvasMarkerItem[],
+  options: { showTupletContainers?: boolean } = {},
 ): void {
+  if (options.showTupletContainers !== true) {
+    return;
+  }
+
   const rowById = createLayoutRowMap(layout);
 
   // marker canvas의 z-index로 해결할 수 없는 note 위 보조 도형만 note layer 후처리로 그린다.
@@ -173,7 +178,12 @@ export function drawScoreOverlayMarkersInRange(
   layout: CanvasScoreLayout,
   items: CanvasMarkerItem[],
   dirtyRange: CanvasDirtyTickRange,
+  options: { showTupletContainers?: boolean } = {},
 ): void {
+  if (options.showTupletContainers !== true) {
+    return;
+  }
+
   const rowById = createLayoutRowMap(layout);
 
   context.save();
