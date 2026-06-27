@@ -55,6 +55,7 @@ type GlissPlaybackChain = {
   events: GlissEvent[];
   startExtensionNote: NoteEvent | null;
   endExtensionNote: NoteEvent | null;
+  bridgeExtensionNotes: Array<NoteEvent | null>;
 };
 
 /**
@@ -479,7 +480,80 @@ function buildGlissPlaybackChains(
     }
   }
 
-  return chains;
+  return mergeChainsWithSharedExtensionNotes(chains);
+}
+
+/**
+ * 여러 gliss chain이 같은 long note extension을 공유하면 하나의 연속 chain으로 병합한다.
+ * - 인수 : chains : 후보 gliss playback chain 목록
+ * - 반환값 : 공유 long note를 bridge segment로 흡수한 chain 목록
+ */
+function mergeChainsWithSharedExtensionNotes(
+  chains: GlissPlaybackChain[],
+): GlissPlaybackChain[] {
+  const sortedChains = [...chains].sort((left, right) =>
+    timeFractionToNumber(left.events[0]?.startAnchorTick ?? numberToTimeFraction(0)) -
+    timeFractionToNumber(right.events[0]?.startAnchorTick ?? numberToTimeFraction(0))
+  );
+  const mergedChains: GlissPlaybackChain[] = [];
+  let currentChain: GlissPlaybackChain | null = null;
+
+  // 시간순 chain을 순회하며 앞 chain의 end extension과 뒤 chain의 start extension이 같은 note인지 확인한다.
+  for (const chain of sortedChains) {
+    if (currentChain === null) {
+      currentChain = chain;
+      continue;
+    }
+
+    const sharedNote: NoteEvent | null = currentChain.endExtensionNote !== null &&
+      currentChain.endExtensionNote === chain.startExtensionNote
+      ? currentChain.endExtensionNote
+      : null;
+
+    if (sharedNote === null) {
+      mergedChains.push(currentChain);
+      currentChain = chain;
+      continue;
+    }
+
+    currentChain = {
+      events: [
+        ...currentChain.events,
+        ...chain.events,
+      ],
+      startExtensionNote: currentChain.startExtensionNote,
+      endExtensionNote: chain.endExtensionNote,
+      bridgeExtensionNotes: [
+        ...normalizeBridgeExtensionNotes(currentChain),
+        sharedNote,
+        ...normalizeBridgeExtensionNotes(chain),
+      ],
+    };
+  }
+
+  if (currentChain !== null) {
+    mergedChains.push(currentChain);
+  }
+
+  return mergedChains;
+}
+
+/**
+ * chain event 사이마다 bridge slot이 하나씩 대응되도록 bridge 목록을 보정한다.
+ * - 인수 : chain : bridge slot을 정규화할 chain
+ * - 반환값 : event 사이 개수와 길이가 같은 bridge note/null 목록
+ */
+function normalizeBridgeExtensionNotes(
+  chain: GlissPlaybackChain,
+): Array<NoteEvent | null> {
+  const requiredLength = Math.max(0, chain.events.length - 1);
+  const bridgeNotes = chain.bridgeExtensionNotes.slice(0, requiredLength);
+
+  while (bridgeNotes.length < requiredLength) {
+    bridgeNotes.push(null);
+  }
+
+  return bridgeNotes;
 }
 
 /**
@@ -503,6 +577,7 @@ function createGlissPlaybackChain(
     events,
     startExtensionNote: findStartLongNoteExtension(firstEvent, noteEvents),
     endExtensionNote: findEndLongNoteExtension(lastEvent, noteEvents),
+    bridgeExtensionNotes: [],
   };
 }
 
@@ -533,6 +608,12 @@ function buildMutedGlissAnchorNoteSet(
 
     if (chain.endExtensionNote !== null) {
       mutedNoteEvents.add(chain.endExtensionNote);
+    }
+
+    for (const bridgeNote of chain.bridgeExtensionNotes) {
+      if (bridgeNote !== null) {
+        mutedNoteEvents.add(bridgeNote);
+      }
     }
   }
 
@@ -988,7 +1069,7 @@ function createAudioGlissChainScheduleEvent(
 
   const segments = [
     createStartExtensionGlissChainSegment(chain, mapper),
-    ...events.map((event) => createAudioGlissChainSegment(event, noteEvents, mapper)),
+    ...createGlissChainCoreSegments(chain, noteEvents, mapper),
     createEndExtensionGlissChainSegment(chain, mapper),
   ]
     .filter((segment): segment is AudioGlissChainSegment => segment !== null);
@@ -1011,6 +1092,9 @@ function createAudioGlissChainScheduleEvent(
     effects: [
       ...buildExtensionNoteEffects(chain.startExtensionNote, mapper),
       ...events.flatMap((event) => buildGlissTremoloEffects(event, mapper, noteEvents)),
+      ...chain.bridgeExtensionNotes.flatMap((noteEvent) =>
+        noteEvent === null ? [] : buildExtensionNoteEffects(noteEvent, mapper)
+      ),
       ...buildExtensionNoteEffects(chain.endExtensionNote, mapper),
     ],
     automation: buildDynamicsGainAutomation(
@@ -1020,6 +1104,57 @@ function createAudioGlissChainScheduleEvent(
       mapper,
     ),
   };
+}
+
+/**
+ * gliss event segment와 그 사이 공유 long note bridge segment를 순서대로 만든다.
+ * - 인수 : chain : 변환할 재생용 gliss chain
+ * - 인수 : noteEvents : gliss 시작 anchor의 tremolo 정보를 찾기 위한 같은 track note event 목록
+ * - 인수 : mapper : tick/seconds 변환기
+ * - 반환값 : chain 내부 핵심 pitch segment 목록
+ */
+function createGlissChainCoreSegments(
+  chain: GlissPlaybackChain,
+  noteEvents: NoteEvent[],
+  mapper: TickTimeMapper,
+): AudioGlissChainSegment[] {
+  const segments: AudioGlissChainSegment[] = [];
+
+  // gliss event를 순회하며 event 사이에 공유 long note가 있으면 constant pitch bridge로 삽입한다.
+  for (let index = 0; index < chain.events.length; index += 1) {
+    const event = chain.events[index];
+
+    if (event === undefined) {
+      continue;
+    }
+
+    const glissSegment = createAudioGlissChainSegment(event, noteEvents, mapper);
+
+    if (glissSegment !== null) {
+      segments.push(glissSegment);
+    }
+
+    const nextEvent = chain.events[index + 1];
+    const bridgeNote = chain.bridgeExtensionNotes[index];
+
+    if (nextEvent === undefined || bridgeNote === undefined || bridgeNote === null) {
+      continue;
+    }
+
+    const bridgeSegment = createConstantPitchGlissChainSegment(
+      event.endAnchorTick,
+      getAudioGlissStartTick(nextEvent, noteEvents),
+      bridgeNote.sound.midi,
+      bridgeNote.sound.centOffset,
+      mapper,
+    );
+
+    if (bridgeSegment !== null) {
+      segments.push(bridgeSegment);
+    }
+  }
+
+  return segments;
 }
 
 /**
