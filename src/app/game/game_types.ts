@@ -26,7 +26,7 @@ export type GamePitchFrame = {
   clarity: number;
   rms: number;
   isVoiced: boolean;
-  rejectReason: "invalid frequency" | "low clarity" | "low rms" | "out of range" | null;
+  rejectReason: "invalid frequency" | "unclear pitch" | "low clarity" | "low rms" | "out of range" | null;
 };
 
 /** 게임 모드에서 현재 score time과 비교할 note 판정 대상. */

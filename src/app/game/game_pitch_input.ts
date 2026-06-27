@@ -11,7 +11,7 @@ import {
   frequencyToMidiPitch,
 } from "./game_pitch_math";
 
-const PITCH_ANALYZER_FFT_SIZE = 2048;
+const PITCH_ANALYZER_FFT_SIZE = 4096;
 const MIN_CLARITY = 0.75;
 const MIN_RMS = 0.01;
 
@@ -122,7 +122,7 @@ function resolvePitchRejectReason(input: {
   isFrequencyInRange: boolean;
 }): GamePitchFrame["rejectReason"] {
   if (input.midiPitch === null) {
-    return "invalid frequency";
+    return input.rms >= MIN_RMS ? "unclear pitch" : "invalid frequency";
   }
 
   if (input.clarity < MIN_CLARITY) {

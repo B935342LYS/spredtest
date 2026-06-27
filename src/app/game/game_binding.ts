@@ -7,6 +7,7 @@ import type {
   AppState,
 } from "../app_types";
 import { syncLeftStatus, syncUiControls } from "../app_ui_sync";
+import { syncGameModeUi } from "./game_ui";
 import { syncGamePitchOverlay } from "./game_pitch_overlay";
 import { createGamePitchInputRuntime, type GamePitchInputRuntime } from "./game_pitch_input";
 import { createEmptyGameScoreSummary, type GamePitchFrame } from "./game_types";
@@ -44,6 +45,20 @@ function stopMicrophoneStream(stream: MediaStream | null): void {
 }
 
 /**
+ * 음악 pitch detection에 맞춘 마이크 입력 제약을 만든다.
+ * - 인수 : 없음
+ * - 반환값 : getUserMedia에 전달할 audio constraint
+ */
+function createMusicInputAudioConstraints(): MediaTrackConstraints {
+  return {
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false,
+    channelCount: { ideal: 1 },
+  };
+}
+
+/**
  * 게임 모드 DOM event를 app 상태에 연결한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
  * - 인수 : session : app 상태와 render callback 묶음
@@ -77,6 +92,7 @@ export function bindGameModeControls(
         pitchFrame: frame,
       },
     });
+    syncGameModeUi(dom, session.getState());
     syncGamePitchOverlay(dom, session.getState());
   };
 
@@ -159,11 +175,7 @@ export function bindGameModeControls(
     session.render();
 
     navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: false,
-      },
+      audio: createMusicInputAudioConstraints(),
     })
       .then((stream) => {
         if (requestId !== currentRequestId || session.getState().gameMode.kind === "off") {
