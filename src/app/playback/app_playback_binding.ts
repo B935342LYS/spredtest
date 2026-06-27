@@ -18,6 +18,12 @@ import {
   syncPlaybackUi,
   syncSeekUi,
 } from "./app_playback_ui";
+import {
+  beginPerfSession,
+  endPerfSession,
+  measurePerf,
+  measurePerfAsync,
+} from "../../infra/perf_profiler";
 
 /** playback binding이 app 상태와 runtime을 조회하기 위한 session 입력. */
 export type PlaybackBindingSession = {
@@ -64,11 +70,17 @@ export function bindPlaybackControls(
     playbackRuntime: AppPlaybackRuntime,
     scoreSeconds: number,
   ): void => {
-    suppressScrollSeek = true;
-    scrollToScoreSeconds(dom, state, playbackRuntime, scoreSeconds);
-    requestAnimationFrame(() => {
-      suppressScrollSeek = false;
+    measurePerf("playbackUi.setSuppressScrollSeek", () => {
+      suppressScrollSeek = true;
     });
+    measurePerf("playbackUi.scrollToScoreSeconds", () =>
+      scrollToScoreSeconds(dom, state, playbackRuntime, scoreSeconds)
+    );
+    measurePerf("playbackUi.requestUnsuppressScrollSeek", () =>
+      requestAnimationFrame(() => {
+        suppressScrollSeek = false;
+      })
+    );
   };
 
   const pausePlaybackForManualSeek = (
@@ -178,30 +190,50 @@ export function bindPlaybackControls(
   };
 
   const updatePlaybackScroll = (): void => {
-    const state = session.getState();
-    const playbackRuntime = session.getPlaybackRuntime();
+    const perfSession = beginPerfSession("playback.raf.updateScroll");
 
-    if (!playbackRuntime.controller.isPlaying() || state.layout === null) {
-      playbackRafId = null;
-      syncPlaybackUi(dom, state, playbackRuntime);
-      return;
+    try {
+      const state = measurePerf("playbackRaf.getState", () => session.getState());
+      const playbackRuntime = measurePerf("playbackRaf.getPlaybackRuntime", () =>
+        session.getPlaybackRuntime()
+      );
+
+      if (!playbackRuntime.controller.isPlaying() || state.layout === null) {
+        playbackRafId = null;
+        measurePerf("playbackRaf.syncPlaybackUiStopped", () =>
+          syncPlaybackUi(dom, state, playbackRuntime)
+        );
+        return;
+      }
+
+      const currentScoreSeconds = measurePerf("playbackRaf.getCurrentScoreSeconds", () =>
+        playbackRuntime.controller.getCurrentScoreSeconds()
+      );
+
+      if (
+        lastPlaybackScoreSeconds !== null &&
+        currentScoreSeconds + 1e-6 < lastPlaybackScoreSeconds
+      ) {
+        measurePerf("playbackRaf.youtubeSeekOnLoopWrap", () =>
+          session.youtubeControl?.seekToCurrentScoreTime()
+        );
+      }
+
+      lastPlaybackScoreSeconds = currentScoreSeconds;
+
+      // score canvas의 왼쪽 edge를 재생 기준선으로 두고 RAF마다 부드럽게 따라가도록 한다.
+      measurePerf("playbackRaf.scrollScoreAreaToSeconds", () =>
+        scrollScoreAreaToSeconds(state, playbackRuntime, currentScoreSeconds)
+      );
+      measurePerf("playbackRaf.syncSeekUi", () =>
+        syncSeekUi(dom, state, playbackRuntime, currentScoreSeconds)
+      );
+      playbackRafId = measurePerf("playbackRaf.requestNextFrame", () =>
+        requestAnimationFrame(updatePlaybackScroll)
+      );
+    } finally {
+      endPerfSession(perfSession, { minTotalMs: 4 });
     }
-
-    const currentScoreSeconds = playbackRuntime.controller.getCurrentScoreSeconds();
-
-    if (
-      lastPlaybackScoreSeconds !== null &&
-      currentScoreSeconds + 1e-6 < lastPlaybackScoreSeconds
-    ) {
-      session.youtubeControl?.seekToCurrentScoreTime();
-    }
-
-    lastPlaybackScoreSeconds = currentScoreSeconds;
-
-    // score canvas의 왼쪽 edge를 재생 기준선으로 두고 현재 tick이 그 위치에 오도록 스크롤한다.
-    scrollScoreAreaToSeconds(state, playbackRuntime, currentScoreSeconds);
-    syncSeekUi(dom, state, playbackRuntime, currentScoreSeconds);
-    playbackRafId = requestAnimationFrame(updatePlaybackScroll);
   };
 
   dom.scoreArea.addEventListener("scroll", syncSeekFromUserScroll);
@@ -218,53 +250,79 @@ export function bindPlaybackControls(
   });
 
   const togglePlayback = (): void => {
+    const perfSession = beginPerfSession("playback.toggle");
     const state = session.getState();
     const playbackRuntime = session.getPlaybackRuntime();
 
-    if (state.busy.kind !== "idle") {
-      return;
-    }
+    try {
+      if (state.busy.kind !== "idle") {
+        return;
+      }
 
-    const playbackState = playbackRuntime.controller.getState();
-
-    if (playbackState.kind === "playing") {
-      playbackRuntime.controller.pause();
-      session.youtubeControl?.pause();
-      stopPlaybackAnimation();
-      syncPlaybackUi(dom, state, playbackRuntime);
-      scrollScoreAreaToSeconds(
-        state,
-        playbackRuntime,
-        playbackRuntime.controller.getCurrentScoreSeconds(),
+      const playbackState = measurePerf("playbackToggle.getControllerState", () =>
+        playbackRuntime.controller.getState()
       );
-      return;
-    }
 
-    const loopState = createPlaybackLoopStateFromApp(state, playbackRuntime);
-    const playRequest = playbackState.kind === "paused"
-      ? playbackRuntime.controller.playFromSeconds(
-          playbackRuntime.controller.getCurrentScoreSeconds(),
-          loopState,
-        )
-      : playbackRuntime.controller.playFromSeconds(Number(dom.seekInput.value), loopState);
+      if (playbackState.kind === "playing") {
+        measurePerf("playbackToggle.pauseController", () => playbackRuntime.controller.pause());
+        measurePerf("playbackToggle.pauseYoutube", () => session.youtubeControl?.pause());
+        measurePerf("playbackToggle.stopAnimation", () => stopPlaybackAnimation());
+        measurePerf("playbackToggle.syncPlaybackUi", () => syncPlaybackUi(dom, state, playbackRuntime));
+        measurePerf("playbackToggle.scrollToCurrentSeconds", () =>
+          scrollScoreAreaToSeconds(
+            state,
+            playbackRuntime,
+            playbackRuntime.controller.getCurrentScoreSeconds(),
+          )
+        );
+        return;
+      }
 
-    playRequest
-      .then(() => {
+      const loopState = measurePerf("playbackToggle.createLoopState", () =>
+        createPlaybackLoopStateFromApp(state, playbackRuntime)
+      );
+      const playStartSeconds = playbackState.kind === "paused"
+        ? measurePerf("playbackToggle.getPausedCurrentSeconds", () =>
+            playbackRuntime.controller.getCurrentScoreSeconds()
+          )
+        : Number(dom.seekInput.value);
+      const playRequest = measurePerfAsync("playbackToggle.controllerPlayFromSeconds", () =>
+        playbackRuntime.controller.playFromSeconds(playStartSeconds, loopState)
+      );
+
+      playRequest
+        .then(() => {
+          const thenPerfSession = beginPerfSession("playback.toggle.afterPlay");
+
+          try {
         const nextState = session.getState();
         const nextPlaybackRuntime = session.getPlaybackRuntime();
 
-        syncPlaybackUi(dom, nextState, nextPlaybackRuntime);
-        scrollScoreAreaToSeconds(
-          nextState,
-          nextPlaybackRuntime,
-          nextPlaybackRuntime.controller.getCurrentScoreSeconds(),
-        );
-        session.youtubeControl?.playAtCurrentScoreTime();
-        lastPlaybackScoreSeconds = nextPlaybackRuntime.controller.getCurrentScoreSeconds();
-        stopPlaybackAnimation();
-        playbackRafId = requestAnimationFrame(updatePlaybackScroll);
-      })
-      .catch((error: unknown) => {
+            measurePerf("playbackAfterPlay.syncPlaybackUi", () =>
+              syncPlaybackUi(dom, nextState, nextPlaybackRuntime)
+            );
+            measurePerf("playbackAfterPlay.scrollToCurrentSeconds", () =>
+              scrollScoreAreaToSeconds(
+                nextState,
+                nextPlaybackRuntime,
+                nextPlaybackRuntime.controller.getCurrentScoreSeconds(),
+              )
+            );
+            measurePerf("playbackAfterPlay.youtubePlay", () =>
+              session.youtubeControl?.playAtCurrentScoreTime()
+            );
+            lastPlaybackScoreSeconds = measurePerf("playbackAfterPlay.getCurrentSeconds", () =>
+              nextPlaybackRuntime.controller.getCurrentScoreSeconds()
+            );
+            measurePerf("playbackAfterPlay.stopAnimation", () => stopPlaybackAnimation());
+            playbackRafId = measurePerf("playbackAfterPlay.requestFrame", () =>
+              requestAnimationFrame(updatePlaybackScroll)
+            );
+          } finally {
+            endPerfSession(thenPerfSession);
+          }
+        })
+        .catch((error: unknown) => {
         const currentState = session.getState();
         const message = error instanceof Error ? error.message : "Unknown playback error.";
 
@@ -278,6 +336,9 @@ export function bindPlaybackControls(
         syncPlaybackStatus(dom, "error");
         syncLeftStatus(dom, session.getState());
       });
+    } finally {
+      endPerfSession(perfSession);
+    }
   };
 
   document.addEventListener("keydown", (event) => {

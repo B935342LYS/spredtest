@@ -35,6 +35,7 @@ import {
 } from "./edit/edit_apply";
 import type { ScoreTextEdit } from "./edit/edit_apply";
 import { createUndoHistoryState } from "./edit/edit_history";
+import { measurePerf } from "../infra/perf_profiler";
 import type {
   AppState,
   LoopState,
@@ -715,7 +716,9 @@ export function applyRawTextBatchToScore(
     return state;
   }
 
-  const applyResult = applyScoreCellRawTextBatch(state.document.score, edits);
+  const applyResult = measurePerf("runtime.applyScoreCellRawTextBatch", () =>
+    applyScoreCellRawTextBatch(state.document.score, edits)
+  );
   const lastSelection = edits[edits.length - 1]?.selection ?? state.selection;
 
   if (!applyResult.ok) {
@@ -729,17 +732,27 @@ export function applyRawTextBatchToScore(
     };
   }
 
-  const nextDocument = createRuntimeDocument(applyResult.score);
-  const renderBaseInput = applyReverseRowsOption(
-    createCanvasRenderInput(nextDocument),
-    state.reverseRows,
+  const nextDocument = measurePerf("runtime.createRuntimeDocument", () =>
+    createRuntimeDocument(applyResult.score)
   );
-  const artifacts = buildScoreTextEditPartialArtifacts({
-    state,
-    nextDocument,
-    edits,
-    renderBaseInput,
-  }) ?? buildRuntimeArtifacts(nextDocument, state.activeTrackIds, state.reverseRows);
+  const renderBaseInput = measurePerf(
+    "runtime.createCanvasRenderInput",
+    () => applyReverseRowsOption(
+      createCanvasRenderInput(nextDocument),
+      state.reverseRows,
+    ),
+  );
+  const partialArtifacts = measurePerf("runtime.buildScoreTextEditPartialArtifacts", () =>
+    buildScoreTextEditPartialArtifacts({
+      state,
+      nextDocument,
+      edits,
+      renderBaseInput,
+    })
+  );
+  const artifacts = partialArtifacts ?? measurePerf("runtime.buildRuntimeArtifactsFallback", () =>
+    buildRuntimeArtifacts(nextDocument, state.activeTrackIds, state.reverseRows)
+  );
 
   return {
     ...state,
@@ -810,7 +823,9 @@ export function applyRawTextBatchEditToState(
 
   try {
     return {
-      ...applyRawTextBatchToScore(actionState, edits),
+      ...measurePerf("runtime.applyRawTextBatchToScore", () =>
+        applyRawTextBatchToScore(actionState, edits)
+      ),
       busy: { kind: "idle" },
     };
   } catch (error: unknown) {

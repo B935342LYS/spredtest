@@ -10,6 +10,13 @@ import type {
   PlaybackLoopState,
   PlaybackState,
 } from "./audio_types";
+import {
+  beginPerfSession,
+  endPerfSession,
+  hasActivePerfSession,
+  measurePerf,
+  measurePerfAsync,
+} from "../infra/perf_profiler";
 
 /** playback controller 생성 입력. */
 export type PlaybackControllerInput = {
@@ -61,12 +68,18 @@ export function createPlaybackController(
       scoreSeconds: number,
       loop: PlaybackLoopState = LOOP_OFF,
     ): Promise<void> {
-      stopInterval();
-      input.backend.stopAll();
-      input.scheduler.resetScheduledEvents();
-      await input.backend.ensureStarted();
+      measurePerf("playbackController.play.stopInterval", () => stopInterval());
+      measurePerf("playbackController.play.backendStopAll", () => input.backend.stopAll());
+      measurePerf("playbackController.play.resetScheduledEvents", () =>
+        input.scheduler.resetScheduledEvents()
+      );
+      await measurePerfAsync("playbackController.play.ensureStarted", () =>
+        input.backend.ensureStarted()
+      );
 
-      const normalizedLoop = normalizeLoop(loop, input.schedule.durationSeconds);
+      const normalizedLoop = measurePerf("playbackController.play.normalizeLoop", () =>
+        normalizeLoop(loop, input.schedule.durationSeconds)
+      );
       state = {
         kind: "playing",
         audioStartedAt: input.backend.getCurrentTime(),
@@ -77,10 +90,12 @@ export function createPlaybackController(
         ),
         loop: normalizedLoop,
       };
-      scheduleCurrentLookahead();
-      intervalId = setInterval(
-        scheduleCurrentLookahead,
-        input.schedulerIntervalMs,
+      measurePerf("playbackController.play.initialLookahead", () => scheduleCurrentLookahead());
+      intervalId = measurePerf("playbackController.play.startInterval", () =>
+        setInterval(
+          scheduleCurrentLookahead,
+          input.schedulerIntervalMs,
+        )
       );
     },
     pause(): void {
@@ -103,10 +118,14 @@ export function createPlaybackController(
       scoreSeconds: number,
       loop: PlaybackLoopState = LOOP_OFF,
     ): void {
-      stopInterval();
-      input.backend.stopAll();
-      input.scheduler.resetScheduledEvents();
-      const normalizedLoop = normalizeLoop(loop, input.schedule.durationSeconds);
+      measurePerf("playbackController.pauseAt.stopInterval", () => stopInterval());
+      measurePerf("playbackController.pauseAt.backendStopAll", () => input.backend.stopAll());
+      measurePerf("playbackController.pauseAt.resetScheduledEvents", () =>
+        input.scheduler.resetScheduledEvents()
+      );
+      const normalizedLoop = measurePerf("playbackController.pauseAt.normalizeLoop", () =>
+        normalizeLoop(loop, input.schedule.durationSeconds)
+      );
       state = {
         kind: "paused",
         pausedAtScoreSeconds: normalizeStartScoreSeconds(
@@ -128,7 +147,9 @@ export function createPlaybackController(
       scoreSeconds: number,
       loop: PlaybackLoopState = state.loop,
     ): Promise<void> {
-      const normalizedLoop = normalizeLoop(loop, input.schedule.durationSeconds);
+      const normalizedLoop = measurePerf("playbackController.seek.normalizeLoop", () =>
+        normalizeLoop(loop, input.schedule.durationSeconds)
+      );
       const nextScoreSeconds = normalizeStartScoreSeconds(
         scoreSeconds,
         normalizedLoop,
@@ -140,9 +161,11 @@ export function createPlaybackController(
         return;
       }
 
-      stopInterval();
-      input.backend.stopAll();
-      input.scheduler.resetScheduledEvents();
+      measurePerf("playbackController.seek.stopInterval", () => stopInterval());
+      measurePerf("playbackController.seek.backendStopAll", () => input.backend.stopAll());
+      measurePerf("playbackController.seek.resetScheduledEvents", () =>
+        input.scheduler.resetScheduledEvents()
+      );
       state = state.kind === "paused"
         ? {
             kind: "paused",
@@ -195,17 +218,26 @@ export function createPlaybackController(
    * - 반환값 : 없음
    */
   function scheduleCurrentLookahead(): void {
+    const perfSession = hasActivePerfSession()
+      ? null
+      : beginPerfSession("playback.interval.lookahead");
+
+    try {
     if (state.kind !== "playing") {
       return;
     }
 
-    const playingTime = getPlayingTime(state);
+    const playingTime = measurePerf("playbackController.lookahead.getPlayingTime", () =>
+      getPlayingTime(state as Extract<PlaybackState, { kind: "playing" }>)
+    );
     const currentScoreSeconds = playingTime.scoreSeconds;
 
-    input.scheduler.scheduleLookahead(
-      currentScoreSeconds,
-      state.loop,
-      playingTime.loopCycleIndex,
+    measurePerf("playbackController.lookahead.scheduleLookahead", () =>
+      input.scheduler.scheduleLookahead(
+        currentScoreSeconds,
+        state.kind === "playing" ? state.loop : LOOP_OFF,
+        playingTime.loopCycleIndex,
+      )
     );
 
     if (!state.loop.enabled && currentScoreSeconds >= input.schedule.durationSeconds) {
@@ -215,6 +247,9 @@ export function createPlaybackController(
         seekScoreSeconds: 0,
         loop: LOOP_OFF,
       };
+    }
+    } finally {
+      endPerfSession(perfSession, { minTotalMs: 2 });
     }
   }
 

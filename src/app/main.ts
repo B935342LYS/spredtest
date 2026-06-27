@@ -58,6 +58,12 @@ import {
   type YoutubePlaybackControl,
 } from "./youtube/youtube_binding";
 import type { ScoreFile } from "../core/score/types";
+import {
+  beginPerfSession,
+  endPerfSession,
+  installPerfProfilerConsoleApi,
+  measurePerf,
+} from "../infra/perf_profiler";
 import templateScoreJson from "../assets/templates/default-score.json?raw";
 
 type ScoreEditHistoryTransaction = {
@@ -72,6 +78,8 @@ type ScoreEditHistoryTransaction = {
  * - 반환값 : 없음
  */
 async function boot(): Promise<void> {
+  installPerfProfilerConsoleApi();
+
   // score viewer DOM 요소와 renderer가 사용할 canvas target을 준비한다.
   const dom = collectAppDom();
 
@@ -96,30 +104,44 @@ async function boot(): Promise<void> {
   let activeHistoryTransaction: ScoreEditHistoryTransaction | null = null;
 
   const render = (): void => {
-    state = renderApp(dom, state);
-    syncMusicMetadata(dom, state);
-    syncLeftStatus(dom, state);
-    syncUiControls(dom, state);
-    syncLayoutToolbarPresetSelectForCurrentScore(dom, { getState: () => state });
-    syncPlaybackUi(dom, state, playbackRuntime);
+    const perfSession = beginPerfSession("app.render");
+
+    try {
+      state = measurePerf("app.render.renderApp", () => renderApp(dom, state));
+      measurePerf("app.render.syncMusicMetadata", () => syncMusicMetadata(dom, state));
+      measurePerf("app.render.syncLeftStatus", () => syncLeftStatus(dom, state));
+      measurePerf("app.render.syncUiControls", () => syncUiControls(dom, state));
+      measurePerf("app.render.syncLayoutToolbarPresetSelect", () =>
+        syncLayoutToolbarPresetSelectForCurrentScore(dom, { getState: () => state })
+      );
+      measurePerf("app.render.syncPlaybackUi", () => syncPlaybackUi(dom, state, playbackRuntime));
+    } finally {
+      endPerfSession(perfSession);
+    }
   };
 
   const renderAfterScoreTextEdit = (edits: ScoreTextEdit[], plan: PartialRebuildPlan | null): void => {
     const redrawScope = plan?.renderer.redrawScope ?? getScoreTextEditRedrawScope(edits);
 
     if (redrawScope === "note") {
-      state = renderAppPartial(dom, state, "note", plan?.renderer.dirtyTickRange ?? null);
+      state = measurePerf("app.editRender.renderAppPartial.note", () =>
+        renderAppPartial(dom, state, "note", plan?.renderer.dirtyTickRange ?? null)
+      );
     } else if (redrawScope === "global") {
-      state = renderAppPartial(dom, state, "global");
+      state = measurePerf("app.editRender.renderAppPartial.global", () =>
+        renderAppPartial(dom, state, "global")
+      );
     } else {
-      state = renderApp(dom, state);
+      state = measurePerf("app.editRender.renderApp.full", () => renderApp(dom, state));
     }
 
-    syncMusicMetadata(dom, state);
-    syncLeftStatus(dom, state);
-    syncUiControls(dom, state);
-    syncLayoutToolbarPresetSelectForCurrentScore(dom, { getState: () => state });
-    syncPlaybackUi(dom, state, playbackRuntime);
+    measurePerf("app.editRender.syncMusicMetadata", () => syncMusicMetadata(dom, state));
+    measurePerf("app.editRender.syncLeftStatus", () => syncLeftStatus(dom, state));
+    measurePerf("app.editRender.syncUiControls", () => syncUiControls(dom, state));
+    measurePerf("app.editRender.syncLayoutToolbarPresetSelect", () =>
+      syncLayoutToolbarPresetSelectForCurrentScore(dom, { getState: () => state })
+    );
+    measurePerf("app.editRender.syncPlaybackUi", () => syncPlaybackUi(dom, state, playbackRuntime));
   };
 
   playbackRuntime = createAppPlaybackRuntime(dom, state);
@@ -127,10 +149,12 @@ async function boot(): Promise<void> {
   youtubeControl = createNoopYoutubeControl();
 
   const resetPlaybackForCurrentState = (): void => {
-    stopPlaybackAnimation();
-    playbackRuntime.controller.dispose();
-    playbackRuntime = createAppPlaybackRuntime(dom, state);
-    syncPlaybackUi(dom, state, playbackRuntime);
+    measurePerf("playback.reset.stopAnimation", () => stopPlaybackAnimation());
+    measurePerf("playback.reset.disposeController", () => playbackRuntime.controller.dispose());
+    playbackRuntime = measurePerf("playback.reset.createRuntime", () =>
+      createAppPlaybackRuntime(dom, state)
+    );
+    measurePerf("playback.reset.syncPlaybackUi", () => syncPlaybackUi(dom, state, playbackRuntime));
   };
 
   const resetPlaybackForCurrentStatePausedAt = (scoreSeconds: number): void => {
@@ -156,14 +180,18 @@ async function boot(): Promise<void> {
       playbackRuntime.controller.getCurrentScoreSeconds(),
     );
 
-    stopPlaybackAnimation();
-    playbackRuntime.controller.dispose();
-    playbackRuntime = createAppPlaybackRuntime(dom, state);
-    playbackRuntime.controller.pauseAtSeconds(
-      playbackRuntime.timeMapper.tickToSeconds(currentTick),
-      createPlaybackLoopStateFromApp(state, playbackRuntime),
+    measurePerf("playback.preserve.stopAnimation", () => stopPlaybackAnimation());
+    measurePerf("playback.preserve.disposeController", () => playbackRuntime.controller.dispose());
+    playbackRuntime = measurePerf("playback.preserve.createRuntime", () =>
+      createAppPlaybackRuntime(dom, state)
     );
-    syncPlaybackUi(dom, state, playbackRuntime);
+    measurePerf("playback.preserve.pauseAtSeconds", () =>
+      playbackRuntime.controller.pauseAtSeconds(
+        playbackRuntime.timeMapper.tickToSeconds(currentTick),
+        createPlaybackLoopStateFromApp(state, playbackRuntime),
+      )
+    );
+    measurePerf("playback.preserve.syncPlaybackUi", () => syncPlaybackUi(dom, state, playbackRuntime));
   };
 
   const resetNotePreviewForCurrentDom = (): void => {
@@ -183,70 +211,91 @@ async function boot(): Promise<void> {
       return;
     }
 
+    const perfSession = beginPerfSession(`app.applyScoreTextEdits ${edits.length} edit(s)`);
     const shouldRecordHistory = options.recordHistory !== false &&
       activeHistoryTransaction === null;
     const previousState = state;
 
-    state = {
-      ...state,
-      busy: { kind: "applyingEdit", message: "Applying edit..." },
-    };
-    syncLeftStatus(dom, state);
-    syncUiControls(dom, state);
+    try {
+      state = {
+        ...state,
+        busy: { kind: "applyingEdit", message: "Applying edit..." },
+      };
+      measurePerf("app.edit.syncBusyStatus", () => {
+        syncLeftStatus(dom, state);
+        syncUiControls(dom, state);
+      });
 
-    // 모아둔 rawText 편집을 하나의 full rebuild 경로로 넘겨 드래그 입력 중 rebuild 반복을 피한다.
-    state = applyRawTextBatchEditToState(state, edits);
-
-    if (activeHistoryTransaction !== null && options.recordHistory !== false) {
-      activeHistoryTransaction.edits.push(...edits);
-    }
-
-    if (shouldRecordHistory) {
-      const patches = buildCellHistoryPatches(
-        previousState.document.score,
-        state.document.score,
-        edits,
+      // 모아둔 rawText 편집을 하나의 full rebuild 경로로 넘겨 드래그 입력 중 rebuild 반복을 피한다.
+      state = measurePerf("app.edit.applyRawTextBatchEditToState", () =>
+        applyRawTextBatchEditToState(state, edits)
       );
 
-      state = {
-        ...state,
-        history: pushUndoHistoryEntry(state.history, {
-          id: createUndoHistoryEntryId(),
-          label: options.label ?? createDefaultHistoryLabel(edits),
-          patches,
-        }),
-      };
+      if (activeHistoryTransaction !== null && options.recordHistory !== false) {
+        activeHistoryTransaction.edits.push(...edits);
+      }
+
+      if (shouldRecordHistory) {
+        const patches = measurePerf("app.edit.buildCellHistoryPatches", () =>
+          buildCellHistoryPatches(
+            previousState.document.score,
+            state.document.score,
+            edits,
+          )
+        );
+
+        state = {
+          ...state,
+          history: measurePerf("app.edit.pushUndoHistoryEntry", () =>
+            pushUndoHistoryEntry(state.history, {
+              id: createUndoHistoryEntryId(),
+              label: options.label ?? createDefaultHistoryLabel(edits),
+              patches,
+            })
+          ),
+        };
+      }
+
+      if (options.statusText !== undefined) {
+        state = {
+          ...state,
+          statusMessage: {
+            level: "info",
+            text: options.statusText,
+          },
+        };
+      }
+
+      const partialPlan = measurePerf("app.edit.createScoreTextEditPartialPlan", () =>
+        createScoreTextEditPartialPlan({
+          previousState,
+          nextState: state,
+          edits,
+        })
+      );
+
+      if (partialPlan !== null) {
+        state = {
+          ...state,
+          renderInput: measurePerf("app.edit.applyPartialRenderInputPatch", () =>
+            applyPartialRenderInputPatch(
+              previousState.renderInput,
+              state.renderInput,
+              partialPlan,
+            )
+          ),
+        };
+      }
+
+      measurePerf("app.edit.renderAfterScoreTextEdit", () =>
+        renderAfterScoreTextEdit(edits, partialPlan)
+      );
+      measurePerf("app.edit.resetPlaybackPreservingPosition", () =>
+        resetPlaybackForCurrentStatePreservingPosition()
+      );
+    } finally {
+      endPerfSession(perfSession);
     }
-
-    if (options.statusText !== undefined) {
-      state = {
-        ...state,
-        statusMessage: {
-          level: "info",
-          text: options.statusText,
-        },
-      };
-    }
-
-    const partialPlan = createScoreTextEditPartialPlan({
-      previousState,
-      nextState: state,
-      edits,
-    });
-
-    if (partialPlan !== null) {
-      state = {
-        ...state,
-        renderInput: applyPartialRenderInputPatch(
-          previousState.renderInput,
-          state.renderInput,
-          partialPlan,
-        ),
-      };
-    }
-
-    renderAfterScoreTextEdit(edits, partialPlan);
-    resetPlaybackForCurrentStatePreservingPosition();
   };
 
   const beginScoreEditHistoryTransaction = (label: string): void => {

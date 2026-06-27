@@ -19,6 +19,7 @@ import type {
   AppDom,
   AppState,
 } from "../app_types";
+import { measurePerf } from "../../infra/perf_profiler";
 
 const PLAYBACK_LOOKAHEAD_SECONDS = 0.2;
 const PLAYBACK_SCHEDULER_INTERVAL_MS = 25;
@@ -74,29 +75,41 @@ export function createAppPlaybackRuntime(
   dom: AppDom,
   state: AppState,
 ): AppPlaybackRuntime {
-  const schedule = buildAudioSchedule({
-    analysis: state.analysis,
-    activeTrackIds: state.activeTrackIds,
-  });
-  const queue = createAudioEventQueue(schedule);
-  const backend = createOscillatorBackend({
-    waveType: dom.waveSelect.value as OscillatorType,
-    masterVolume: Number(dom.volumeInput.value) / 100,
-  });
-  const scheduler = createAudioLookaheadScheduler({
-    queue,
-    backend,
-    lookaheadSeconds: PLAYBACK_LOOKAHEAD_SECONDS,
-  });
+  const schedule = measurePerf("playbackRuntime.buildAudioSchedule", () =>
+    buildAudioSchedule({
+      analysis: state.analysis,
+      activeTrackIds: state.activeTrackIds,
+    })
+  );
+  const queue = measurePerf("playbackRuntime.createAudioEventQueue", () =>
+    createAudioEventQueue(schedule)
+  );
+  const backend = measurePerf("playbackRuntime.createOscillatorBackend", () =>
+    createOscillatorBackend({
+      waveType: dom.waveSelect.value as OscillatorType,
+      masterVolume: Number(dom.volumeInput.value) / 100,
+    })
+  );
+  const scheduler = measurePerf("playbackRuntime.createAudioLookaheadScheduler", () =>
+    createAudioLookaheadScheduler({
+      queue,
+      backend,
+      lookaheadSeconds: PLAYBACK_LOOKAHEAD_SECONDS,
+    })
+  );
 
   return {
-    controller: createPlaybackController({
-      schedule,
-      scheduler,
-      backend,
-      schedulerIntervalMs: PLAYBACK_SCHEDULER_INTERVAL_MS,
-    }),
-    timeMapper: createTickTimeMapper(state.analysis.timingTimeline),
+    controller: measurePerf("playbackRuntime.createPlaybackController", () =>
+      createPlaybackController({
+        schedule,
+        scheduler,
+        backend,
+        schedulerIntervalMs: PLAYBACK_SCHEDULER_INTERVAL_MS,
+      })
+    ),
+    timeMapper: measurePerf("playbackRuntime.createTickTimeMapper", () =>
+      createTickTimeMapper(state.analysis.timingTimeline)
+    ),
     backend,
   };
 }

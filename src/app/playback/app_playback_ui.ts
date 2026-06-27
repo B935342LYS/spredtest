@@ -7,6 +7,7 @@ import { syncLayoutScroll, syncTrackToggleButtons } from "../app_ui_sync";
 import { columnToX, xToColumn } from "../../renderer/canvas_coordinate";
 import { numberToTimeFraction } from "../../audio/tick_time_mapper";
 import type { AppPlaybackRuntime } from "./app_playback";
+import { measurePerf } from "../../infra/perf_profiler";
 
 /**
  * playback 상태 문자열을 status DOM에 반영한다.
@@ -54,12 +55,31 @@ export function formatPlaybackClock(seconds: number): string {
 export function resolveBpmAtTick(state: AppState, tick: number): number | null {
   const segments = state.analysis.timingTimeline;
   const fallbackSegment = segments[segments.length - 1];
-  const segment = segments.find((candidate) => {
+  let left = 0;
+  let right = segments.length - 1;
+  let segment = fallbackSegment;
+
+  // timing timeline은 tick 오름차순이므로 재생 중 반복 조회를 이진 탐색으로 처리한다.
+  while (left <= right) {
+    const mid = Math.floor((left + right) / 2);
+    const candidate = segments[mid];
+
+    if (candidate === undefined) {
+      break;
+    }
+
     const startTick = candidate.time.startTick.numerator / candidate.time.startTick.denominator;
     const endTick = candidate.time.endTick.numerator / candidate.time.endTick.denominator;
 
-    return tick >= startTick && tick < endTick;
-  }) ?? fallbackSegment;
+    if (tick < startTick) {
+      right = mid - 1;
+    } else if (tick >= endTick) {
+      left = mid + 1;
+    } else {
+      segment = candidate;
+      break;
+    }
+  }
 
   if (segment === undefined) {
     return null;
@@ -95,15 +115,22 @@ export function syncTempoStatus(
   playbackRuntime: AppPlaybackRuntime,
   scoreSeconds: number,
 ): void {
-  const tick = playbackRuntime.timeMapper.secondsToTick(scoreSeconds);
+  const tick = measurePerf("seekUi.tempo.secondsToTick", () =>
+    playbackRuntime.timeMapper.secondsToTick(scoreSeconds)
+  );
   const tickNumber = tick.numerator / tick.denominator;
-  const bpm = resolveBpmAtTick(state, tickNumber);
+  const bpm = measurePerf("seekUi.tempo.resolveBpmAtTick", () =>
+    resolveBpmAtTick(state, tickNumber)
+  );
   const bpmText = bpm === null
     ? "--"
     : bpm.toFixed(Number.isInteger(bpm) ? 0 : 1);
+  const text = `BPM: ${bpmText}`;
 
-  dom.tempoStatus.textContent = `BPM: ${bpmText}`;
-  dom.tempoStatus.title = `BPM: ${bpmText}`;
+  measurePerf("seekUi.tempo.writeDom", () => {
+    setTextIfChanged(dom.tempoStatus, text);
+    setTitleIfChanged(dom.tempoStatus, text);
+  });
 }
 
 /**
@@ -120,14 +147,58 @@ export function syncSeekUi(
   playbackRuntime: AppPlaybackRuntime,
   scoreSeconds: number,
 ): void {
-  const durationSeconds = playbackRuntime.timeMapper.getDurationSeconds();
+  const durationSeconds = measurePerf("seekUi.getDurationSeconds", () =>
+    playbackRuntime.timeMapper.getDurationSeconds()
+  );
   const clampedSeconds = Math.min(Math.max(scoreSeconds, 0), Math.max(0, durationSeconds));
+  const maxText = measurePerf("seekUi.formatMax", () => formatSeekInputSeconds(durationSeconds));
+  const valueText = measurePerf("seekUi.formatValue", () => formatSeekInputSeconds(clampedSeconds));
+  const currentText = measurePerf("seekUi.formatCurrentClock", () =>
+    formatPlaybackClock(clampedSeconds)
+  );
+  const durationText = measurePerf("seekUi.formatDurationClock", () =>
+    formatPlaybackClock(durationSeconds)
+  );
 
-  dom.seekInput.max = formatSeekInputSeconds(durationSeconds);
-  dom.seekInput.value = formatSeekInputSeconds(clampedSeconds);
-  dom.seekCurrentLabel.textContent = formatPlaybackClock(clampedSeconds);
-  dom.seekDurationLabel.textContent = formatPlaybackClock(durationSeconds);
-  syncTempoStatus(dom, state, playbackRuntime, clampedSeconds);
+  measurePerf("seekUi.writeRangeInput", () => {
+    if (dom.seekInput.max !== maxText) {
+      dom.seekInput.max = maxText;
+    }
+    if (dom.seekInput.value !== valueText) {
+      dom.seekInput.value = valueText;
+    }
+  });
+  measurePerf("seekUi.writeClockLabels", () => {
+    setTextIfChanged(dom.seekCurrentLabel, currentText);
+    setTextIfChanged(dom.seekDurationLabel, durationText);
+  });
+  measurePerf("seekUi.syncTempoStatus", () =>
+    syncTempoStatus(dom, state, playbackRuntime, clampedSeconds)
+  );
+}
+
+/**
+ * textContent가 바뀔 때만 DOM text를 갱신한다.
+ * - 인수 : element : 갱신할 DOM 요소
+ * - 인수 : text : 다음 표시 문자열
+ * - 반환값 : 없음
+ */
+function setTextIfChanged(element: HTMLElement, text: string): void {
+  if (element.textContent !== text) {
+    element.textContent = text;
+  }
+}
+
+/**
+ * title이 바뀔 때만 DOM title을 갱신한다.
+ * - 인수 : element : 갱신할 DOM 요소
+ * - 인수 : text : 다음 title 문자열
+ * - 반환값 : 없음
+ */
+function setTitleIfChanged(element: HTMLElement, text: string): void {
+  if (element.title !== text) {
+    element.title = text;
+  }
 }
 
 /**
@@ -170,11 +241,22 @@ export function scrollToScoreSeconds(
     return;
   }
 
-  const currentTick = playbackRuntime.timeMapper.secondsToTick(scoreSeconds);
+  const currentTick = measurePerf("scrollToSeconds.secondsToTick", () =>
+    playbackRuntime.timeMapper.secondsToTick(scoreSeconds)
+  );
   const currentTickNumber = currentTick.numerator / currentTick.denominator;
+  const nextScrollLeft = measurePerf("scrollToSeconds.columnToX", () =>
+    columnToX(currentTickNumber, state.layout!)
+  );
 
-  dom.scoreArea.scrollLeft = columnToX(currentTickNumber, state.layout);
-  syncLayoutScroll(dom.scoreArea, dom.layoutStage);
+  measurePerf("scrollToSeconds.writeScoreScrollLeft", () => {
+    if (Math.abs(dom.scoreArea.scrollLeft - nextScrollLeft) >= 0.5) {
+      dom.scoreArea.scrollLeft = nextScrollLeft;
+    }
+  });
+  measurePerf("scrollToSeconds.syncLayoutScroll", () =>
+    syncLayoutScroll(dom.scoreArea, dom.layoutStage)
+  );
 }
 
 /**

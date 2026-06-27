@@ -34,6 +34,7 @@ import {
   filterActiveTrackResults,
   getTrackGain,
 } from "../track/track_control";
+import { measurePerf } from "../infra/perf_profiler";
 
 const DEFAULT_VELOCITY = 1;
 const DEFAULT_GLISS_CROSSFADE_SECONDS = 0.02;
@@ -62,9 +63,13 @@ type GlissPlaybackChain = {
  * - 반환값 : AudioSchedule : 초 단위로 정렬된 note schedule
  */
 export function buildAudioSchedule(input: AudioBuildInput): AudioSchedule {
-  const mapper = createTickTimeMapper(input.analysis.timingTimeline);
+  const mapper = measurePerf("audioSchedule.createTickTimeMapper", () =>
+    createTickTimeMapper(input.analysis.timingTimeline)
+  );
 
-  return buildAudioScheduleWithMapper(input.analysis, input.activeTrackIds, mapper);
+  return measurePerf("audioSchedule.buildWithMapper", () =>
+    buildAudioScheduleWithMapper(input.analysis, input.activeTrackIds, mapper)
+  );
 }
 
 /**
@@ -80,88 +85,111 @@ export function buildAudioScheduleWithMapper(
   mapper: TickTimeMapper,
 ): AudioSchedule {
   const events: AudioScheduleEvent[] = [];
+  const activeTrackResults = measurePerf("audioSchedule.filterActiveTrackResults", () =>
+    filterActiveTrackResults(analysis, activeTrackIds)
+  );
 
-  for (const trackResult of filterActiveTrackResults(analysis, activeTrackIds)) {
-    const noteEvents = trackResult.events.filter(isNoteEvent);
-    const glissEvents = trackResult.events.filter(isGlissEvent);
-    const noteClipStartTickByEvent = buildGlissEndNoteClipStartTickMap(
-      noteEvents,
-      glissEvents,
-    );
-    const noteClipEndTickByEvent = buildGlissStartNoteClipEndTickMap(
-      noteEvents,
-      glissEvents,
-    );
-    const glissChains = buildGlissPlaybackChains(
-      buildConnectedGlissChains(glissEvents, noteEvents),
-      glissEvents,
-      noteEvents,
-    );
-    const chainedGlissEvents = new Set<GlissEvent>(
-      glissChains.flatMap((chain) => chain.events),
-    );
-    const mutedNoteEvents = buildMutedGlissAnchorNoteSet(
-      noteEvents,
-      glissEvents,
-      glissChains,
-    );
-
-    // 선택된 track의 note, 단독 gliss fallback, 연결 gliss chain을 audio schedule event로 변환한다.
-    for (const event of trackResult.events) {
-      if (isNoteEvent(event)) {
-        if (mutedNoteEvents.has(event)) {
-          continue;
-        }
-
-        const noteScheduleEvent = createAudioNoteScheduleEvent(
-          event,
-          mapper,
-          noteClipStartTickByEvent.get(event) ?? null,
-          noteClipEndTickByEvent.get(event) ?? null,
-          analysis.dynamicsTimeline,
-        );
-
-        if (noteScheduleEvent !== null) {
-          events.push(noteScheduleEvent);
-        }
-        continue;
-      }
-
-      if (isGlissEvent(event)) {
-        if (chainedGlissEvents.has(event)) {
-          continue;
-        }
-
-        const glissScheduleEvent = createAudioGlissScheduleEvent(
-          event,
-          mapper,
+  for (const trackResult of activeTrackResults) {
+    measurePerf(`audioSchedule.track.${trackResult.trackId}`, () => {
+      const noteEvents = measurePerf("audioSchedule.track.filterNoteEvents", () =>
+        trackResult.events.filter(isNoteEvent)
+      );
+      const glissEvents = measurePerf("audioSchedule.track.filterGlissEvents", () =>
+        trackResult.events.filter(isGlissEvent)
+      );
+      const noteClipStartTickByEvent = measurePerf("audioSchedule.track.buildGlissEndClipMap", () =>
+        buildGlissEndNoteClipStartTickMap(
           noteEvents,
-          analysis.dynamicsTimeline,
-        );
-
-        if (glissScheduleEvent !== null) {
-          events.push(glissScheduleEvent);
-        }
-      }
-    }
-
-    for (const glissChain of glissChains) {
-      const chainScheduleEvent = createAudioGlissChainScheduleEvent(
-        glissChain,
-        mapper,
-        noteEvents,
-        analysis.dynamicsTimeline,
+          glissEvents,
+        )
+      );
+      const noteClipEndTickByEvent = measurePerf("audioSchedule.track.buildGlissStartClipMap", () =>
+        buildGlissStartNoteClipEndTickMap(
+          noteEvents,
+          glissEvents,
+        )
+      );
+      const glissChains = measurePerf("audioSchedule.track.buildGlissPlaybackChains", () =>
+        buildGlissPlaybackChains(
+          buildConnectedGlissChains(glissEvents, noteEvents),
+          glissEvents,
+          noteEvents,
+        )
+      );
+      const chainedGlissEvents = new Set<GlissEvent>(
+        glissChains.flatMap((chain) => chain.events),
+      );
+      const mutedNoteEvents = measurePerf("audioSchedule.track.buildMutedGlissAnchorNoteSet", () =>
+        buildMutedGlissAnchorNoteSet(
+          noteEvents,
+          glissEvents,
+          glissChains,
+        )
       );
 
-      if (chainScheduleEvent !== null) {
-        events.push(chainScheduleEvent);
-      }
-    }
+      // 선택된 track의 note, 단독 gliss fallback, 연결 gliss chain을 audio schedule event로 변환한다.
+      measurePerf("audioSchedule.track.convertEvents", () => {
+        for (const event of trackResult.events) {
+          if (isNoteEvent(event)) {
+            if (mutedNoteEvents.has(event)) {
+              continue;
+            }
+
+            const noteScheduleEvent = createAudioNoteScheduleEvent(
+              event,
+              mapper,
+              noteClipStartTickByEvent.get(event) ?? null,
+              noteClipEndTickByEvent.get(event) ?? null,
+              analysis.dynamicsTimeline,
+            );
+
+            if (noteScheduleEvent !== null) {
+              events.push(noteScheduleEvent);
+            }
+            continue;
+          }
+
+          if (isGlissEvent(event)) {
+            if (chainedGlissEvents.has(event)) {
+              continue;
+            }
+
+            const glissScheduleEvent = createAudioGlissScheduleEvent(
+              event,
+              mapper,
+              noteEvents,
+              analysis.dynamicsTimeline,
+            );
+
+            if (glissScheduleEvent !== null) {
+              events.push(glissScheduleEvent);
+            }
+          }
+        }
+      });
+
+      measurePerf("audioSchedule.track.convertGlissChains", () => {
+        for (const glissChain of glissChains) {
+          const chainScheduleEvent = createAudioGlissChainScheduleEvent(
+            glissChain,
+            mapper,
+            noteEvents,
+            analysis.dynamicsTimeline,
+          );
+
+          if (chainScheduleEvent !== null) {
+            events.push(chainScheduleEvent);
+          }
+        }
+      });
+    });
   }
 
   return {
     durationSeconds: mapper.getDurationSeconds(),
-    events: applyOverlapGainScaleAutomation(events.sort(compareAudioScheduleEvents)),
+    events: measurePerf("audioSchedule.sortAndOverlapGain", () =>
+      applyOverlapGainScaleAutomation(events.sort(compareAudioScheduleEvents))
+    ),
   };
 }
 

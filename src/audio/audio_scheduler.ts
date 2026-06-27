@@ -15,6 +15,7 @@ import type {
   AudioScheduleEvent,
   PlaybackLoopState,
 } from "./audio_types";
+import { measurePerf } from "../infra/perf_profiler";
 
 /** lookahead scheduler 생성 입력. */
 export type AudioLookaheadSchedulerInput = {
@@ -50,22 +51,31 @@ export function createAudioLookaheadScheduler(
       loopCycleIndex = 0,
     ): number {
       validateCurrentScoreSeconds(currentScoreSeconds);
-      pruneScheduledKeysForLoop(scheduledKeys, loop, loopCycleIndex);
+      measurePerf("audioScheduler.pruneScheduledKeysForLoop", () =>
+        pruneScheduledKeysForLoop(scheduledKeys, loop, loopCycleIndex)
+      );
 
-      const windows = createLookaheadQueryWindows(
-        currentScoreSeconds,
-        input.lookaheadSeconds,
-        loop,
+      const windows = measurePerf("audioScheduler.createLookaheadQueryWindows", () =>
+        createLookaheadQueryWindows(
+          currentScoreSeconds,
+          input.lookaheadSeconds,
+          loop,
+        )
       );
       let scheduledCount = 0;
 
       // lookahead window를 순회하며 아직 예약하지 않은 event만 backend에 넘긴다.
       for (const window of windows) {
-        const overlappingEvents = input.queue.getEventsOverlappingRange(
-          window.queryStartSeconds,
-          window.queryStartSeconds,
+        const overlappingEvents = measurePerf("audioScheduler.queryOverlappingEvents", () =>
+          input.queue.getEventsOverlappingRange(
+            window.queryStartSeconds,
+            window.queryStartSeconds,
+          )
         );
-        for (const event of overlappingEvents) {
+        scheduledCount += measurePerf("audioScheduler.scheduleOverlappingEvents", () => {
+          let count = 0;
+
+          for (const event of overlappingEvents) {
           const originalScheduledKey = createScheduledEventKey(
             event,
             loopCycleIndex + window.cycleOffset,
@@ -99,15 +109,23 @@ export function createAudioLookaheadScheduler(
             window.offsetBaseSeconds + clippedEvent.startSeconds,
           );
           scheduledKeys.add(scheduledKey);
-          scheduledCount += 1;
+          count += 1;
         }
 
-        const events = input.queue.getEventsStartingInRange(
-          window.queryStartSeconds,
-          window.queryEndSeconds,
+          return count;
+        });
+
+        const events = measurePerf("audioScheduler.queryStartingEvents", () =>
+          input.queue.getEventsStartingInRange(
+            window.queryStartSeconds,
+            window.queryEndSeconds,
+          )
         );
 
-        for (const event of events) {
+        scheduledCount += measurePerf("audioScheduler.scheduleStartingEvents", () => {
+          let count = 0;
+
+          for (const event of events) {
           const scheduledKey = createScheduledEventKey(event, loopCycleIndex + window.cycleOffset);
 
           if (scheduledKeys.has(scheduledKey)) {
@@ -131,8 +149,11 @@ export function createAudioLookaheadScheduler(
 
           input.backend.scheduleEvent(clippedEvent, offsetSeconds);
           scheduledKeys.add(scheduledKey);
-          scheduledCount += 1;
+          count += 1;
         }
+
+          return count;
+        });
       }
 
       return scheduledCount;
