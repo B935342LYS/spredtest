@@ -32,6 +32,9 @@ import {
   collectGameEffectBonusTargets,
   getGlissIntervalIndexAtSeconds,
   judgeGlissIntervalBonus,
+  judgeVibWindowBonus,
+  shouldLockFailedGlissBonusTarget,
+  type GameEffectFrame,
   type GameEffectBonusTarget,
 } from "../game/game_effect_judge";
 import {
@@ -58,6 +61,7 @@ import {
 const TIMING_ONSET_MIN_INTERVAL_SECONDS = 0.06;
 const TIMING_ONSET_KEEP_SECONDS = 0.75;
 const TIMING_PITCH_CHANGE_THRESHOLD_CENT = 80;
+const EFFECT_FRAME_KEEP_SECONDS = 1.2;
 /** playback binding이 app 상태와 runtime을 조회하기 위한 session 입력. */
 export type PlaybackBindingSession = {
   getState(): AppState;
@@ -97,7 +101,10 @@ export function bindPlaybackControls(
   let judgedTimingEventIds = new Set<string>();
   let nextTimingOnsetId = 1;
   let effectBonusTargets: GameEffectBonusTarget[] = [];
+  let effectFrames: GameEffectFrame[] = [];
+  let lastProcessedEffectFrameAtMs: number | null = null;
   let judgedEffectIntervalIds = new Set<string>();
+  let failedEffectTargetIds = new Set<string>();
   let countdownAudioContext: AudioContext | null = null;
 
   /**
@@ -113,7 +120,10 @@ export function bindPlaybackControls(
     judgedTimingEventIds = new Set<string>();
     nextTimingOnsetId = 1;
     effectBonusTargets = [];
+    effectFrames = [];
+    lastProcessedEffectFrameAtMs = null;
     judgedEffectIntervalIds = new Set<string>();
+    failedEffectTargetIds = new Set<string>();
   };
 
   /**
@@ -140,6 +150,8 @@ export function bindPlaybackControls(
     lastProcessedTimingFrameAtMs = frame.capturedAtMs;
 
     const judgeScoreSeconds = applyGameSyncOffsetSeconds(scoreSeconds, state.gameSyncOffsetMs);
+
+    appendPracticeEffectFrame(frame, judgeScoreSeconds);
 
     if (frame.isVoiced && frame.midi !== null && frame.centOffset !== null) {
       const shouldCreateOnset = isTimingOnsetFrame(lastTimingFrame, frame) &&
@@ -175,33 +187,56 @@ export function bindPlaybackControls(
 
     const trackDifficulty = normalizeGameTrackDifficulty(state.document.score.musicData.scoreDifficulty);
 
-    // gliss 구간 안의 interval마다 한 번씩 검사해 성공 시 bonus를 더한다.
+    // gliss는 interval마다, vib는 effect segment마다 한 번씩 검사해 성공 시 bonus를 더한다.
     for (const target of effectBonusTargets) {
-      const intervalIndex = getGlissIntervalIndexAtSeconds(target, judgeScoreSeconds);
-
-      if (intervalIndex === null) {
+      if (failedEffectTargetIds.has(target.targetId)) {
         continue;
       }
 
-      const intervalId = `${target.targetId}:${intervalIndex}`;
+      const bonusId = getEffectBonusJudgeId(target, judgeScoreSeconds);
 
-      if (judgedEffectIntervalIds.has(intervalId)) {
+      if (bonusId === null || judgedEffectIntervalIds.has(bonusId)) {
         continue;
       }
 
-      const bonus = judgeGlissIntervalBonus(
-        target,
-        state.gameMode.pitchFrame,
-        judgeScoreSeconds,
-        intervalIndex,
-        trackDifficulty,
-      );
+      if (target.kind === "gliss") {
+        const intervalIndex = getGlissIntervalIndexAtSeconds(target, judgeScoreSeconds) ?? -1;
+
+        if (
+          shouldLockFailedGlissBonusTarget(
+            target,
+            state.gameMode.pitchFrame,
+            judgeScoreSeconds,
+            intervalIndex,
+            effectFrames,
+          )
+        ) {
+          failedEffectTargetIds.add(target.targetId);
+          continue;
+        }
+      }
+
+      const bonus = target.kind === "gliss"
+        ? judgeGlissIntervalBonus(
+          target,
+          state.gameMode.pitchFrame,
+          judgeScoreSeconds,
+          getGlissIntervalIndexAtSeconds(target, judgeScoreSeconds) ?? -1,
+          trackDifficulty,
+          effectFrames,
+        )
+        : judgeVibWindowBonus(
+          target,
+          effectFrames,
+          judgeScoreSeconds,
+          trackDifficulty,
+        );
 
       if (bonus === null) {
         continue;
       }
 
-      judgedEffectIntervalIds.add(intervalId);
+      judgedEffectIntervalIds.add(bonusId);
 
       const currentState = session.getState();
 
@@ -225,6 +260,53 @@ export function bindPlaybackControls(
     }
 
     return lastBonus;
+  };
+
+  /**
+   * practice effect 판정용 최근 pitch frame 창을 갱신한다.
+   * - 인수 : frame : 현재 game mode pitch frame
+   * - 인수 : judgeScoreSeconds : Sync 보정이 적용된 현재 score time
+   * - 반환값 : 없음
+   */
+  const appendPracticeEffectFrame = (
+    frame: GamePitchFrame | null,
+    judgeScoreSeconds: number,
+  ): void => {
+    if (frame === null || lastProcessedEffectFrameAtMs === frame.capturedAtMs) {
+      return;
+    }
+
+    lastProcessedEffectFrameAtMs = frame.capturedAtMs;
+    effectFrames.push({
+      scoreSeconds: judgeScoreSeconds,
+      frame,
+    });
+    effectFrames = effectFrames.filter((entry) =>
+      judgeScoreSeconds - entry.scoreSeconds <= EFFECT_FRAME_KEEP_SECONDS
+    );
+  };
+
+  /**
+   * effect target의 중복 판정 방지 id를 만든다.
+   * - 인수 : target : 판정할 effect bonus 대상
+   * - 인수 : judgeScoreSeconds : Sync 보정이 적용된 현재 score time
+   * - 반환값 : 현재 판정해야 할 id, 아니면 null
+   */
+  const getEffectBonusJudgeId = (
+    target: GameEffectBonusTarget,
+    judgeScoreSeconds: number,
+  ): string | null => {
+    if (target.kind === "vib") {
+      if (judgeScoreSeconds < target.startSeconds || judgeScoreSeconds > target.endSeconds) {
+        return null;
+      }
+
+      return target.targetId;
+    }
+
+    const intervalIndex = getGlissIntervalIndexAtSeconds(target, judgeScoreSeconds);
+
+    return intervalIndex === null ? null : `${target.targetId}:${intervalIndex}`;
   };
 
   /**
