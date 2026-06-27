@@ -3,7 +3,7 @@
  */
 
 /** 셀 rawText 최대 글자 수. */
-export const MAX_CELL_RAW_TEXT_LENGTH = 100;
+export const MAX_CELL_RAW_TEXT_LENGTH = 200;
 
 /** ScoreFile 전체 columnCount 최대값. */
 export const MAX_SCORE_COLUMN_COUNT = 10000;
