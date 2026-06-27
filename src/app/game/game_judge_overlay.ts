@@ -11,9 +11,10 @@ import type { GameScoringSampleResult } from "./game_types";
 
 const JUDGE_OVERLAY_DURATION_MS = 500;
 const JUDGE_OVERLAY_X_OFFSET = 34;
-const JUDGE_OVERLAY_COMBO_LINE_HEIGHT = 24;
-const JUDGE_OVERLAY_LABEL_LINE_HEIGHT = 36;
-const JUDGE_OVERLAY_TIMING_LINE_HEIGHT = 18;
+const JUDGE_OVERLAY_Y_OFFSET = 6;
+const JUDGE_OVERLAY_COMBO_LINE_HEIGHT = 18;
+const JUDGE_OVERLAY_LABEL_LINE_HEIGHT = 26;
+const JUDGE_OVERLAY_TIMING_LINE_HEIGHT = 14;
 const JUDGE_OVERLAY_MIN_Y = 4;
 
 let hideJudgeOverlayTimer: number | null = null;
@@ -54,7 +55,7 @@ export function showGameJudgeOverlay(
 
   label.className = `game-judge-text game-judge-text-${sample.label.toLowerCase()}`;
   label.style.left = `${dom.scoreArea.scrollLeft + JUDGE_OVERLAY_X_OFFSET}px`;
-  label.style.top = `${Math.max(JUDGE_OVERLAY_MIN_Y, targetY - labelHeight)}px`;
+  label.style.top = `${Math.max(JUDGE_OVERLAY_MIN_Y, targetY - labelHeight - JUDGE_OVERLAY_Y_OFFSET)}px`;
 
   if (showCombo) {
     const comboLine = document.createElement("div");
