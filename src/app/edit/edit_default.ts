@@ -201,10 +201,6 @@ export function validateDefaultNoteEditInput(input: DefaultNoteEditInput): strin
     return "Gliss id must be one lowercase alphabet letter.";
   }
 
-  if (input.gliss.kind === "holdStart") {
-    return null;
-  }
-
   if (input.absolutePitch === AUTO_HARMONIC_2OCTAVE_ABSOLUTE_PITCH) {
     return "AUTO◇ requires a note row selection.";
   }
@@ -219,6 +215,10 @@ export function validateDefaultNoteEditInput(input: DefaultNoteEditInput): strin
 
   if (!isValidMicroPitch(input.microPitch)) {
     return "microPitch must be -100..100 with at most one fractional digit.";
+  }
+
+  if (input.gliss.kind === "holdStart") {
+    return null;
   }
 
   if (input.hold === "~" && input.tremDivision !== "") {
@@ -239,7 +239,11 @@ export function composeDefaultNoteRawText(input: DefaultNoteEditInput): string {
   }
 
   if (input.gliss.kind === "holdStart") {
-    return `-@g(${input.gliss.id},S)`;
+    const tokens = [`-@g(${input.gliss.id},S)`];
+
+    appendPitchModifierTokens(tokens, input);
+
+    return tokens.join("");
   }
 
   const tokens: string[] = [];
@@ -259,6 +263,18 @@ export function composeDefaultNoteRawText(input: DefaultNoteEditInput): string {
     tokens.push(`@t(${input.tremDivision})`);
   }
 
+  appendPitchModifierTokens(tokens, input);
+
+  return tokens.join("");
+}
+
+/**
+ * absolutePitch / microPitch 입력을 parser canonical suffix token으로 추가한다.
+ * - 인수 : tokens : rawText token을 누적 중인 배열
+ * - 인수 : input : pitch modifier 입력을 포함한 Default 영역 상태
+ * - 반환값 : 없음
+ */
+function appendPitchModifierTokens(tokens: string[], input: DefaultNoteEditInput): void {
   if (hasEffectiveAbsolutePitch(input.absolutePitch)) {
     tokens.push(`@p(${input.absolutePitch.trim()})`);
   }
@@ -266,6 +282,4 @@ export function composeDefaultNoteRawText(input: DefaultNoteEditInput): string {
   if (hasEffectiveMicroPitch(input.microPitch)) {
     tokens.push(`@m(${input.microPitch.trim()})`);
   }
-
-  return tokens.join("");
 }
