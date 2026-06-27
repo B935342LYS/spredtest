@@ -58,6 +58,7 @@ export function createGamePitchInputRuntime(
 
     analyser.getFloatTimeDomainData(samples);
 
+    const capturedAtMs = performance.now();
     const rms = calculateRms(samples);
     const [frequencyHz, clarity] = detector.findPitch(samples, audioContext.sampleRate);
     const range = createFrequencyRangeFromLayout(getLayout());
@@ -77,7 +78,7 @@ export function createGamePitchInputRuntime(
 
     // Pitchy가 반환한 clarity와 앱의 RMS/range 필터를 조합해 판정 가능한 frame만 voiced로 표시한다.
     onFrame({
-      capturedAtMs: performance.now(),
+      capturedAtMs,
       rawFrequencyHz: Number.isFinite(frequencyHz) && frequencyHz > 0 ? frequencyHz : null,
       frequencyHz: isVoiced ? frequencyHz : null,
       midi: isVoiced ? midiPitch.midi : null,

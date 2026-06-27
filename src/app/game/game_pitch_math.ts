@@ -6,6 +6,9 @@ import type { CanvasScoreLayout } from "../../renderer/canvas_types";
 
 const OCTAVE_CANDIDATE_MAX_ERROR_CENT = 100;
 const TARGET_LOCK_GRACE_MS = 500;
+const HARMONIC_CANDIDATE_MAX_ERROR_CENT = 120;
+const HARMONIC_CANDIDATE_MIN_INTERVAL_CENT = 700;
+const HARMONIC_CANDIDATE_FACTORS = [2, 3, 4, 5, 6] as const;
 
 /** pitch class 보정에 사용할 target 음정 후보. */
 export type GamePitchClassTarget = {
@@ -17,7 +20,6 @@ export type GamePitchClassTarget = {
 export type GamePitchCorrectionState = {
   lockedTargetCent: number | null;
   lastMatchedAtMs: number | null;
-  lastDisplayMidi: number | null;
 };
 
 /**
@@ -29,7 +31,6 @@ export function createGamePitchCorrectionState(): GamePitchCorrectionState {
   return {
     lockedTargetCent: null,
     lastMatchedAtMs: null,
-    lastDisplayMidi: null,
   };
 }
 
@@ -145,19 +146,21 @@ export function resolvePitchClassCandidateMidiWithHysteresis(
   if (!Number.isFinite(inputCent)) {
     state.lockedTargetCent = null;
     state.lastMatchedAtMs = null;
-    state.lastDisplayMidi = null;
     return midi + centOffset / 100;
   }
 
-  const bestTargetCent = findBestPitchClassTargetCent(inputCent, targets);
+  const bestMatch = findBestCorrectedTargetMatch(inputCent, targets);
 
-  if (bestTargetCent !== null) {
-    const lockedTargetCent = chooseLockedTargetCent(inputCent, bestTargetCent, state);
-    const displayMidi = foldInputCentToTargetOctave(inputCent, lockedTargetCent);
+  if (bestMatch !== null) {
+    const lockedTargetCent = chooseLockedTargetCent(
+      bestMatch.correctedInputCent,
+      bestMatch.targetCent,
+      state,
+    );
+    const displayMidi = foldInputCentToTargetOctave(bestMatch.correctedInputCent, lockedTargetCent);
 
     state.lockedTargetCent = lockedTargetCent;
     state.lastMatchedAtMs = capturedAtMs;
-    state.lastDisplayMidi = displayMidi;
 
     return displayMidi;
   }
@@ -173,15 +176,10 @@ export function resolvePitchClassCandidateMidiWithHysteresis(
     if (lockedErrorCent < OCTAVE_CANDIDATE_MAX_ERROR_CENT) {
       const displayMidi = foldInputCentToTargetOctave(inputCent, state.lockedTargetCent);
 
-      state.lastDisplayMidi = displayMidi;
-
       return displayMidi;
     }
 
-    // detector가 한두 frame 다른 계이름으로 튀면 dot을 원 입력으로 보내지 않고 직전 안정 위치에 묶는다.
-    if (state.lastDisplayMidi !== null) {
-      return state.lastDisplayMidi;
-    }
+    return midi + centOffset / 100;
   }
 
   if (
@@ -190,7 +188,6 @@ export function resolvePitchClassCandidateMidiWithHysteresis(
   ) {
     state.lockedTargetCent = null;
     state.lastMatchedAtMs = null;
-    state.lastDisplayMidi = null;
   }
 
   return midi + centOffset / 100;
@@ -234,17 +231,18 @@ function midiToFrequency(midi: number): number {
 }
 
 /**
- * 현재 입력 pitch와 pitch class가 가장 가까운 target의 절대 cent 값을 찾는다.
+ * 현재 입력 pitch 또는 그 배음 보정 후보와 pitch class가 가장 가까운 target을 찾는다.
  * - 인수 : inputCent : 입력 pitch의 절대 cent 값
  * - 인수 : targets : 비교할 target pitch 목록
- * - 반환값 : octave fold 후보 target cent 또는 없으면 null
+ * - 반환값 : target cent와 보정된 입력 cent. 후보가 없으면 null
  */
-function findBestPitchClassTargetCent(
+function findBestCorrectedTargetMatch(
   inputCent: number,
   targets: readonly GamePitchClassTarget[],
-): number | null {
-  let bestTargetCent: number | null = null;
+): { targetCent: number; correctedInputCent: number } | null {
+  let bestMatch: { targetCent: number; correctedInputCent: number } | null = null;
   let bestErrorCent = Number.POSITIVE_INFINITY;
+  const inputCandidates = createHarmonicInputCandidates(inputCent);
 
   for (const target of targets) {
     const targetCent = target.midi * 100 + target.centOffset;
@@ -253,19 +251,45 @@ function findBestPitchClassTargetCent(
       continue;
     }
 
-    const errorCent = calculatePitchClassErrorCent(inputCent, targetCent);
+    for (const candidateCent of inputCandidates) {
+      const errorCent = calculatePitchClassErrorCent(candidateCent, targetCent);
 
-    if (errorCent < bestErrorCent) {
-      bestErrorCent = errorCent;
-      bestTargetCent = targetCent;
+      if (errorCent < bestErrorCent) {
+        bestErrorCent = errorCent;
+        bestMatch = {
+          targetCent,
+          correctedInputCent: candidateCent,
+        };
+      }
     }
   }
 
-  if (bestTargetCent === null || bestErrorCent >= OCTAVE_CANDIDATE_MAX_ERROR_CENT) {
+  if (bestMatch === null || bestErrorCent >= HARMONIC_CANDIDATE_MAX_ERROR_CENT) {
     return null;
   }
 
-  return bestTargetCent;
+  return bestMatch;
+}
+
+/**
+ * detector 입력 pitch에서 원본과 배음 fundamental 후보 cent 목록을 만든다.
+ * - 인수 : inputCent : detector가 반환한 pitch의 절대 cent 값
+ * - 반환값 : 원본 후보와 2~6배음으로부터 역산한 fundamental 후보 목록
+ */
+function createHarmonicInputCandidates(inputCent: number): number[] {
+  const candidates = [inputCent];
+
+  for (const factor of HARMONIC_CANDIDATE_FACTORS) {
+    const intervalCent = 1200 * Math.log2(factor);
+
+    if (intervalCent < HARMONIC_CANDIDATE_MIN_INTERVAL_CENT) {
+      continue;
+    }
+
+    candidates.push(inputCent - intervalCent);
+  }
+
+  return candidates;
 }
 
 /**
