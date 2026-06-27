@@ -5,7 +5,7 @@
 import type { CanvasScoreLayout } from "../../renderer/canvas_types";
 
 const OCTAVE_CANDIDATE_MAX_ERROR_CENT = 100;
-const TARGET_LOCK_GRACE_MS = 220;
+const TARGET_LOCK_GRACE_MS = 500;
 
 /** pitch class 보정에 사용할 target 음정 후보. */
 export type GamePitchClassTarget = {

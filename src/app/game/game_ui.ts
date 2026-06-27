@@ -59,7 +59,7 @@ export function syncGameModeUi(dom: AppDom, state: AppState): void {
   dom.gamePanel.dataset.state = state.gameMode.kind;
   dom.gameStatus.textContent = statusText;
   dom.gameStatus.title = statusText;
-  dom.gameAccuracy.textContent = `${Math.round(summary.accuracyPercent)}%`;
+  dom.gameAccuracy.textContent = formatAccuracyPercent(summary.accuracyPercent);
   dom.gamePerfectCount.textContent = String(summary.perfectCount);
   dom.gameOkCount.textContent = String(summary.okCount);
   dom.gameBadCount.textContent = String(summary.badCount);
@@ -125,7 +125,7 @@ function syncGameDiagnostics(dom: AppDom, frame: GamePitchFrame | null): void {
  * - 반환값 : 없음
  */
 export function openPracticeResultDialog(dom: AppDom, summary: GameScoreSummary): void {
-  dom.resultAccuracy.textContent = `${Math.round(summary.accuracyPercent)}%`;
+  dom.resultAccuracy.textContent = formatAccuracyPercent(summary.accuracyPercent);
   dom.resultScore.textContent = String(Math.round(summary.score));
   dom.resultPerfectCount.textContent = String(summary.perfectCount);
   dom.resultOkCount.textContent = String(summary.okCount);
@@ -136,4 +136,17 @@ export function openPracticeResultDialog(dom: AppDom, summary: GameScoreSummary)
   if (!dom.practiceResultDialog.open) {
     dom.practiceResultDialog.showModal();
   }
+}
+
+/**
+ * accuracy percent를 소수점 이하 1자리 표시 문자열로 만든다.
+ * - 인수 : value : 0 이상 100 기준 accuracy percent
+ * - 반환값 : 소수점 1자리 percent 문자열
+ */
+function formatAccuracyPercent(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "0.0%";
+  }
+
+  return `${value.toFixed(1)}%`;
 }
