@@ -14,16 +14,28 @@ import type {
   GamePitchFrame,
   GameScoreSummary,
   GameScoringSampleResult,
+  GameTimingJudgeResult,
+  GameTimingOnsetCandidate,
 } from "./game_types";
 
 const PERFECT_ERROR_CENT = 50;
 const OK_ERROR_CENT = 100;
 const BAD_ERROR_CENT = 200;
 const PREVIOUS_NOTE_GRACE_SECONDS = 0.03334;
+const TIMING_DISPLAY_THRESHOLD_MS = 80;
+const TIMING_MISS_THRESHOLD_MS = 250;
+const TIMING_MAX_MATCH_MS = 500;
 const DEFAULT_TRACK_DIFFICULTY: Record<TrackId, number> = {
   basic: 1,
   optional: 1.2,
   extra: 1.5,
+};
+
+/** scoring sample에 적용할 timing 판정 입력. */
+export type GameTimingJudgeOptions = {
+  onsetCandidates: readonly GameTimingOnsetCandidate[];
+  judgedEventIds: ReadonlySet<string>;
+  consumedOnsetIds: ReadonlySet<number>;
 };
 
 /**
@@ -152,6 +164,7 @@ export function judgeGameScoringSample(
   targets: readonly GameJudgeTarget[],
   scoreSeconds: number,
   trackDifficulty: Record<TrackId, number>,
+  timing?: GameTimingJudgeOptions,
 ): GameScoringSampleResult | null {
   if (
     frame === null ||
@@ -182,7 +195,11 @@ export function judgeGameScoringSample(
     return null;
   }
 
-  const label = classifyPitchError(selectedErrorCent);
+  const pitchLabel = classifyPitchError(selectedErrorCent);
+  const timingMatch = timing === undefined
+    ? createEmptyTimingMatch()
+    : judgeTimingForTarget(selectedTarget, timing);
+  const label = timingMatch.result.kind === "miss" ? "Miss" : pitchLabel;
   const pitchAccuracy = getPitchAccuracy(label);
   const difficulty = trackDifficulty[selectedTarget.trackId];
   const scoreContribution = label === "Miss" ? 0 : difficulty * pitchAccuracy;
@@ -197,6 +214,100 @@ export function judgeGameScoringSample(
     label,
     status: label === "Miss" ? "miss" : "hit",
     scoreContribution,
+    timing: timingMatch.result,
+    timingOnsetId: timingMatch.onsetId,
+    timingJudgedEventId: timingMatch.onsetId === null ? null : selectedTarget.eventId,
+  };
+}
+
+/**
+ * timing 후보가 없을 때 사용할 빈 timing 결과를 만든다.
+ * - 인수 : 없음
+ * - 반환값 : 표시와 label 강등이 없는 timing match
+ */
+function createEmptyTimingMatch(): {
+  result: GameTimingJudgeResult;
+  onsetId: number | null;
+} {
+  return {
+    result: {
+      kind: "none",
+      offsetMs: null,
+    },
+    onsetId: null,
+  };
+}
+
+/**
+ * 선택된 note target의 시작 시각과 가장 가까운 onset 후보로 timing 판정을 만든다.
+ * - 인수 : target : pitch 판정에서 선택된 note target
+ * - 인수 : options : onset 후보와 이미 사용한 event/onset 상태
+ * - 반환값 : timing 표시/강등 결과와 사용한 onset id
+ */
+function judgeTimingForTarget(
+  target: GameJudgeTarget,
+  options: GameTimingJudgeOptions,
+): {
+  result: GameTimingJudgeResult;
+  onsetId: number | null;
+} {
+  if (options.judgedEventIds.has(target.eventId)) {
+    return createEmptyTimingMatch();
+  }
+
+  let selectedOnset: GameTimingOnsetCandidate | null = null;
+  let selectedAbsOffsetMs = Number.POSITIVE_INFINITY;
+
+  // target 시작점과 가장 가까운 아직 쓰지 않은 onset 하나만 timing 판정에 배정한다.
+  for (const onset of options.onsetCandidates) {
+    if (options.consumedOnsetIds.has(onset.id)) {
+      continue;
+    }
+
+    const offsetMs = (onset.scoreSeconds - target.startSeconds) * 1000;
+    const absOffsetMs = Math.abs(offsetMs);
+
+    if (absOffsetMs > TIMING_MAX_MATCH_MS || absOffsetMs >= selectedAbsOffsetMs) {
+      continue;
+    }
+
+    selectedOnset = onset;
+    selectedAbsOffsetMs = absOffsetMs;
+  }
+
+  if (selectedOnset === null) {
+    return createEmptyTimingMatch();
+  }
+
+  const offsetMs = (selectedOnset.scoreSeconds - target.startSeconds) * 1000;
+  const absOffsetMs = Math.abs(offsetMs);
+
+  if (absOffsetMs >= TIMING_MISS_THRESHOLD_MS) {
+    return {
+      result: {
+        kind: "miss",
+        offsetMs,
+      },
+      onsetId: selectedOnset.id,
+    };
+  }
+
+  if (absOffsetMs >= TIMING_DISPLAY_THRESHOLD_MS) {
+    return {
+      result: {
+        kind: offsetMs < 0 ? "early" : "late",
+        offsetMs,
+      },
+      onsetId: selectedOnset.id,
+    };
+  }
+
+  return {
+    result: {
+      kind: "none",
+      offsetMs: null,
+    },
+    onsetId: selectedOnset.id,
   };
 }
 

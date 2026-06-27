@@ -65,6 +65,15 @@ export function showGameJudgeOverlay(
   resultLine.className = "game-judge-label";
   resultLine.textContent = sample.label;
   label.append(resultLine);
+
+  if (sample.timing.kind === "early" || sample.timing.kind === "late") {
+    const timingLine = document.createElement("div");
+
+    timingLine.className = `game-judge-timing game-judge-timing-${sample.timing.kind}`;
+    timingLine.textContent = sample.timing.kind;
+    label.append(timingLine);
+  }
+
   dom.gameJudgeOverlay.append(label);
   scheduleJudgeOverlayHide(dom);
 }

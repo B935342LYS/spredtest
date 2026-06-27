@@ -14,7 +14,9 @@ import type { YoutubePlaybackControl } from "../youtube/youtube_binding";
 import {
   createEmptyGameScoreSummary,
   isGameModeLocked,
+  type GamePitchFrame,
   type GameScoreSummary,
+  type GameTimingOnsetCandidate,
 } from "../game/game_types";
 import {
   applyGameSyncOffsetSeconds,
@@ -43,6 +45,10 @@ import {
   measurePerf,
   measurePerfAsync,
 } from "../../infra/perf_profiler";
+
+const TIMING_ONSET_MIN_INTERVAL_SECONDS = 0.06;
+const TIMING_ONSET_KEEP_SECONDS = 0.75;
+const TIMING_PITCH_CHANGE_THRESHOLD_CENT = 80;
 
 /** playback binding이 app 상태와 runtime을 조회하기 위한 session 입력. */
 export type PlaybackBindingSession = {
@@ -76,7 +82,71 @@ export function bindPlaybackControls(
   let suppressScrollSeek = false;
   let lastPlaybackScoreSeconds: number | null = null;
   let lastGameScoringSeconds: number | null = null;
+  let lastTimingFrame: GamePitchFrame | null = null;
+  let lastProcessedTimingFrameAtMs: number | null = null;
+  let timingOnsetCandidates: GameTimingOnsetCandidate[] = [];
+  let consumedTimingOnsetIds = new Set<number>();
+  let judgedTimingEventIds = new Set<string>();
+  let nextTimingOnsetId = 1;
   let countdownAudioContext: AudioContext | null = null;
+
+  /**
+   * practice timing 판정용 runtime 상태를 새 세션 기준으로 비운다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
+  const resetPracticeTimingState = (): void => {
+    lastTimingFrame = null;
+    lastProcessedTimingFrameAtMs = null;
+    timingOnsetCandidates = [];
+    consumedTimingOnsetIds = new Set<number>();
+    judgedTimingEventIds = new Set<string>();
+    nextTimingOnsetId = 1;
+  };
+
+  /**
+   * 최신 pitch frame에서 timing onset 후보를 추출한다.
+   * - 인수 : scoreSeconds : playback controller가 보고한 현재 score time
+   * - 반환값 : 없음
+   */
+  const updatePracticeTimingInput = (scoreSeconds: number): void => {
+    const state = session.getState();
+
+    if (state.gameMode.kind !== "playing") {
+      return;
+    }
+
+    const frame = state.gameMode.pitchFrame;
+
+    if (
+      frame === null ||
+      lastProcessedTimingFrameAtMs === frame.capturedAtMs
+    ) {
+      return;
+    }
+
+    lastProcessedTimingFrameAtMs = frame.capturedAtMs;
+
+    const judgeScoreSeconds = applyGameSyncOffsetSeconds(scoreSeconds, state.gameSyncOffsetMs);
+
+    if (frame.isVoiced && frame.midi !== null && frame.centOffset !== null) {
+      const shouldCreateOnset = isTimingOnsetFrame(lastTimingFrame, frame) &&
+        canAppendTimingOnset(judgeScoreSeconds, timingOnsetCandidates);
+
+      if (shouldCreateOnset) {
+        timingOnsetCandidates.push({
+          id: nextTimingOnsetId,
+          scoreSeconds: judgeScoreSeconds,
+          midi: frame.midi,
+          centOffset: frame.centOffset,
+        });
+        nextTimingOnsetId += 1;
+      }
+    }
+
+    lastTimingFrame = frame;
+    timingOnsetCandidates = pruneTimingOnsets(judgeScoreSeconds, timingOnsetCandidates);
+  };
 
   /**
    * practice mode의 최신 pitch frame을 현재 score time에 맞춰 점수로 누적한다.
@@ -143,10 +213,23 @@ export function bindPlaybackControls(
         targets,
         judgeScoreSeconds,
         normalizeGameTrackDifficulty(state.document.score.musicData.scoreDifficulty),
+        {
+          onsetCandidates: timingOnsetCandidates,
+          judgedEventIds: judgedTimingEventIds,
+          consumedOnsetIds: consumedTimingOnsetIds,
+        },
       );
 
       if (sample === null) {
         return;
+      }
+
+      if (sample.timingOnsetId !== null) {
+        consumedTimingOnsetIds.add(sample.timingOnsetId);
+      }
+
+      if (sample.timingJudgedEventId !== null) {
+        judgedTimingEventIds.add(sample.timingJudgedEventId);
       }
 
       const nextSummary = applyGameScoringSample(state.gameMode.summary, sample);
@@ -174,6 +257,7 @@ export function bindPlaybackControls(
     }
     lastPlaybackScoreSeconds = null;
     lastGameScoringSeconds = null;
+    resetPracticeTimingState();
     clearGameJudgeOverlay(dom);
   };
 
@@ -317,6 +401,7 @@ export function bindPlaybackControls(
     }
 
     lastGameScoringSeconds = null;
+    resetPracticeTimingState();
     clearGameJudgeOverlay(dom);
     session.setState({
       ...currentState,
@@ -433,6 +518,9 @@ export function bindPlaybackControls(
       }
 
       lastPlaybackScoreSeconds = currentScoreSeconds;
+      measurePerf("playbackRaf.updatePracticeTimingInput", () =>
+        updatePracticeTimingInput(currentScoreSeconds)
+      );
       measurePerf("playbackRaf.updatePracticeScoring", () =>
         updatePracticeScoring(currentScoreSeconds)
       );
@@ -710,6 +798,85 @@ export function bindPlaybackControls(
   return {
     stopPlaybackAnimation,
   };
+}
+
+/**
+ * pitch frame이 timing onset 후보로 볼 수 있는 변화인지 확인한다.
+ * - 인수 : previousFrame : 직전에 처리한 pitch frame
+ * - 인수 : currentFrame : 새로 처리할 pitch frame
+ * - 반환값 : 무음에서 유음으로 바뀌었거나 pitch class가 충분히 바뀌었으면 true
+ */
+function isTimingOnsetFrame(
+  previousFrame: GamePitchFrame | null,
+  currentFrame: GamePitchFrame,
+): boolean {
+  if (
+    !currentFrame.isVoiced ||
+    currentFrame.midi === null ||
+    currentFrame.centOffset === null
+  ) {
+    return false;
+  }
+
+  if (
+    previousFrame === null ||
+    !previousFrame.isVoiced ||
+    previousFrame.midi === null ||
+    previousFrame.centOffset === null
+  ) {
+    return true;
+  }
+
+  const previousCent = previousFrame.midi * 100 + previousFrame.centOffset;
+  const currentCent = currentFrame.midi * 100 + currentFrame.centOffset;
+
+  return calculatePitchClassErrorCent(previousCent, currentCent) >= TIMING_PITCH_CHANGE_THRESHOLD_CENT;
+}
+
+/**
+ * 마지막 onset 후보와 충분히 떨어져 새 onset 후보를 추가할 수 있는지 확인한다.
+ * - 인수 : onsetScoreSeconds : 새 onset 후보의 score time
+ * - 인수 : candidates : 현재 저장된 onset 후보 목록
+ * - 반환값 : 후보가 없거나 최소 간격 이상 떨어져 있으면 true
+ */
+function canAppendTimingOnset(
+  onsetScoreSeconds: number,
+  candidates: readonly GameTimingOnsetCandidate[],
+): boolean {
+  const lastCandidate = candidates[candidates.length - 1];
+
+  if (lastCandidate === undefined) {
+    return true;
+  }
+
+  return onsetScoreSeconds - lastCandidate.scoreSeconds >= TIMING_ONSET_MIN_INTERVAL_SECONDS;
+}
+
+/**
+ * 현재 score time에서 더 이상 매칭하지 않을 오래된 onset 후보를 제거한다.
+ * - 인수 : currentScoreSeconds : 현재 판정용 score time
+ * - 인수 : candidates : 현재 onset 후보 목록
+ * - 반환값 : 유지할 onset 후보 목록
+ */
+function pruneTimingOnsets(
+  currentScoreSeconds: number,
+  candidates: readonly GameTimingOnsetCandidate[],
+): GameTimingOnsetCandidate[] {
+  return candidates.filter((candidate) =>
+    Math.abs(currentScoreSeconds - candidate.scoreSeconds) <= TIMING_ONSET_KEEP_SECONDS
+  );
+}
+
+/**
+ * 두 cent pitch 사이의 pitch class 기준 최소 오차를 계산한다.
+ * - 인수 : inputCent : 입력 pitch의 절대 cent 값
+ * - 인수 : targetCent : 비교할 pitch의 절대 cent 값
+ * - 반환값 : 0 이상 600 이하의 pitch class 오차 cent
+ */
+function calculatePitchClassErrorCent(inputCent: number, targetCent: number): number {
+  const wrapped = Math.abs(inputCent - targetCent) % 1200;
+
+  return Math.min(wrapped, 1200 - wrapped);
 }
 
 /**

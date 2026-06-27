@@ -71,6 +71,21 @@ export type GameJudgeTarget = {
   targetCentOffset: number;
 };
 
+/** timing 판정에 사용할 입력 시작 후보. */
+export type GameTimingOnsetCandidate = {
+  id: number;
+  scoreSeconds: number;
+  midi: number;
+  centOffset: number;
+};
+
+/** scoring sample에 덧붙이는 timing 판정 결과. */
+export type GameTimingJudgeResult =
+  | { kind: "none"; offsetMs: null }
+  | { kind: "early"; offsetMs: number }
+  | { kind: "late"; offsetMs: number }
+  | { kind: "miss"; offsetMs: number };
+
 /** scoring interval 하나에서 생성된 판정 결과. */
 export type GameScoringSampleResult = {
   targetEventId: string;
@@ -82,6 +97,9 @@ export type GameScoringSampleResult = {
   label: "Perfect" | "Ok" | "Bad" | "Miss";
   status: "hit" | "miss";
   scoreContribution: number;
+  timing: GameTimingJudgeResult;
+  timingOnsetId: number | null;
+  timingJudgedEventId: string | null;
 };
 
 /** score JSON에 저장하지 않는 게임 모드 세션 상태. */

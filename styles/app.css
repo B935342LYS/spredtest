@@ -1310,6 +1310,21 @@ select:disabled {
   font-size: 14px;
 }
 
+.game-judge-timing {
+  margin-top: 1px;
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: lowercase;
+}
+
+.game-judge-timing-early {
+  color: #6fc7ff;
+}
+
+.game-judge-timing-late {
+  color: #ff6f6f;
+}
+
 .game-judge-text-perfect {
   color: #62ff8b;
 }
