@@ -39,6 +39,7 @@ import { measurePerf } from "../infra/perf_profiler";
 const DEFAULT_VELOCITY = 1;
 const DEFAULT_GLISS_CROSSFADE_SECONDS = 0.02;
 const DEFAULT_DYNAMICS_GAIN = 1;
+const FULL_GAIN_CHORD_GROUP_LIMIT = 2;
 
 type GainScaleSpan = {
   startSeconds: number;
@@ -236,7 +237,7 @@ function applyOverlapGainScaleAutomation(
 }
 
 /**
- * sweep-line으로 전체 score 시간의 같은 pitch 동시 발음 수 span을 만든다.
+ * sweep-line으로 전체 score 시간의 중복 pitch와 3음 이상 화음 gain scale span을 만든다.
  * - 인수 : events : 전체 발음 event 목록
  * - 반환값 : gainScaleSpan[] : 인접 event 경계 사이의 gainScale 목록
  */
@@ -281,12 +282,14 @@ function buildGainScaleSpans(
     const nextSeconds = points[nextIndex]?.seconds;
 
     if (nextSeconds !== undefined && nextSeconds > currentSeconds) {
+      const chordGainScale = calculateChordGainScale(activeCountsByPitchKey.size);
+
       for (const [pitchKey, activeCount] of activeCountsByPitchKey) {
         spans.push({
           startSeconds: currentSeconds,
           endSeconds: nextSeconds,
           pitchKey,
-          gainScale: 1 / activeCount,
+          gainScale: (1 / activeCount) * chordGainScale,
         });
       }
     }
@@ -295,6 +298,22 @@ function buildGainScaleSpans(
   }
 
   return mergeAdjacentGainScaleSpans(spans);
+}
+
+/**
+ * 서로 다른 pitch group이 3개 이상 겹칠 때만 power 기준으로 화음 gain을 낮춘다.
+ * - 인수 : activePitchGroupCount : 같은 pitch 중복을 하나로 본 동시 pitch group 수
+ * - 반환값 : 2화음까지는 1, 3화음 이상은 sqrt(2 / groupCount)
+ */
+function calculateChordGainScale(activePitchGroupCount: number): number {
+  if (
+    !Number.isFinite(activePitchGroupCount) ||
+    activePitchGroupCount <= FULL_GAIN_CHORD_GROUP_LIMIT
+  ) {
+    return 1;
+  }
+
+  return Math.sqrt(FULL_GAIN_CHORD_GROUP_LIMIT / activePitchGroupCount);
 }
 
 /**

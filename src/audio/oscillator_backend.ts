@@ -49,6 +49,11 @@ const TREMOLO_GATE_DUTY_RATIO = 0.6;
 const TREMOLO_GATE_RAMP_SECONDS = 0.002;
 const MAX_ACTIVE_VOICES = 256;
 const MAX_TREMOLO_PULSES = 2048;
+const LIMITER_THRESHOLD_DB = -6;
+const LIMITER_KNEE_DB = 6;
+const LIMITER_RATIO = 12;
+const LIMITER_ATTACK_SECONDS = 0.003;
+const LIMITER_RELEASE_SECONDS = 0.08;
 
 type EdgeEnvelope = {
   attackEndTime: number;
@@ -79,6 +84,7 @@ export function createOscillatorBackend(
 ): AudioBackend {
   let context: AudioContext | null = null;
   let masterGain: GainNode | null = null;
+  let masterLimiter: DynamicsCompressorNode | null = null;
   const activeNodes = new Set<ActiveOscillatorNode>();
   const waveType = options.waveType ?? DEFAULT_WAVE_TYPE;
   let masterVolume = clamp01(options.masterVolume ?? DEFAULT_MASTER_VOLUME);
@@ -155,6 +161,7 @@ export function createOscillatorBackend(
 
       context = null;
       masterGain = null;
+      masterLimiter = null;
     },
   };
 
@@ -440,8 +447,10 @@ export function createOscillatorBackend(
 
       context = new AudioContextCtor();
       masterGain = context.createGain();
+      masterLimiter = createMasterLimiter(context);
       masterGain.gain.value = getEffectiveMasterGain(masterVolume);
-      masterGain.connect(context.destination);
+      masterGain.connect(masterLimiter);
+      masterLimiter.connect(context.destination);
     }
 
     return context;
@@ -913,6 +922,23 @@ function getAudioContextConstructor(): typeof AudioContext {
   }
 
   return AudioContextCtor;
+}
+
+/**
+ * 3음 이상 화음이나 높은 dynamics에서 생기는 순간 피크를 제한할 master limiter를 만든다.
+ * - 인수 : context : backend가 사용하는 AudioContext
+ * - 반환값 : destination 앞에 연결할 DynamicsCompressorNode
+ */
+function createMasterLimiter(context: AudioContext): DynamicsCompressorNode {
+  const limiter = context.createDynamicsCompressor();
+
+  limiter.threshold.value = LIMITER_THRESHOLD_DB;
+  limiter.knee.value = LIMITER_KNEE_DB;
+  limiter.ratio.value = LIMITER_RATIO;
+  limiter.attack.value = LIMITER_ATTACK_SECONDS;
+  limiter.release.value = LIMITER_RELEASE_SECONDS;
+
+  return limiter;
 }
 
 /**
