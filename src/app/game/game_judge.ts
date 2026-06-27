@@ -15,6 +15,10 @@ import type {
   GameScoreSummary,
   GameScoringSampleResult,
 } from "./game_types";
+import {
+  resolvePitchClassCandidateMidiWithHysteresis,
+  type GamePitchCorrectionState,
+} from "./game_pitch_math";
 
 const PERFECT_ERROR_CENT = 50;
 const OK_ERROR_CENT = 100;
@@ -23,6 +27,11 @@ const DEFAULT_TRACK_DIFFICULTY: Record<TrackId, number> = {
   basic: 1,
   optional: 1.2,
   extra: 1.5,
+};
+
+/** scoring sample 판정에 적용할 입력 pitch 보정 옵션. */
+export type GameScoringCorrectionOptions = {
+  state: GamePitchCorrectionState;
 };
 
 /**
@@ -125,6 +134,7 @@ export function hasRemainingGameJudgeTarget(
  * - 인수 : targets : 현재 score time에 겹친 판정 후보 목록
  * - 인수 : scoreSeconds : 현재 score time
  * - 인수 : trackDifficulty : track별 점수 가중 난이도
+ * - 인수 : correction : 표시용 pitch dot과 같은 hysteresis 보정을 적용할 선택 옵션
  * - 반환값 : 유효 pitch와 target이 있으면 sample, 아니면 null
  */
 export function judgeGameScoringSample(
@@ -132,6 +142,7 @@ export function judgeGameScoringSample(
   targets: readonly GameJudgeTarget[],
   scoreSeconds: number,
   trackDifficulty: Record<TrackId, number>,
+  correction?: GameScoringCorrectionOptions,
 ): GameScoringSampleResult | null {
   if (
     frame === null ||
@@ -143,7 +154,13 @@ export function judgeGameScoringSample(
     return null;
   }
 
-  const inputCent = frame.midi * 100 + frame.centOffset;
+  const inputCent = resolveScoringInputCent(
+    frame.midi,
+    frame.centOffset,
+    frame.capturedAtMs,
+    targets,
+    correction,
+  );
   let selectedTarget: GameJudgeTarget | null = null;
   let selectedErrorCent = Number.POSITIVE_INFINITY;
 
@@ -171,11 +188,48 @@ export function judgeGameScoringSample(
     targetEventId: selectedTarget.eventId,
     trackId: selectedTarget.trackId,
     scoreSeconds,
+    targetMidi: selectedTarget.targetMidi,
+    targetCentOffset: selectedTarget.targetCentOffset,
     pitchAccuracy,
     label,
     status: label === "Miss" ? "miss" : "hit",
     scoreContribution,
   };
+}
+
+/**
+ * scoring에 사용할 입력 pitch cent 값을 만든다.
+ * - 인수 : midi : 최신 마이크 pitch frame의 MIDI note
+ * - 인수 : centOffset : 최신 마이크 pitch frame의 cent offset
+ * - 인수 : capturedAtMs : 최신 마이크 pitch frame 캡처 시각
+ * - 인수 : targets : 현재 score time에 겹친 판정 후보 목록
+ * - 인수 : correction : hysteresis 기반 보정 옵션
+ * - 반환값 : 원 입력 또는 target 옥타브 주변으로 보정된 절대 cent 값
+ */
+function resolveScoringInputCent(
+  midi: number,
+  centOffset: number,
+  capturedAtMs: number,
+  targets: readonly GameJudgeTarget[],
+  correction: GameScoringCorrectionOptions | undefined,
+): number {
+  if (correction === undefined) {
+    return midi * 100 + centOffset;
+  }
+
+  // 표시용 pitch dot과 같은 target 후보를 사용해 짧은 detector octave/jump 흔들림을 점수에서도 완화한다.
+  const correctedMidi = resolvePitchClassCandidateMidiWithHysteresis(
+    midi,
+    centOffset,
+    targets.map((target) => ({
+      midi: target.targetMidi,
+      centOffset: target.targetCentOffset,
+    })),
+    capturedAtMs,
+    correction.state,
+  );
+
+  return correctedMidi * 100;
 }
 
 /**

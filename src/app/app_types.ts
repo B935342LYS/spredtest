@@ -172,6 +172,7 @@ export type AppDom = {
   scoreArea: HTMLElement;
   scoreStage: HTMLElement;
   gamePitchOverlay: HTMLElement;
+  gameJudgeOverlay: HTMLElement;
   selectionOverlay: HTMLElement;
   pastePreviewOverlay: HTMLElement;
   layoutStage: HTMLElement;

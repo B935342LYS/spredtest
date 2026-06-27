@@ -83,6 +83,7 @@ export function collectAppDom(): AppDom {
     scoreArea: queryElement(".score-area", HTMLElement),
     scoreStage: queryElement(".score-canvas-stage", HTMLElement),
     gamePitchOverlay: queryElement(".game-pitch-overlay", HTMLElement),
+    gameJudgeOverlay: queryElement(".game-judge-overlay", HTMLElement),
     selectionOverlay: queryElement(".selection-overlay", HTMLElement),
     pastePreviewOverlay: queryElement(".paste-preview-overlay", HTMLElement),
     layoutStage: queryElement(".layout-canvas-stage", HTMLElement),

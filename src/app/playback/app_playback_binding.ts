@@ -16,6 +16,7 @@ import {
   isGameModeLocked,
   type GameScoreSummary,
 } from "../game/game_types";
+import { createGamePitchCorrectionState } from "../game/game_pitch_math";
 import {
   applyGameScoringSample,
   collectGameJudgeTargetsAtSeconds,
@@ -23,6 +24,10 @@ import {
   judgeGameScoringSample,
   normalizeGameTrackDifficulty,
 } from "../game/game_judge";
+import {
+  clearGameJudgeOverlay,
+  showGameJudgeOverlay,
+} from "../game/game_judge_overlay";
 import { openPracticeResultDialog, syncGameModeUi } from "../game/game_ui";
 import {
   scrollLeftToScoreSeconds,
@@ -71,6 +76,7 @@ export function bindPlaybackControls(
   let suppressScrollSeek = false;
   let lastPlaybackScoreSeconds: number | null = null;
   let lastGameScoringSeconds: number | null = null;
+  let gameScoringCorrectionState = createGamePitchCorrectionState();
   let countdownAudioContext: AudioContext | null = null;
 
   /**
@@ -104,6 +110,8 @@ export function bindPlaybackControls(
       );
 
       if (!hasRemainingTarget) {
+        clearGameJudgeOverlay(dom);
+
         const nextState = {
           ...state,
           gameMode: {
@@ -135,23 +143,26 @@ export function bindPlaybackControls(
         targets,
         scoreSeconds,
         normalizeGameTrackDifficulty(state.document.score.musicData.scoreDifficulty),
+        { state: gameScoringCorrectionState },
       );
 
       if (sample === null) {
         return;
       }
 
+      const nextSummary = applyGameScoringSample(state.gameMode.summary, sample);
       const nextState = {
         ...state,
         gameMode: {
           kind: "playing" as const,
-          summary: applyGameScoringSample(state.gameMode.summary, sample),
+          summary: nextSummary,
           pitchFrame: state.gameMode.pitchFrame,
         },
       };
 
       session.setState(nextState);
       syncGameModeUi(dom, nextState);
+      showGameJudgeOverlay(dom, nextState, sample, nextSummary.currentCombo);
     } catch {
       return;
     }
@@ -164,6 +175,8 @@ export function bindPlaybackControls(
     }
     lastPlaybackScoreSeconds = null;
     lastGameScoringSeconds = null;
+    gameScoringCorrectionState = createGamePitchCorrectionState();
+    clearGameJudgeOverlay(dom);
   };
 
   const scrollScoreAreaToSeconds = (
@@ -306,6 +319,8 @@ export function bindPlaybackControls(
     }
 
     lastGameScoringSeconds = null;
+    gameScoringCorrectionState = createGamePitchCorrectionState();
+    clearGameJudgeOverlay(dom);
     session.setState({
       ...currentState,
       gameMode: {

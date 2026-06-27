@@ -73,7 +73,7 @@ export function syncGamePitchOverlay(dom: AppDom, state: AppState): void {
   const dot = document.createElement("div");
 
   dot.className = "game-pitch-dot";
-  dot.style.left = `${dom.scoreArea.scrollLeft + 18}px`;
+  dot.style.left = `${dom.scoreArea.scrollLeft}px`;
   dot.style.top = `${y}px`;
   dot.title = `${frame.frequencyHz?.toFixed(1) ?? "--"} Hz`;
   dom.gamePitchOverlay.append(dot);

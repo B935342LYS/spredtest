@@ -1227,6 +1227,7 @@ select:disabled {
 }
 
 .game-pitch-overlay,
+.game-judge-overlay,
 .selection-overlay,
 .paste-preview-overlay {
   position: absolute;
@@ -1240,12 +1241,16 @@ select:disabled {
   z-index: 9;
 }
 
-.selection-overlay {
+.game-judge-overlay {
   z-index: 10;
 }
 
-.paste-preview-overlay {
+.selection-overlay {
   z-index: 11;
+}
+
+.paste-preview-overlay {
+  z-index: 12;
 }
 
 .game-pitch-dot {
@@ -1257,6 +1262,48 @@ select:disabled {
   border-radius: 999px;
   background: #39ff79;
   box-shadow: 0 0 0 1px #0a6f2b, 0 0 10px rgb(57 255 121 / 65%);
+}
+
+.game-judge-text {
+  position: absolute;
+  min-width: 72px;
+  color: #ffffff;
+  font-weight: 700;
+  line-height: 1.12;
+  text-align: center;
+  white-space: nowrap;
+  text-shadow:
+    -1px -1px 0 rgba(0, 0, 0, 0.92),
+    1px -1px 0 rgba(0, 0, 0, 0.92),
+    -1px 1px 0 rgba(0, 0, 0, 0.92),
+    1px 1px 0 rgba(0, 0, 0, 0.92),
+    0 0 4px rgba(0, 0, 0, 0.75);
+}
+
+.game-judge-combo {
+  font-size: 10px;
+  letter-spacing: 0;
+  opacity: 0.92;
+}
+
+.game-judge-label {
+  font-size: 14px;
+}
+
+.game-judge-text-perfect {
+  color: #62ff8b;
+}
+
+.game-judge-text-ok {
+  color: #6fc7ff;
+}
+
+.game-judge-text-bad {
+  color: #ffba5f;
+}
+
+.game-judge-text-miss {
+  color: #ff6f6f;
 }
 
 .selection-rect {

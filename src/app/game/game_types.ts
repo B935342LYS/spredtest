@@ -44,6 +44,8 @@ export type GameScoringSampleResult = {
   targetEventId: string;
   trackId: TrackId;
   scoreSeconds: number;
+  targetMidi: number;
+  targetCentOffset: number;
   pitchAccuracy: number;
   label: "Perfect" | "Ok" | "Bad" | "Miss";
   status: "hit" | "miss";
