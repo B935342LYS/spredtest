@@ -18,6 +18,7 @@ import type {
 import type { DefaultNoteEditInput } from "./edit/edit_default";
 import type { ScoreEditSelection } from "./edit/edit_apply";
 import type { TupletEditDraft } from "./edit/edit_tuplet";
+import type { GameModeState } from "./game/game_types";
 import type { LayoutDraftBundle } from "./layout/layout_types";
 
 /** 사용자가 볼 수 있는 짧은 상태 메시지의 중요도. */
@@ -151,6 +152,7 @@ export type AppState = {
   speedScale: number;
   textOff: boolean;
   loop: LoopState;
+  gameMode: GameModeState;
   history: UndoHistoryState;
   mode: AppMode;
   busy: AppBusyState;
@@ -169,6 +171,7 @@ export type AppDom = {
   scoreViewer: HTMLElement;
   scoreArea: HTMLElement;
   scoreStage: HTMLElement;
+  gamePitchOverlay: HTMLElement;
   selectionOverlay: HTMLElement;
   pastePreviewOverlay: HTMLElement;
   layoutStage: HTMLElement;
@@ -217,6 +220,30 @@ export type AppDom = {
   layoutPresetToolbarSelect: HTMLSelectElement;
   layoutModifyButton: HTMLButtonElement;
   detailsButton: HTMLButtonElement;
+  practiceModeButton: HTMLButtonElement;
+  gameRulesButton: HTMLButtonElement;
+  practiceRulesDialog: HTMLDialogElement;
+  practiceResultDialog: HTMLDialogElement;
+  resultAccuracy: HTMLElement;
+  resultScore: HTMLElement;
+  resultPerfectCount: HTMLElement;
+  resultOkCount: HTMLElement;
+  resultBadCount: HTMLElement;
+  resultMissCount: HTMLElement;
+  resultBestCombo: HTMLElement;
+  gameMicState: HTMLElement;
+  gameRawFrequency: HTMLElement;
+  gameClarity: HTMLElement;
+  gameRms: HTMLElement;
+  gamePanel: HTMLElement;
+  gameStatus: HTMLElement;
+  gameAccuracy: HTMLElement;
+  gamePerfectCount: HTMLElement;
+  gameOkCount: HTMLElement;
+  gameBadCount: HTMLElement;
+  gameMissCount: HTMLElement;
+  gameCombo: HTMLElement;
+  gameScore: HTMLElement;
   detailsDialog: HTMLDialogElement;
   detailsForm: HTMLFormElement;
   detailsCloseButton: HTMLButtonElement;

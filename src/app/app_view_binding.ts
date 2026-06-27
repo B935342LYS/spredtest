@@ -27,6 +27,7 @@ import {
   syncFullscreenButton,
   toggleFullscreen,
 } from "./app_view_actions";
+import { isGameModeLocked } from "./game/game_types";
 import {
   renderDynamicViewportLayers,
   syncLayoutScroll,
@@ -259,7 +260,7 @@ function toggleLoop(
 ): void {
   const state = session.getState();
 
-  if (state.mode.kind === "edit") {
+  if (state.mode.kind === "edit" || isGameModeLocked(state.gameMode)) {
     return;
   }
 
@@ -293,6 +294,12 @@ function applyLoopStartSelect(
   session: ViewBindingSession,
 ): void {
   const state = session.getState();
+
+  if (isGameModeLocked(state.gameMode)) {
+    syncUiControls(dom, state);
+    return;
+  }
+
   const selectedTick = parseLoopColumnSelectValue(dom.loopStartSelect.value);
   const pickMode = dom.loopStartSelect.value === "pick" ? "start" : null;
   const startTick = selectedTick !== null
@@ -329,6 +336,12 @@ function applyLoopEndSelect(
   session: ViewBindingSession,
 ): void {
   const state = session.getState();
+
+  if (isGameModeLocked(state.gameMode)) {
+    syncUiControls(dom, state);
+    return;
+  }
+
   const selectedTick = parseLoopColumnSelectValue(dom.loopEndSelect.value);
   const pickMode = dom.loopEndSelect.value === "pick" ? "end" : null;
   const endTick = selectedTick !== null
@@ -491,7 +504,7 @@ export function bindViewControls(
   dom.expandRightButton.addEventListener("click", () => {
     const state = session.getState();
 
-    if (state.busy.kind !== "idle") {
+    if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode)) {
       return;
     }
 
@@ -507,7 +520,7 @@ export function bindViewControls(
     const state = session.getState();
     const trimColumns = readIntegerInput(dom.expandColumnInput, 0);
 
-    if (state.busy.kind !== "idle") {
+    if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode)) {
       return;
     }
 
@@ -533,7 +546,7 @@ export function bindViewControls(
   dom.clearAllButton.addEventListener("click", () => {
     const state = session.getState();
 
-    if (state.busy.kind !== "idle") {
+    if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode)) {
       return;
     }
 
@@ -548,6 +561,10 @@ export function bindViewControls(
   });
 
   dom.detailsButton.addEventListener("click", () => {
+    if (isGameModeLocked(session.getState().gameMode)) {
+      return;
+    }
+
     openDetailsDialog(dom, session);
   });
   dom.detailsCloseButton.addEventListener("click", () => {
@@ -558,6 +575,11 @@ export function bindViewControls(
   });
   dom.detailsForm.addEventListener("submit", (event) => {
     event.preventDefault();
+    if (isGameModeLocked(session.getState().gameMode)) {
+      dom.detailsDialog.close();
+      return;
+    }
+
     applyDetailsDialog(dom, session);
   });
 }

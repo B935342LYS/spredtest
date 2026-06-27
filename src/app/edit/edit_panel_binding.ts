@@ -17,6 +17,7 @@ import {
   syncUiControls,
 } from "../app_ui_sync";
 import { fitScoreHeight } from "../app_view_binding";
+import { isGameModeLocked } from "../game/game_types";
 import {
   normalizeMicroPitchInput,
   resolveAutoDefaultText,
@@ -46,6 +47,12 @@ export function bindEditPanelControls(
 ): void {
   dom.editToggle.addEventListener("change", () => {
     const state = session.getState();
+
+    if (isGameModeLocked(state.gameMode)) {
+      dom.editToggle.checked = false;
+      syncUiControls(dom, state);
+      return;
+    }
 
     // checkbox 상태를 mode로 변환하고 edit panel의 현재 입력값을 rawText 합성 상태로 보관한다.
     session.setState({

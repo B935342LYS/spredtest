@@ -6,11 +6,24 @@ import type {
   AppDom,
   AppState,
 } from "../app_types";
-import { syncLeftStatus } from "../app_ui_sync";
+import { syncLeftStatus, syncUiControls } from "../app_ui_sync";
 import type { AppPlaybackRuntime } from "./app_playback";
 import { createPlaybackLoopStateFromApp } from "./app_playback";
 import type { AppNotePreviewRuntime } from "./app_note_preview";
 import type { YoutubePlaybackControl } from "../youtube/youtube_binding";
+import {
+  createEmptyGameScoreSummary,
+  isGameModeLocked,
+  type GameScoreSummary,
+} from "../game/game_types";
+import {
+  applyGameScoringSample,
+  collectGameJudgeTargetsAtSeconds,
+  hasRemainingGameJudgeTarget,
+  judgeGameScoringSample,
+  normalizeGameTrackDifficulty,
+} from "../game/game_judge";
+import { openPracticeResultDialog, syncGameModeUi } from "../game/game_ui";
 import {
   scrollLeftToScoreSeconds,
   scrollToScoreSeconds,
@@ -18,6 +31,7 @@ import {
   syncPlaybackUi,
   syncSeekUi,
 } from "./app_playback_ui";
+import { createTickTimeMapper } from "../../audio/tick_time_mapper";
 import {
   beginPerfSession,
   endPerfSession,
@@ -56,6 +70,92 @@ export function bindPlaybackControls(
   let scrollSeekRafId: number | null = null;
   let suppressScrollSeek = false;
   let lastPlaybackScoreSeconds: number | null = null;
+  let lastGameScoringSeconds: number | null = null;
+  let countdownAudioContext: AudioContext | null = null;
+
+  /**
+   * practice mode의 최신 pitch frame을 현재 score time에 맞춰 점수로 누적한다.
+   * - 인수 : scoreSeconds : playback controller가 보고한 현재 score time
+   * - 반환값 : 없음
+   */
+  const updatePracticeScoring = (scoreSeconds: number): void => {
+    const state = session.getState();
+
+    if (state.gameMode.kind !== "playing") {
+      return;
+    }
+
+    if (
+      lastGameScoringSeconds !== null &&
+      scoreSeconds - lastGameScoringSeconds < 0.1
+    ) {
+      return;
+    }
+
+    lastGameScoringSeconds = scoreSeconds;
+
+    try {
+      const mapper = createTickTimeMapper(state.analysis.timingTimeline);
+      const hasRemainingTarget = hasRemainingGameJudgeTarget(
+        state.analysis,
+        state.activeTrackIds,
+        mapper,
+        scoreSeconds,
+      );
+
+      if (!hasRemainingTarget) {
+        const nextState = {
+          ...state,
+          gameMode: {
+            kind: "finished" as const,
+            summary: state.gameMode.summary,
+            pitchFrame: state.gameMode.pitchFrame,
+          },
+          statusMessage: {
+            level: "info" as const,
+            text: "Practice finished.",
+          },
+        };
+
+        session.setState(nextState);
+        syncGameModeUi(dom, nextState);
+        syncLeftStatus(dom, nextState);
+        openPracticeResultDialog(dom, nextState.gameMode.summary);
+        return;
+      }
+
+      const targets = collectGameJudgeTargetsAtSeconds(
+        state.analysis,
+        state.activeTrackIds,
+        mapper,
+        scoreSeconds,
+      );
+      const sample = judgeGameScoringSample(
+        state.gameMode.pitchFrame,
+        targets,
+        scoreSeconds,
+        normalizeGameTrackDifficulty(state.document.score.musicData.scoreDifficulty),
+      );
+
+      if (sample === null) {
+        return;
+      }
+
+      const nextState = {
+        ...state,
+        gameMode: {
+          kind: "playing" as const,
+          summary: applyGameScoringSample(state.gameMode.summary, sample),
+          pitchFrame: state.gameMode.pitchFrame,
+        },
+      };
+
+      session.setState(nextState);
+      syncGameModeUi(dom, nextState);
+    } catch {
+      return;
+    }
+  };
 
   const stopPlaybackAnimation = (): void => {
     if (playbackRafId !== null) {
@@ -63,6 +163,7 @@ export function bindPlaybackControls(
       playbackRafId = null;
     }
     lastPlaybackScoreSeconds = null;
+    lastGameScoringSeconds = null;
   };
 
   const scrollScoreAreaToSeconds = (
@@ -100,7 +201,7 @@ export function bindPlaybackControls(
     const state = session.getState();
     const playbackRuntime = session.getPlaybackRuntime();
 
-    if (state.busy.kind !== "idle") {
+    if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode)) {
       return;
     }
 
@@ -124,6 +225,104 @@ export function bindPlaybackControls(
     session.resetNotePreviewForCurrentDom();
   };
 
+  const wait = (milliseconds: number): Promise<void> =>
+    new Promise((resolve) => {
+      window.setTimeout(resolve, milliseconds);
+    });
+
+  /**
+   * practice countdown 숫자에 맞춰 짧은 beep를 재생한다.
+   * - 인수 : count : 현재 countdown 숫자
+   * - 반환값 : 없음
+   */
+  const playCountdownBeep = (count: number): void => {
+    const AudioContextConstructor = window.AudioContext;
+
+    if (AudioContextConstructor === undefined) {
+      return;
+    }
+
+    countdownAudioContext ??= new AudioContextConstructor();
+
+    const audioContext = countdownAudioContext;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const now = audioContext.currentTime;
+    const frequency = count === 1 ? 1046.5 : 783.99;
+
+    if (audioContext.state === "suspended") {
+      void audioContext.resume();
+    }
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.18);
+  };
+
+  /**
+   * practice playback을 시작하기 전에 3-2-1 countdown을 표시하고 실제 재생으로 넘긴다.
+   * - 인수 : summary : countdown 동안 유지할 현재 게임 점수 집계
+   * - 반환값 : 없음
+   */
+  const startPracticeCountdown = async (summary: GameScoreSummary): Promise<void> => {
+    for (const count of [3, 2, 1]) {
+      const currentState = session.getState();
+
+      if (currentState.gameMode.kind !== "ready" && currentState.gameMode.kind !== "countdown") {
+        return;
+      }
+
+      session.setState({
+        ...currentState,
+        gameMode: {
+          kind: "countdown",
+          count,
+          summary,
+          pitchFrame: currentState.gameMode.kind === "ready" || currentState.gameMode.kind === "countdown"
+            ? currentState.gameMode.pitchFrame
+            : null,
+        },
+        statusMessage: {
+          level: "info",
+          text: `Practice starts in ${count}...`,
+        },
+      });
+      syncLeftStatus(dom, session.getState());
+      syncUiControls(dom, session.getState());
+      playCountdownBeep(count);
+      await wait(1000);
+    }
+
+    const currentState = session.getState();
+
+    if (currentState.gameMode.kind !== "countdown") {
+      return;
+    }
+
+    lastGameScoringSeconds = null;
+    session.setState({
+      ...currentState,
+      gameMode: {
+        kind: "playing",
+        summary,
+        pitchFrame: currentState.gameMode.pitchFrame,
+      },
+      statusMessage: {
+        level: "info",
+        text: "Practice playback started.",
+      },
+    });
+    syncLeftStatus(dom, session.getState());
+    syncUiControls(dom, session.getState());
+    togglePlayback();
+  };
+
   const updateMasterVolumeFromInput = (): void => {
     const masterVolume = readVolumeInput(dom.volumeInput);
 
@@ -137,6 +336,7 @@ export function bindPlaybackControls(
     if (
       suppressScrollSeek ||
       state.busy.kind !== "idle" ||
+      isGameModeLocked(state.gameMode) ||
       state.layout === null
     ) {
       return;
@@ -155,6 +355,7 @@ export function bindPlaybackControls(
       if (
         suppressScrollSeek ||
         nextState.busy.kind !== "idle" ||
+        isGameModeLocked(nextState.gameMode) ||
         nextState.layout === null
       ) {
         return;
@@ -220,6 +421,9 @@ export function bindPlaybackControls(
       }
 
       lastPlaybackScoreSeconds = currentScoreSeconds;
+      measurePerf("playbackRaf.updatePracticeScoring", () =>
+        updatePracticeScoring(currentScoreSeconds)
+      );
 
       // score canvas의 왼쪽 edge를 재생 기준선으로 두고 RAF마다 부드럽게 따라가도록 한다.
       measurePerf("playbackRaf.scrollScoreAreaToSeconds", () =>
@@ -267,14 +471,41 @@ export function bindPlaybackControls(
         measurePerf("playbackToggle.pauseController", () => playbackRuntime.controller.pause());
         measurePerf("playbackToggle.pauseYoutube", () => session.youtubeControl?.pause());
         measurePerf("playbackToggle.stopAnimation", () => stopPlaybackAnimation());
-        measurePerf("playbackToggle.syncPlaybackUi", () => syncPlaybackUi(dom, state, playbackRuntime));
+        if (state.gameMode.kind === "playing") {
+          session.setState({
+            ...state,
+            gameMode: {
+              kind: "paused",
+              summary: state.gameMode.summary,
+              pitchFrame: state.gameMode.pitchFrame,
+            },
+            statusMessage: {
+              level: "info",
+              text: "Practice playback paused.",
+            },
+          });
+          syncUiControls(dom, session.getState());
+        }
+        measurePerf("playbackToggle.syncPlaybackUi", () =>
+          syncPlaybackUi(dom, session.getState(), playbackRuntime)
+        );
         measurePerf("playbackToggle.scrollToCurrentSeconds", () =>
           scrollScoreAreaToSeconds(
-            state,
+            session.getState(),
             playbackRuntime,
             playbackRuntime.controller.getCurrentScoreSeconds(),
           )
         );
+        return;
+      }
+
+      if (state.gameMode.kind === "ready") {
+        lastGameScoringSeconds = null;
+        void startPracticeCountdown(state.gameMode.summary);
+        return;
+      }
+
+      if (state.gameMode.kind === "countdown") {
         return;
       }
 
@@ -286,6 +517,18 @@ export function bindPlaybackControls(
             playbackRuntime.controller.getCurrentScoreSeconds()
           )
         : Number(dom.seekInput.value);
+
+      if (state.gameMode.kind === "paused") {
+        session.setState({
+          ...state,
+          gameMode: {
+            kind: "playing",
+            summary: state.gameMode.summary,
+            pitchFrame: state.gameMode.pitchFrame,
+          },
+        });
+      }
+
       const playRequest = measurePerfAsync("playbackToggle.controllerPlayFromSeconds", () =>
         playbackRuntime.controller.playFromSeconds(playStartSeconds, loopState)
       );
@@ -362,16 +605,37 @@ export function bindPlaybackControls(
     const playbackRuntime = session.getPlaybackRuntime();
 
     stopPlaybackAnimation();
+    lastGameScoringSeconds = null;
     playbackRuntime.controller.stop();
     session.youtubeControl?.stop();
-    syncPlaybackUi(dom, state, playbackRuntime);
-    scrollScoreAreaToSeconds(state, playbackRuntime, 0);
+    if (isGameModeLocked(state.gameMode)) {
+      session.setState({
+        ...state,
+        gameMode: {
+          kind: "ready",
+          summary: createEmptyGameScoreSummary(),
+          pitchFrame: null,
+        },
+        statusMessage: {
+          level: "info",
+          text: "Practice score reset.",
+        },
+      });
+      syncUiControls(dom, session.getState());
+    }
+    syncPlaybackUi(dom, session.getState(), playbackRuntime);
+    scrollScoreAreaToSeconds(session.getState(), playbackRuntime, 0);
   });
 
   dom.seekInput.addEventListener("input", () => {
     const state = session.getState();
     const playbackRuntime = session.getPlaybackRuntime();
     const scoreSeconds = Number(dom.seekInput.value);
+
+    if (isGameModeLocked(state.gameMode)) {
+      syncPlaybackUi(dom, state, playbackRuntime);
+      return;
+    }
 
     pausePlaybackForManualSeek(playbackRuntime);
     session.youtubeControl?.pause();
@@ -380,6 +644,11 @@ export function bindPlaybackControls(
   });
 
   dom.seekInput.addEventListener("change", () => {
+    if (isGameModeLocked(session.getState().gameMode)) {
+      syncPlaybackUi(dom, session.getState(), session.getPlaybackRuntime());
+      return;
+    }
+
     const scoreSeconds = Number(dom.seekInput.value);
     const playbackRuntime = session.getPlaybackRuntime();
 

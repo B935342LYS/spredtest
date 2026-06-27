@@ -9,6 +9,7 @@ import type {
   ScoreSelection,
 } from "../app_types";
 import { handleScoreClick } from "./edit_controller";
+import { isGameModeLocked } from "../game/game_types";
 import {
   syncLeftStatus,
   syncPastePreviewOverlay,
@@ -100,15 +101,6 @@ export function bindScorePointerControls(
 
     isDragHistoryTransactionOpen = false;
     session.endScoreEditHistoryTransaction();
-  };
-
-  const cancelDragHistoryTransaction = (): void => {
-    if (!isDragHistoryTransactionOpen) {
-      return;
-    }
-
-    isDragHistoryTransactionOpen = false;
-    session.cancelScoreEditHistoryTransaction();
   };
 
   const getSelectionForHit = (hit: ScoreHit): ScoreSelection => ({
@@ -564,6 +556,7 @@ export function bindScorePointerControls(
 
     if (
       state.busy.kind !== "idle" ||
+      isGameModeLocked(state.gameMode) ||
       state.layout === null ||
       (event.button !== 0 && event.button !== 2)
     ) {
@@ -649,7 +642,13 @@ export function bindScorePointerControls(
 
   dom.scoreStage.addEventListener("pointermove", (event) => {
     if (rangeDrag !== null && rangeDrag.pointerId === event.pointerId) {
-      if (session.getState().busy.kind !== "idle" || session.getState().layout === null) {
+      const state = session.getState();
+
+      if (
+        state.busy.kind !== "idle" ||
+        isGameModeLocked(state.gameMode) ||
+        state.layout === null
+      ) {
         return;
       }
 
@@ -670,6 +669,7 @@ export function bindScorePointerControls(
     if (
       dragEdit.pointerId !== event.pointerId ||
       session.getState().busy.kind !== "idle" ||
+      isGameModeLocked(session.getState().gameMode) ||
       session.getState().layout === null
     ) {
       return;
@@ -793,7 +793,7 @@ export function bindScorePointerControls(
       return;
     }
 
-    if (state.busy.kind !== "idle" || state.layout === null) {
+    if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode) || state.layout === null) {
       return;
     }
 
@@ -841,7 +841,9 @@ export function bindScorePointerControls(
   });
 
   dom.scoreStage.addEventListener("contextmenu", (event) => {
-    if (session.getState().mode.kind !== "edit") {
+    const state = session.getState();
+
+    if (state.mode.kind !== "edit" || isGameModeLocked(state.gameMode)) {
       return;
     }
 
@@ -856,7 +858,7 @@ export function bindScorePointerControls(
 
     const state = session.getState();
 
-    if (state.busy.kind !== "idle") {
+    if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode)) {
       return;
     }
 

@@ -104,37 +104,64 @@
             </nav>
 
             <section class="player-group" aria-label="Playback controls">
-                <span class="status-pill playback-status">stopped</span>
-                <button type="button" class="details-button">Details</button>
-                <div class="music-meta">
-                    <span class="artist">unknown</span>
-                    <span aria-hidden="true">-</span>
-                    <strong class="title">unknown</strong>
+                <div class="player-main">
+                    <span class="status-pill playback-status">stopped</span>
+                    <button type="button" class="details-button">Details</button>
+                    <button type="button" class="practice-mode-button" aria-pressed="false">practice mode (beta)</button>
+                    <div class="music-meta">
+                        <span class="artist">unknown</span>
+                        <span aria-hidden="true">-</span>
+                        <strong class="title">unknown</strong>
+                    </div>
+                    <div class="transport-row">
+                        <button type="button" class="transport-button" aria-label="Play or pause">▶</button>
+                        <button type="button" class="transport-button" aria-label="Stop">■</button>
+                        <label class="seek-field">
+                            <span class="seek-current-label">0</span>
+                            <input class="seek-input" type="range" min="0" max="0" value="0" step="1">
+                            <span class="seek-duration-label">0</span>
+                        </label>
+                    </div>
+                    <div class="audio-row">
+                        <label class="compact-field">
+                            Volume
+                            <input type="range" min="0" max="100" value="70">
+                        </label>
+                        <label class="compact-field">
+                            Wave
+                            <select>
+                                <option>sine</option>
+                                <option>square</option>
+                                <option>triangle</option>
+                                <option>sawtooth</option>
+                            </select>
+                        </label>
+                        <span class="status-pill step-info">BPM: --</span>
+                    </div>
                 </div>
-                <div class="transport-row">
-                    <button type="button" class="transport-button" aria-label="Play or pause">▶</button>
-                    <button type="button" class="transport-button" aria-label="Stop">■</button>
-                    <label class="seek-field">
-                        <span class="seek-current-label">0</span>
-                        <input class="seek-input" type="range" min="0" max="0" value="0" step="1">
-                        <span class="seek-duration-label">0</span>
-                    </label>
-                </div>
-                <div class="audio-row">
-                    <label class="compact-field">
-                        Volume
-                        <input type="range" min="0" max="100" value="70">
-                    </label>
-                    <label class="compact-field">
-                        Wave
-                        <select>
-                            <option>sine</option>
-                            <option>square</option>
-                            <option>triangle</option>
-                            <option>sawtooth</option>
-                        </select>
-                    </label>
-                    <span class="status-pill step-info">BPM: --</span>
+                <div class="game-panel" data-state="off" aria-live="polite">
+                    <div class="game-panel-head">
+                        <button type="button" class="game-rules-button">Rules</button>
+                        <span class="status-pill game-status">off</span>
+                    </div>
+                    <p class="game-notice">Pitch judging is a practice aid and may not be exact. Use a microphone and headphones in a quiet place.</p>
+                    <div class="game-diagnostic-line" aria-label="Microphone input diagnostics">
+                        <span>Mic <strong class="game-mic-state">--</strong></span>
+                        <span>Hz <strong class="game-raw-frequency">--</strong></span>
+                        <span>Clarity <strong class="game-clarity">--</strong></span>
+                        <span>RMS <strong class="game-rms">--</strong></span>
+                    </div>
+                    <div class="game-score-grid game-count-grid" aria-label="Practice mode judge counts">
+                        <span>Perfect <strong class="game-perfect-count">0</strong></span>
+                        <span>Ok <strong class="game-ok-count">0</strong></span>
+                        <span>Bad <strong class="game-bad-count">0</strong></span>
+                        <span>Miss <strong class="game-miss-count">0</strong></span>
+                        <span>Combo <strong class="game-combo">0</strong></span>
+                    </div>
+                    <div class="game-score-grid game-total-grid" aria-label="Practice mode totals">
+                        <span>Accuracy <strong class="game-accuracy">0%</strong></span>
+                        <span>Score <strong class="game-score">0</strong></span>
+                    </div>
                 </div>
             </section>
 
@@ -348,6 +375,7 @@
                     <canvas class="score-layer marker-layer" width="2400" height="1400"></canvas>
                     <canvas class="score-layer note-marker-layer" width="2400" height="1400"></canvas>
                     <canvas class="score-layer note-layer" width="2400" height="1400"></canvas>
+                    <div class="game-pitch-overlay" aria-hidden="true"></div>
                     <div class="selection-overlay" aria-hidden="true"></div>
                     <div class="paste-preview-overlay" aria-hidden="true"></div>
                 </div>
@@ -422,6 +450,101 @@
             <div class="dialog-action-row">
                 <button type="button" class="details-cancel-button">Cancel</button>
                 <button type="submit" class="details-save-button">Save</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Practice Rules Dialog -->
+    <dialog id="practice-rules" class="practice-rules-dialog">
+        <form method="dialog" class="practice-rules-form">
+            <div class="dialog-title-row">
+                <h2>Practice Scoring</h2>
+                <button type="submit" class="practice-rules-close-button" aria-label="Close">Close</button>
+            </div>
+            <section class="practice-rules-section" aria-label="Pitch judge ranges">
+                <h3>Pitch Judge</h3>
+                <table class="practice-rules-table">
+                    <thead>
+                        <tr>
+                            <th>Result</th>
+                            <th>Pitch error</th>
+                            <th>Accuracy</th>
+                            <th>Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Perfect</td>
+                            <td>&lt; 50 cent</td>
+                            <td>100%</td>
+                            <td>Added</td>
+                        </tr>
+                        <tr>
+                            <td>Ok</td>
+                            <td>50-99 cent</td>
+                            <td>60%</td>
+                            <td>Added</td>
+                        </tr>
+                        <tr>
+                            <td>Bad</td>
+                            <td>100-199 cent</td>
+                            <td>20%</td>
+                            <td>Added</td>
+                        </tr>
+                        <tr>
+                            <td>Miss</td>
+                            <td>200 cent or more</td>
+                            <td>0%</td>
+                            <td>0</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+            <section class="practice-rules-section" aria-label="Score formula">
+                <h3>Score Formula</h3>
+                <table class="practice-rules-table">
+                    <tbody>
+                        <tr>
+                            <th scope="row">Score per a note</th>
+                            <td>track difficulty x pitch accuracy</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Total score</th>
+                            <td>sum of all sample scores</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Track difficulty</th>
+                            <td>Basic 1.0, Optional 1.2, Extra 1.5 unless score difficulty overrides it</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Combo</th>
+                            <td>Perfect or Ok continues the combo. Bad or Miss resets it.</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">No input</th>
+                            <td>Silence or unclear pitch does not create a Miss sample.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </form>
+    </dialog>
+
+    <!-- Practice Result Dialog -->
+    <dialog id="practice-result" class="practice-result-dialog">
+        <form method="dialog" class="practice-result-form">
+            <div class="dialog-title-row">
+                <h2>Practice Result</h2>
+                <button type="submit" class="practice-result-close-button" aria-label="Close">Close</button>
+            </div>
+            <div class="practice-result-grid">
+                <span>Accuracy <strong class="result-accuracy">0%</strong></span>
+                <span>Score <strong class="result-score">0</strong></span>
+                <span>Perfect <strong class="result-perfect-count">0</strong></span>
+                <span>Ok <strong class="result-ok-count">0</strong></span>
+                <span>Bad <strong class="result-bad-count">0</strong></span>
+                <span>Miss <strong class="result-miss-count">0</strong></span>
+                <span>Best Combo <strong class="result-best-combo">0</strong></span>
             </div>
         </form>
     </dialog>

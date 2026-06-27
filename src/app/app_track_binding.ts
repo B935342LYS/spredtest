@@ -6,6 +6,7 @@ import type { TrackId } from "../core/score/types";
 import { isTrackId, TRACK_UI_ORDER } from "../track/track_control";
 import { applyActiveTrackIdsToState } from "./app_runtime";
 import type { AppDom, AppState } from "./app_types";
+import { isGameModeTrackChangeLocked } from "./game/game_types";
 import { syncLeftStatus, syncTrackToggleButtons } from "./app_ui_sync";
 import type { AppPlaybackRuntime } from "./playback/app_playback";
 
@@ -38,6 +39,19 @@ export function bindTrackControls(
       }
 
       const playbackState = session.getPlaybackRuntime().controller.getState();
+
+      if (isGameModeTrackChangeLocked(session.getState().gameMode)) {
+        session.setState({
+          ...session.getState(),
+          statusMessage: {
+            level: "warning",
+            text: "Stop practice playback before changing active tracks.",
+          },
+        });
+        syncLeftStatus(dom, session.getState());
+        syncTrackToggleButtons(dom, session.getState());
+        return;
+      }
 
       if (playbackState.kind === "playing") {
         session.setState({

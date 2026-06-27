@@ -57,6 +57,8 @@ import {
   bindYoutubeControls,
   type YoutubePlaybackControl,
 } from "./youtube/youtube_binding";
+import { bindGameModeControls } from "./game/game_binding";
+import { isGameModeLocked } from "./game/game_types";
 import type { ScoreFile } from "../core/score/types";
 import {
   beginPerfSession,
@@ -346,7 +348,7 @@ async function boot(): Promise<void> {
   };
 
   const applyUndo = (): void => {
-    if (state.busy.kind !== "idle") {
+    if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode)) {
       return;
     }
 
@@ -376,7 +378,7 @@ async function boot(): Promise<void> {
   };
 
   const applyRedo = (): void => {
-    if (state.busy.kind !== "idle") {
+    if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode)) {
       return;
     }
 
@@ -494,6 +496,7 @@ async function boot(): Promise<void> {
   }, { capture: true });
 
   youtubeControl = bindYoutubeControls(dom, appSession);
+  bindGameModeControls(dom, appSession);
   bindViewControls(dom, appSession);
   stopPlaybackAnimation = bindPlaybackControls(dom, appSession).stopPlaybackAnimation;
   bindTrackControls(dom, appSession);

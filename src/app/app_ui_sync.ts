@@ -20,6 +20,12 @@ import type {
   UiStatusMessage,
 } from "./app_types";
 import { composeEditRawText } from "./edit/edit_core";
+import { syncGamePitchOverlay } from "./game/game_pitch_overlay";
+import {
+  isGameModeLocked,
+  isGameModeTrackChangeLocked,
+} from "./game/game_types";
+import { syncGameModeUi } from "./game/game_ui";
 import { resolveAutoPitchInputs } from "./pitch_label";
 import { isTrackId } from "../track/track_control";
 
@@ -250,6 +256,7 @@ export function syncPastePreviewOverlay(dom: AppDom, state: AppState): void {
  */
 export function syncUiControls(dom: AppDom, state: AppState): void {
   const isBusy = state.busy.kind !== "idle";
+  const isGameLocked = isGameModeLocked(state.gameMode);
   const isEditMode = state.mode.kind === "edit";
   const isPletExtendTool = state.mode.kind === "edit" && state.mode.tool.kind === "pletExtend";
   const isTupletTool = state.mode.kind === "edit" && state.mode.tool.kind === "tuplet";
@@ -263,7 +270,7 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
     : null;
 
   // busy 중에는 edit 입력과 score 조작에 영향을 주는 컨트롤을 모두 잠근다.
-  dom.editToggle.disabled = isBusy;
+  dom.editToggle.disabled = isBusy || isGameLocked;
   dom.defaultModeSelect.disabled = isBusy || !isEditMode;
   dom.customTextInput.disabled = isBusy || !isEditMode || dom.defaultModeSelect.value === "eraser";
   dom.holdTokenSelect.disabled = isBusy || !isEditMode || !isNoteComposerMode;
@@ -283,41 +290,43 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
       isTupletTool && slotIndex === activeTupletSlotIndex,
     );
   });
-  dom.numberRawInput.disabled = isBusy;
+  dom.numberRawInput.disabled = isBusy || isGameLocked;
   dom.numberRampButtons.forEach((button) => {
-    button.disabled = isBusy;
+    button.disabled = isBusy || isGameLocked;
   });
   dom.zoomInput.disabled = isBusy;
   dom.speedInput.disabled = isBusy;
   dom.textOffInput.disabled = isBusy;
-  dom.loopToggleButton.disabled = isBusy || isEditMode;
-  dom.loopStartSelect.disabled = isBusy || isEditMode || !state.loop.enabled;
-  dom.loopEndSelect.disabled = isBusy || isEditMode || !state.loop.enabled;
+  dom.loopToggleButton.disabled = isBusy || isEditMode || isGameLocked;
+  dom.loopStartSelect.disabled = isBusy || isEditMode || isGameLocked || !state.loop.enabled;
+  dom.loopEndSelect.disabled = isBusy || isEditMode || isGameLocked || !state.loop.enabled;
   dom.reverseButton.disabled = isBusy;
   dom.themeButton.disabled = isBusy;
-  dom.expandColumnInput.disabled = isBusy;
-  dom.expandRightButton.disabled = isBusy;
-  dom.trimRightButton.disabled = isBusy;
-  dom.clearAllButton.disabled = isBusy;
+  dom.expandColumnInput.disabled = isBusy || isGameLocked;
+  dom.expandRightButton.disabled = isBusy || isGameLocked;
+  dom.trimRightButton.disabled = isBusy || isGameLocked;
+  dom.clearAllButton.disabled = isBusy || isGameLocked;
   dom.tupletModeToggle.textContent = isTupletMode ? "On" : "Off";
   dom.tupletModeToggle.classList.toggle("on", isTupletMode);
   dom.tupletModeToggle.classList.toggle("off", !isTupletMode);
   dom.tupletFinalizeButton.classList.toggle("on", isTupletTool);
   dom.tupletFinalizeButton.classList.toggle("off", !isTupletTool || isPletExtendTool);
-  dom.undoButton.disabled = isBusy || state.history.undoStack.length === 0;
+  dom.undoButton.disabled = isBusy || isGameLocked || state.history.undoStack.length === 0;
   dom.undoButton.title = state.history.undoStack.at(-1)?.label ?? "Undo";
-  dom.redoButton.disabled = isBusy || state.history.redoStack.length === 0;
+  dom.redoButton.disabled = isBusy || isGameLocked || state.history.redoStack.length === 0;
   dom.redoButton.title = state.history.redoStack.at(-1)?.label ?? "Redo";
-  dom.jsonLoadButton.disabled = isBusy;
-  dom.jsonDownloadButton.disabled = isBusy;
-  dom.localSaveButton.disabled = isBusy;
-  dom.localLoadButton.disabled = isBusy;
+  dom.jsonLoadButton.disabled = isBusy || isGameLocked;
+  dom.jsonDownloadButton.disabled = isBusy || isGameLocked;
+  dom.localSaveButton.disabled = isBusy || isGameLocked;
+  dom.localLoadButton.disabled = isBusy || isGameLocked;
   dom.fullscreenButton.disabled = isBusy;
   dom.fitHeightButton.disabled = isBusy;
-  dom.layoutPresetToolbarSelect.disabled = isBusy;
-  dom.layoutModifyButton.disabled = isBusy;
-  dom.detailsButton.disabled = isBusy;
-  dom.seekInput.disabled = isBusy;
+  dom.layoutPresetToolbarSelect.disabled = isBusy || isGameLocked;
+  dom.layoutModifyButton.disabled = isBusy || isGameLocked;
+  dom.detailsButton.disabled = isBusy || isGameLocked;
+  dom.seekInput.disabled = isBusy || isGameLocked;
+  syncGameModeUi(dom, state);
+  syncGamePitchOverlay(dom, state);
   syncTrackToggleButtons(dom, state);
   syncViewOptionControls(dom, state);
   syncCurrentRawTextPreview(dom, state);
@@ -451,7 +460,9 @@ export function syncTrackToggleButtons(
   disabledByPlayback = false,
 ): void {
   const activeSet = new Set(state.activeTrackIds);
-  const isDisabled = state.busy.kind !== "idle" || disabledByPlayback;
+  const isDisabled = state.busy.kind !== "idle" ||
+    disabledByPlayback ||
+    isGameModeTrackChangeLocked(state.gameMode);
 
   // 고정 track 버튼을 순회하며 app runtime의 activeTrackIds를 aria/class 상태에 반영한다.
   for (const button of dom.trackToggleButtons) {
@@ -630,6 +641,7 @@ export function renderApp(dom: AppDom, state: AppState): AppState {
 
   syncRangeSelectionOverlay(dom, nextState);
   syncPastePreviewOverlay(dom, nextState);
+  syncGamePitchOverlay(dom, nextState);
   return nextState;
 }
 
@@ -692,6 +704,7 @@ export function renderAppPartial(
 
   syncRangeSelectionOverlay(dom, nextState);
   syncPastePreviewOverlay(dom, nextState);
+  syncGamePitchOverlay(dom, nextState);
   return nextState;
 }
 
@@ -722,5 +735,6 @@ export function renderDynamicViewportLayers(dom: AppDom, state: AppState): AppSt
 
   syncRangeSelectionOverlay(dom, nextState);
   syncPastePreviewOverlay(dom, nextState);
+  syncGamePitchOverlay(dom, nextState);
   return nextState;
 }

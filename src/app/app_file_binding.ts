@@ -15,6 +15,7 @@ import {
   saveScoreToLocalStorage,
 } from "../infra/score_local_storage";
 import { touchScoreTimestampsForSave } from "./score_timestamp";
+import { isGameModeLocked } from "./game/game_types";
 import { syncLeftStatus } from "./app_ui_sync";
 
 /** file/local storage binding이 app 상태를 읽고 갱신하기 위한 session 입력. */
@@ -36,6 +37,11 @@ export function bindFileControls(
 ): void {
   dom.jsonDownloadButton.addEventListener("click", () => {
     const state = session.getState();
+
+    if (isGameModeLocked(state.gameMode)) {
+      return;
+    }
+
     const nextScore = touchScoreTimestampsForSave(
       state.document.score,
       state.scoreOrigin,
@@ -58,6 +64,10 @@ export function bindFileControls(
   });
 
   dom.jsonLoadButton.addEventListener("click", () => {
+    if (isGameModeLocked(session.getState().gameMode)) {
+      return;
+    }
+
     dom.jsonLoadInput.click();
   });
 
@@ -65,6 +75,11 @@ export function bindFileControls(
     const file = dom.jsonLoadInput.files?.item(0);
 
     if (file === null || file === undefined) {
+      return;
+    }
+
+    if (isGameModeLocked(session.getState().gameMode)) {
+      dom.jsonLoadInput.value = "";
       return;
     }
 
@@ -91,6 +106,10 @@ export function bindFileControls(
   });
 
   dom.localSaveButton.addEventListener("click", () => {
+    if (isGameModeLocked(session.getState().gameMode)) {
+      return;
+    }
+
     if (!window.confirm("Overwrite the score saved in this browser's local storage?")) {
       return;
     }
@@ -131,6 +150,10 @@ export function bindFileControls(
   });
 
   dom.localLoadButton.addEventListener("click", () => {
+    if (isGameModeLocked(session.getState().gameMode)) {
+      return;
+    }
+
     try {
       const jsonText = loadScoreFromLocalStorage();
 

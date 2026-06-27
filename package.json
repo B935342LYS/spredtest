@@ -16,6 +16,7 @@
     "test:view": "tsx ./dev/test_view.ts",
     "test:youtube": "tsx ./dev/test_youtube.ts",
     "test:audio": "tsx ./dev/test_audio.ts",
+    "test:game": "tsx ./dev/test_game.ts",
     "test:partial": "tsx ./dev/test_partial_rebuild.ts",
     "inspect:sheet": "node --experimental-specifier-resolution=node ./src/dev/inspect_sheet.ts"
   },
@@ -24,5 +25,8 @@
     "tsx": "^4.19.0",
     "typescript": "^5.4.0",
     "vite": "^8.0.14"
+  },
+  "dependencies": {
+    "pitchy": "^4.1.0"
   }
 }

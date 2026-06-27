@@ -35,6 +35,7 @@ import {
   parseUserLayoutPresetJson,
   serializeUserLayoutPresetData,
 } from "./layout_preset";
+import { isGameModeLocked } from "../game/game_types";
 import { formatPitchName } from "../pitch_label";
 import { colorForLabelMidi } from "../../renderer/canvas_note_colors";
 import { syncLeftStatus } from "../app_ui_sync";
@@ -795,6 +796,11 @@ function applyLayoutDialogDraft(
   dom: AppDom,
   session: LayoutDialogBindingSession,
 ): void {
+  if (isGameModeLocked(session.getState().gameMode)) {
+    setLayoutDialogNotice(dom, "Exit practice mode before applying layout changes.", "warning");
+    return;
+  }
+
   const draft = readLayoutDraftFromDialog(dom);
   const deletionSummary = calculateLayoutCellDeletionSummary(
     session.getState().document.score,
@@ -941,6 +947,19 @@ function applyLayoutToolbarPreset(
   const selectedValue = dom.layoutPresetToolbarSelect.value;
   const state = session.getState();
 
+  if (isGameModeLocked(state.gameMode)) {
+    syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
+    session.setState({
+      ...state,
+      statusMessage: {
+        level: "warning",
+        text: "Exit practice mode before changing layout.",
+      },
+    });
+    syncLeftStatus(dom, session.getState());
+    return;
+  }
+
   if (selectedValue === "default") {
     applyLayoutToolbarDraft(
       dom,
@@ -1012,6 +1031,20 @@ function applyLayoutToolbarDraft(
   label: string,
 ): void {
   const state = session.getState();
+
+  if (isGameModeLocked(state.gameMode)) {
+    syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
+    session.setState({
+      ...state,
+      statusMessage: {
+        level: "warning",
+        text: "Exit practice mode before changing layout.",
+      },
+    });
+    syncLeftStatus(dom, session.getState());
+    return;
+  }
+
   const deletionSummary = calculateLayoutCellDeletionSummary(state.document.score, draft);
   let allowCellDeletion = false;
 
@@ -1286,6 +1319,10 @@ export function bindLayoutDialogControls(
   session: LayoutDialogBindingSession,
 ): void {
   dom.layoutModifyButton.addEventListener("click", () => {
+    if (isGameModeLocked(session.getState().gameMode)) {
+      return;
+    }
+
     openLayoutDialog(dom, session);
   });
   dom.layoutPresetToolbarSelect.addEventListener("change", () => {

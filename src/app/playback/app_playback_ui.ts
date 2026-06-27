@@ -4,6 +4,7 @@
 
 import type { AppDom, AppState } from "../app_types";
 import { syncLayoutScroll, syncTrackToggleButtons } from "../app_ui_sync";
+import { isGameModeLocked } from "../game/game_types";
 import { columnToX, xToColumn } from "../../renderer/canvas_coordinate";
 import { numberToTimeFraction } from "../../audio/tick_time_mapper";
 import type { AppPlaybackRuntime } from "./app_playback";
@@ -220,6 +221,7 @@ export function syncPlaybackUi(
   syncPlaybackStatus(dom, playbackState.kind);
   dom.playButton.textContent = playbackState.kind === "playing" ? "❚❚" : "▶";
   dom.playButton.disabled = state.busy.kind !== "idle" || state.activeTrackIds.length === 0;
+  dom.seekInput.disabled = state.busy.kind !== "idle" || isGameModeLocked(state.gameMode);
   syncTrackToggleButtons(dom, state, playbackState.kind === "playing");
 }
 

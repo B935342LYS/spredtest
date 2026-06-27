@@ -210,6 +210,7 @@ export function createInitialState(
     speedScale: 1,
     textOff: false,
     loop: { ...DEFAULT_LOOP_STATE },
+    gameMode: { kind: "off" },
     history: createUndoHistoryState(),
     mode: { kind: "view" },
     busy: { kind: "idle" },
