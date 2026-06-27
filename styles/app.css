@@ -1301,18 +1301,18 @@ select:disabled {
 }
 
 .game-judge-combo {
-  font-size: 10px;
+  font-size: 21px;
   letter-spacing: 0;
   opacity: 0.92;
 }
 
 .game-judge-label {
-  font-size: 14px;
+  font-size: 30px;
 }
 
 .game-judge-timing {
   margin-top: 1px;
-  font-size: 10px;
+  font-size: 15px;
   letter-spacing: 0;
   text-transform: lowercase;
 }

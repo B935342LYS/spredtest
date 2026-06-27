@@ -11,8 +11,9 @@ import type { GameScoringSampleResult } from "./game_types";
 
 const JUDGE_OVERLAY_DURATION_MS = 500;
 const JUDGE_OVERLAY_X_OFFSET = 34;
-const JUDGE_OVERLAY_COMBO_HEIGHT = 38;
-const JUDGE_OVERLAY_LABEL_HEIGHT = 26;
+const JUDGE_OVERLAY_COMBO_LINE_HEIGHT = 24;
+const JUDGE_OVERLAY_LABEL_LINE_HEIGHT = 36;
+const JUDGE_OVERLAY_TIMING_LINE_HEIGHT = 18;
 const JUDGE_OVERLAY_MIN_Y = 4;
 
 let hideJudgeOverlayTimer: number | null = null;
@@ -46,7 +47,10 @@ export function showGameJudgeOverlay(
 
   const label = document.createElement("div");
   const showCombo = sample.label === "Perfect" || sample.label === "Ok";
-  const labelHeight = showCombo ? JUDGE_OVERLAY_COMBO_HEIGHT : JUDGE_OVERLAY_LABEL_HEIGHT;
+  const showTiming = sample.timing.kind === "early" || sample.timing.kind === "late";
+  const labelHeight = JUDGE_OVERLAY_LABEL_LINE_HEIGHT +
+    (showCombo ? JUDGE_OVERLAY_COMBO_LINE_HEIGHT : 0) +
+    (showTiming ? JUDGE_OVERLAY_TIMING_LINE_HEIGHT : 0);
 
   label.className = `game-judge-text game-judge-text-${sample.label.toLowerCase()}`;
   label.style.left = `${dom.scoreArea.scrollLeft + JUDGE_OVERLAY_X_OFFSET}px`;
@@ -66,7 +70,7 @@ export function showGameJudgeOverlay(
   resultLine.textContent = sample.label;
   label.append(resultLine);
 
-  if (sample.timing.kind === "early" || sample.timing.kind === "late") {
+  if (showTiming) {
     const timingLine = document.createElement("div");
 
     timingLine.className = `game-judge-timing game-judge-timing-${sample.timing.kind}`;
