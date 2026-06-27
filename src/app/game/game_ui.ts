@@ -6,7 +6,6 @@ import type {
   AppDom,
   AppState,
 } from "../app_types";
-import type { TrackId } from "../../core/score/types";
 import {
   type GamePitchFrame,
   type GameScoreSummary,
@@ -66,6 +65,9 @@ export function syncGameModeUi(dom: AppDom, state: AppState): void {
   dom.gameOkCount.textContent = String(summary.okCount);
   dom.gameBadCount.textContent = String(summary.badCount);
   dom.gameMissCount.textContent = String(summary.missCount);
+  dom.gameGlissBonusCount.textContent = String(summary.glissBonusCount);
+  dom.gameVibBonusCount.textContent = String(summary.vibBonusCount);
+  dom.gameTremBonusCount.textContent = String(summary.tremBonusCount);
   dom.gameCombo.textContent = String(summary.bestCombo);
   dom.gameScore.textContent = String(Math.round(summary.score));
   dom.gameSyncValue.textContent = formatGameSyncOffsetMs(state.gameSyncOffsetMs);
@@ -163,10 +165,14 @@ export function openPracticeResultDialog(dom: AppDom, summary: GameScoreSummary)
   dom.resultOkCount.textContent = String(summary.okCount);
   dom.resultBadCount.textContent = String(summary.badCount);
   dom.resultMissCount.textContent = String(summary.missCount);
-  dom.resultTimingOnTimeCount.textContent = String(summary.timingOnTimeCount);
-  dom.resultTimingEarlyLateCount.textContent = String(summary.timingEarlyLateCount);
+  dom.resultTimingEarlyCount.textContent = String(summary.timingEarlyCount);
+  dom.resultTimingLateCount.textContent = String(summary.timingLateCount);
   dom.resultTimingBadCount.textContent = String(summary.timingBadCount);
   dom.resultTimingMissCount.textContent = String(summary.timingMissCount);
+  dom.resultGlissBonusCount.textContent = String(summary.glissBonusCount);
+  dom.resultVibBonusCount.textContent = String(summary.vibBonusCount);
+  dom.resultTremBonusCount.textContent = String(summary.tremBonusCount);
+  dom.resultEffectBonusScore.textContent = `+${Math.round(summary.effectBonusScore)}`;
   dom.resultBestCombo.textContent = String(summary.bestCombo);
 
   if (!dom.practiceResultDialog.open) {
@@ -184,14 +190,11 @@ export function openPracticeResultDialogForState(dom: AppDom, state: AppState): 
   const summary = getGameScoreSummary(state.gameMode);
   const title = formatResultMetadataText(state.document.score.musicData.musicTitle);
   const artist = formatResultMetadataText(state.document.score.musicData.musicArtist);
-  const tracks = formatTrackList(state.activeTrackIds);
 
   dom.resultTitle.textContent = title;
   dom.resultTitle.title = title;
   dom.resultArtist.textContent = artist;
   dom.resultArtist.title = artist;
-  dom.resultTracks.textContent = tracks;
-  dom.resultTracks.title = tracks;
   dom.resultAccuracy.textContent = formatAccuracyPercent(summary.accuracyPercent);
   dom.resultTimingAccuracy.textContent = formatAccuracyPercent(summary.timingAccuracyPercent);
   dom.resultScore.textContent = String(Math.round(summary.score));
@@ -199,10 +202,14 @@ export function openPracticeResultDialogForState(dom: AppDom, state: AppState): 
   dom.resultOkCount.textContent = String(summary.okCount);
   dom.resultBadCount.textContent = String(summary.badCount);
   dom.resultMissCount.textContent = String(summary.missCount);
-  dom.resultTimingOnTimeCount.textContent = String(summary.timingOnTimeCount);
-  dom.resultTimingEarlyLateCount.textContent = String(summary.timingEarlyLateCount);
+  dom.resultTimingEarlyCount.textContent = String(summary.timingEarlyCount);
+  dom.resultTimingLateCount.textContent = String(summary.timingLateCount);
   dom.resultTimingBadCount.textContent = String(summary.timingBadCount);
   dom.resultTimingMissCount.textContent = String(summary.timingMissCount);
+  dom.resultGlissBonusCount.textContent = String(summary.glissBonusCount);
+  dom.resultVibBonusCount.textContent = String(summary.vibBonusCount);
+  dom.resultTremBonusCount.textContent = String(summary.tremBonusCount);
+  dom.resultEffectBonusScore.textContent = `+${Math.round(summary.effectBonusScore)}`;
   dom.resultBestCombo.textContent = String(summary.bestCombo);
 
   if (!dom.practiceResultDialog.open) {
@@ -219,35 +226,6 @@ function formatResultMetadataText(value: string): string {
   const trimmed = value.trim();
 
   return trimmed.length === 0 ? "unknown" : trimmed;
-}
-
-/**
- * active track id 목록을 결과 화면 표시 문자열로 만든다.
- * - 인수 : trackIds : practice mode에서 사용한 active track 목록
- * - 반환값 : Basic, Optional 형식의 표시 문자열
- */
-function formatTrackList(trackIds: readonly TrackId[]): string {
-  if (trackIds.length === 0) {
-    return "none";
-  }
-
-  return trackIds.map(formatTrackName).join(", ");
-}
-
-/**
- * track id를 사용자 표시 이름으로 바꾼다.
- * - 인수 : trackId : track 식별자
- * - 반환값 : 대문자로 시작하는 track 이름
- */
-function formatTrackName(trackId: TrackId): string {
-  switch (trackId) {
-    case "basic":
-      return "Basic";
-    case "optional":
-      return "Optional";
-    case "extra":
-      return "Extra";
-  }
 }
 
 /**

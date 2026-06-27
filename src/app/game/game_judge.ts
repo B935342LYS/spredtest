@@ -11,6 +11,7 @@ import type { TrackId } from "../../core/score/types";
 import type { TickTimeMapper } from "../../audio/audio_types";
 import type {
   GameJudgeTarget,
+  GameEffectBonusResult,
   GamePitchFrame,
   GameScoreSummary,
   GameScoringSampleResult,
@@ -354,15 +355,19 @@ export function applyGameScoringSample(
   const missCount = summary.missCount + (sample.label === "Miss" ? 1 : 0);
   const timingOnTimeCount = summary.timingOnTimeCount +
     (sample.timingOnsetId !== null && sample.timing.kind === "none" ? 1 : 0);
-  const timingEarlyLateCount = summary.timingEarlyLateCount +
-    (sample.timing.kind === "early" || sample.timing.kind === "late" ? 1 : 0);
+  const timingEarlyCount = summary.timingEarlyCount + (sample.timing.kind === "early" ? 1 : 0);
+  const timingLateCount = summary.timingLateCount + (sample.timing.kind === "late" ? 1 : 0);
   const timingBadCount = summary.timingBadCount + (sample.timing.kind === "bad" ? 1 : 0);
   const timingMissCount = summary.timingMissCount + (sample.timing.kind === "miss" ? 1 : 0);
   const currentCombo = sample.label === "Perfect" || sample.label === "Ok"
     ? summary.currentCombo + 1
     : 0;
   const scoredSampleCount = perfectCount + okCount + badCount + missCount;
-  const timingSampleCount = timingOnTimeCount + timingEarlyLateCount + timingBadCount + timingMissCount;
+  const timingSampleCount = timingOnTimeCount +
+    timingEarlyCount +
+    timingLateCount +
+    timingBadCount +
+    timingMissCount;
   const previousAccuracySum = getAccuracySum(summary);
   const nextAccuracySum = previousAccuracySum + sample.pitchAccuracy;
   const previousTimingAccuracySum = getTimingAccuracySum(summary);
@@ -376,12 +381,37 @@ export function applyGameScoringSample(
     badCount,
     missCount,
     timingOnTimeCount,
-    timingEarlyLateCount,
+    timingEarlyCount,
+    timingLateCount,
     timingBadCount,
     timingMissCount,
+    glissBonusCount: summary.glissBonusCount,
+    vibBonusCount: summary.vibBonusCount,
+    tremBonusCount: summary.tremBonusCount,
+    effectBonusScore: summary.effectBonusScore,
     currentCombo,
     bestCombo: Math.max(summary.bestCombo, currentCombo),
     score: summary.score + sample.scoreContribution,
+  };
+}
+
+/**
+ * effect bonus 성공 결과를 점수 집계에 더한다.
+ * - 인수 : summary : 이전까지의 점수 집계
+ * - 인수 : bonus : 성공한 effect bonus 결과
+ * - 반환값 : bonus가 반영된 새 점수 집계
+ */
+export function applyGameEffectBonus(
+  summary: GameScoreSummary,
+  bonus: GameEffectBonusResult,
+): GameScoreSummary {
+  return {
+    ...summary,
+    glissBonusCount: summary.glissBonusCount + (bonus.kind === "gliss" ? 1 : 0),
+    vibBonusCount: summary.vibBonusCount + (bonus.kind === "vib" ? 1 : 0),
+    tremBonusCount: summary.tremBonusCount + (bonus.kind === "trem" ? 1 : 0),
+    effectBonusScore: summary.effectBonusScore + bonus.bonusContribution,
+    score: summary.score + bonus.bonusContribution,
   };
 }
 
@@ -514,7 +544,8 @@ function getAccuracySum(summary: GameScoreSummary): number {
  */
 function getTimingAccuracySum(summary: GameScoreSummary): number {
   const timingSampleCount = summary.timingOnTimeCount +
-    summary.timingEarlyLateCount +
+    summary.timingEarlyCount +
+    summary.timingLateCount +
     summary.timingBadCount +
     summary.timingMissCount;
 

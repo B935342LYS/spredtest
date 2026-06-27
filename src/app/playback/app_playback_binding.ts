@@ -14,11 +14,13 @@ import type { YoutubePlaybackControl } from "../youtube/youtube_binding";
 import {
   createEmptyGameScoreSummary,
   isGameModeLocked,
+  type GameEffectBonusResult,
   type GamePitchFrame,
   type GameScoreSummary,
   type GameTimingOnsetCandidate,
 } from "../game/game_types";
 import {
+  applyGameEffectBonus,
   applyGameSyncOffsetSeconds,
   applyGameScoringSample,
   collectGameJudgeTargetsAtSeconds,
@@ -27,7 +29,14 @@ import {
   normalizeGameTrackDifficulty,
 } from "../game/game_judge";
 import {
+  collectGameEffectBonusTargets,
+  getGlissIntervalIndexAtSeconds,
+  judgeGlissIntervalBonus,
+  type GameEffectBonusTarget,
+} from "../game/game_effect_judge";
+import {
   clearGameJudgeOverlay,
+  showGameEffectBonusOverlay,
   showGameJudgeOverlay,
 } from "../game/game_judge_overlay";
 import { openPracticeResultDialogForState, syncGameModeUi } from "../game/game_ui";
@@ -49,7 +58,6 @@ import {
 const TIMING_ONSET_MIN_INTERVAL_SECONDS = 0.06;
 const TIMING_ONSET_KEEP_SECONDS = 0.75;
 const TIMING_PITCH_CHANGE_THRESHOLD_CENT = 80;
-
 /** playback binding이 app 상태와 runtime을 조회하기 위한 session 입력. */
 export type PlaybackBindingSession = {
   getState(): AppState;
@@ -88,6 +96,8 @@ export function bindPlaybackControls(
   let consumedTimingOnsetIds = new Set<number>();
   let judgedTimingEventIds = new Set<string>();
   let nextTimingOnsetId = 1;
+  let effectBonusTargets: GameEffectBonusTarget[] = [];
+  let judgedEffectIntervalIds = new Set<string>();
   let countdownAudioContext: AudioContext | null = null;
 
   /**
@@ -102,6 +112,8 @@ export function bindPlaybackControls(
     consumedTimingOnsetIds = new Set<number>();
     judgedTimingEventIds = new Set<string>();
     nextTimingOnsetId = 1;
+    effectBonusTargets = [];
+    judgedEffectIntervalIds = new Set<string>();
   };
 
   /**
@@ -149,12 +161,89 @@ export function bindPlaybackControls(
   };
 
   /**
+   * practice effect bonus target 중 현재 gliss interval을 판정해 성공 bonus를 누적한다.
+   * - 인수 : judgeScoreSeconds : Sync 보정이 적용된 현재 score time
+   * - 반환값 : 없음
+   */
+  const updatePracticeEffectBonus = (judgeScoreSeconds: number): GameEffectBonusResult | null => {
+    const state = session.getState();
+    let lastBonus: GameEffectBonusResult | null = null;
+
+    if (state.gameMode.kind !== "playing") {
+      return null;
+    }
+
+    const trackDifficulty = normalizeGameTrackDifficulty(state.document.score.musicData.scoreDifficulty);
+
+    // gliss 구간 안의 interval마다 한 번씩 검사해 성공 시 bonus를 더한다.
+    for (const target of effectBonusTargets) {
+      const intervalIndex = getGlissIntervalIndexAtSeconds(target, judgeScoreSeconds);
+
+      if (intervalIndex === null) {
+        continue;
+      }
+
+      const intervalId = `${target.targetId}:${intervalIndex}`;
+
+      if (judgedEffectIntervalIds.has(intervalId)) {
+        continue;
+      }
+
+      const bonus = judgeGlissIntervalBonus(
+        target,
+        state.gameMode.pitchFrame,
+        judgeScoreSeconds,
+        intervalIndex,
+        trackDifficulty,
+      );
+
+      if (bonus === null) {
+        continue;
+      }
+
+      judgedEffectIntervalIds.add(intervalId);
+
+      const currentState = session.getState();
+
+      if (currentState.gameMode.kind !== "playing") {
+        return lastBonus;
+      }
+
+      const nextSummary = applyGameEffectBonus(currentState.gameMode.summary, bonus);
+      const nextState = {
+        ...currentState,
+        gameMode: {
+          kind: "playing" as const,
+          summary: nextSummary,
+          pitchFrame: currentState.gameMode.pitchFrame,
+        },
+      };
+
+      session.setState(nextState);
+      syncGameModeUi(dom, nextState);
+      lastBonus = bonus;
+    }
+
+    return lastBonus;
+  };
+
+  /**
+   * 아직 지나지 않은 effect bonus target 구간이 있는지 확인한다.
+   * - 인수 : judgeScoreSeconds : Sync 보정이 적용된 현재 score time
+   * - 반환값 : 현재 이후 남은 gliss target 구간이 있으면 true
+   */
+  const hasPendingEffectBonusTarget = (judgeScoreSeconds: number): boolean =>
+    effectBonusTargets.some((target) =>
+      judgeScoreSeconds <= target.endSeconds
+    );
+
+  /**
    * practice mode의 최신 pitch frame을 현재 score time에 맞춰 점수로 누적한다.
    * - 인수 : scoreSeconds : playback controller가 보고한 현재 score time
    * - 반환값 : 없음
    */
   const updatePracticeScoring = (scoreSeconds: number): void => {
-    const state = session.getState();
+    let state = session.getState();
 
     if (state.gameMode.kind !== "playing") {
       return;
@@ -172,6 +261,13 @@ export function bindPlaybackControls(
     try {
       const judgeScoreSeconds = applyGameSyncOffsetSeconds(scoreSeconds, state.gameSyncOffsetMs);
       const mapper = createTickTimeMapper(state.analysis.timingTimeline);
+      const effectBonus = updatePracticeEffectBonus(judgeScoreSeconds);
+      state = session.getState();
+
+      if (state.gameMode.kind !== "playing") {
+        return;
+      }
+
       const hasRemainingTarget = hasRemainingGameJudgeTarget(
         state.analysis,
         state.activeTrackIds,
@@ -179,7 +275,7 @@ export function bindPlaybackControls(
         judgeScoreSeconds,
       );
 
-      if (!hasRemainingTarget) {
+      if (!hasRemainingTarget && !hasPendingEffectBonusTarget(judgeScoreSeconds)) {
         clearGameJudgeOverlay(dom);
 
         const nextState = {
@@ -221,6 +317,9 @@ export function bindPlaybackControls(
       );
 
       if (sample === null) {
+        if (effectBonus !== null) {
+          showGameEffectBonusOverlay(dom, session.getState(), effectBonus);
+        }
         return;
       }
 
@@ -245,19 +344,25 @@ export function bindPlaybackControls(
       session.setState(nextState);
       syncGameModeUi(dom, nextState);
       showGameJudgeOverlay(dom, nextState, sample, nextSummary.currentCombo);
+
+      if (effectBonus !== null) {
+        showGameEffectBonusOverlay(dom, nextState, effectBonus);
+      }
     } catch {
       return;
     }
   };
 
-  const stopPlaybackAnimation = (): void => {
+  const stopPlaybackAnimation = (resetPracticeState = true): void => {
     if (playbackRafId !== null) {
       cancelAnimationFrame(playbackRafId);
       playbackRafId = null;
     }
     lastPlaybackScoreSeconds = null;
     lastGameScoringSeconds = null;
-    resetPracticeTimingState();
+    if (resetPracticeState) {
+      resetPracticeTimingState();
+    }
     clearGameJudgeOverlay(dom);
   };
 
@@ -402,6 +507,11 @@ export function bindPlaybackControls(
 
     lastGameScoringSeconds = null;
     resetPracticeTimingState();
+    effectBonusTargets = collectGameEffectBonusTargets(
+      currentState.analysis,
+      currentState.activeTrackIds,
+      createTickTimeMapper(currentState.analysis.timingTimeline),
+    );
     clearGameJudgeOverlay(dom);
     session.setState({
       ...currentState,
@@ -570,7 +680,9 @@ export function bindPlaybackControls(
       if (playbackState.kind === "playing") {
         measurePerf("playbackToggle.pauseController", () => playbackRuntime.controller.pause());
         measurePerf("playbackToggle.pauseYoutube", () => session.youtubeControl?.pause());
-        measurePerf("playbackToggle.stopAnimation", () => stopPlaybackAnimation());
+        measurePerf("playbackToggle.stopAnimation", () =>
+          stopPlaybackAnimation(state.gameMode.kind !== "playing")
+        );
         if (state.gameMode.kind === "playing") {
           session.setState({
             ...state,
@@ -657,7 +769,7 @@ export function bindPlaybackControls(
             lastPlaybackScoreSeconds = measurePerf("playbackAfterPlay.getCurrentSeconds", () =>
               nextPlaybackRuntime.controller.getCurrentScoreSeconds()
             );
-            measurePerf("playbackAfterPlay.stopAnimation", () => stopPlaybackAnimation());
+            measurePerf("playbackAfterPlay.stopAnimation", () => stopPlaybackAnimation(false));
             playbackRafId = measurePerf("playbackAfterPlay.requestFrame", () =>
               requestAnimationFrame(updatePlaybackScroll)
             );

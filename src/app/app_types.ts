@@ -240,7 +240,6 @@ export type AppDom = {
   practiceResultDialog: HTMLDialogElement;
   resultTitle: HTMLElement;
   resultArtist: HTMLElement;
-  resultTracks: HTMLElement;
   resultAccuracy: HTMLElement;
   resultTimingAccuracy: HTMLElement;
   resultScore: HTMLElement;
@@ -248,10 +247,14 @@ export type AppDom = {
   resultOkCount: HTMLElement;
   resultBadCount: HTMLElement;
   resultMissCount: HTMLElement;
-  resultTimingOnTimeCount: HTMLElement;
-  resultTimingEarlyLateCount: HTMLElement;
+  resultTimingEarlyCount: HTMLElement;
+  resultTimingLateCount: HTMLElement;
   resultTimingBadCount: HTMLElement;
   resultTimingMissCount: HTMLElement;
+  resultGlissBonusCount: HTMLElement;
+  resultVibBonusCount: HTMLElement;
+  resultTremBonusCount: HTMLElement;
+  resultEffectBonusScore: HTMLElement;
   resultBestCombo: HTMLElement;
   gameMicState: HTMLElement;
   gameRawFrequency: HTMLElement;
@@ -264,6 +267,9 @@ export type AppDom = {
   gameOkCount: HTMLElement;
   gameBadCount: HTMLElement;
   gameMissCount: HTMLElement;
+  gameGlissBonusCount: HTMLElement;
+  gameVibBonusCount: HTMLElement;
+  gameTremBonusCount: HTMLElement;
   gameCombo: HTMLElement;
   gameScore: HTMLElement;
   detailsDialog: HTMLDialogElement;

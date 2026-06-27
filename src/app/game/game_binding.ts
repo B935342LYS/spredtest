@@ -297,6 +297,8 @@ export function bindGameModeControls(
       return;
     }
 
+    const wasEditMode = state.mode.kind === "edit";
+
     requestId = currentRequestId;
     session.setState({
       ...state,
@@ -316,7 +318,9 @@ export function bindGameModeControls(
       },
       statusMessage: {
         level: "info",
-        text: "Requesting microphone permission...",
+        text: wasEditMode
+          ? "Edit mode locked for practice. Requesting microphone permission..."
+          : "Requesting microphone permission...",
       },
     });
     session.render();

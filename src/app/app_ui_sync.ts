@@ -270,6 +270,8 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
     : null;
 
   // busy 중에는 edit 입력과 score 조작에 영향을 주는 컨트롤을 모두 잠근다.
+  dom.editToggle.checked = isEditMode;
+  dom.editToggle.setAttribute("aria-pressed", String(isEditMode));
   dom.editToggle.disabled = isBusy || isGameLocked;
   dom.defaultModeSelect.disabled = isBusy || !isEditMode;
   dom.customTextInput.disabled = isBusy || !isEditMode || dom.defaultModeSelect.value === "eraser";

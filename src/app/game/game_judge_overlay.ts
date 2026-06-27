@@ -7,10 +7,14 @@ import type {
   AppState,
 } from "../app_types";
 import type { CanvasLayoutRow } from "../../renderer/canvas_types";
-import type { GameScoringSampleResult } from "./game_types";
+import type {
+  GameEffectBonusResult,
+  GameScoringSampleResult,
+} from "./game_types";
 
 const JUDGE_OVERLAY_DURATION_MS = 500;
 const JUDGE_OVERLAY_X_OFFSET = 34;
+const EFFECT_OVERLAY_X_OFFSET = 116;
 const JUDGE_OVERLAY_Y_OFFSET = 6;
 const JUDGE_OVERLAY_COMBO_LINE_HEIGHT = 18;
 const JUDGE_OVERLAY_LABEL_LINE_HEIGHT = 26;
@@ -18,6 +22,7 @@ const JUDGE_OVERLAY_TIMING_LINE_HEIGHT = 14;
 const JUDGE_OVERLAY_MIN_Y = 4;
 
 let hideJudgeOverlayTimer: number | null = null;
+let hideEffectOverlayTimer: number | null = null;
 
 /**
  * scoring sample 하나를 판정 텍스트 overlay로 표시한다.
@@ -33,7 +38,7 @@ export function showGameJudgeOverlay(
   sample: GameScoringSampleResult,
   combo: number,
 ): void {
-  dom.gameJudgeOverlay.replaceChildren();
+  removeGameOverlayNode(dom, "main");
 
   if (state.layout === null) {
     return;
@@ -55,7 +60,8 @@ export function showGameJudgeOverlay(
     (showCombo ? JUDGE_OVERLAY_COMBO_LINE_HEIGHT : 0) +
     (showTiming ? JUDGE_OVERLAY_TIMING_LINE_HEIGHT : 0);
 
-  label.className = `game-judge-text game-judge-text-${sample.label.toLowerCase()}`;
+  label.dataset.overlayKind = "main";
+  label.className = `game-judge-text game-judge-text-main game-judge-text-${sample.label.toLowerCase()}`;
   label.style.left = `${dom.scoreArea.scrollLeft + JUDGE_OVERLAY_X_OFFSET}px`;
   label.style.top = `${Math.max(JUDGE_OVERLAY_MIN_Y, targetY - labelHeight - JUDGE_OVERLAY_Y_OFFSET)}px`;
 
@@ -85,7 +91,44 @@ export function showGameJudgeOverlay(
   }
 
   dom.gameJudgeOverlay.append(label);
-  scheduleJudgeOverlayHide(dom);
+  scheduleMainJudgeOverlayHide(dom);
+}
+
+/**
+ * effect bonus 성공 결과를 score 영역의 DOM overlay로 표시한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : bonus : 성공한 effect bonus 결과
+ * - 반환값 : 없음
+ */
+export function showGameEffectBonusOverlay(
+  dom: AppDom,
+  state: AppState,
+  bonus: GameEffectBonusResult,
+): void {
+  removeGameOverlayNode(dom, "effect");
+
+  if (state.layout === null) {
+    return;
+  }
+
+  const pitchMidi = bonus.targetMidi + bonus.targetCentOffset / 100;
+  const targetY = resolvePitchY(state.layout.rows, pitchMidi);
+
+  if (targetY === null) {
+    return;
+  }
+
+  const label = document.createElement("div");
+
+  label.dataset.overlayKind = "effect";
+  label.className = `game-judge-text game-judge-text-effect game-judge-text-${bonus.kind}`;
+  label.style.left = `${dom.scoreArea.scrollLeft + EFFECT_OVERLAY_X_OFFSET}px`;
+  label.style.top = `${Math.max(JUDGE_OVERLAY_MIN_Y, targetY - JUDGE_OVERLAY_LABEL_LINE_HEIGHT - JUDGE_OVERLAY_Y_OFFSET)}px`;
+  label.textContent = bonus.displayText;
+
+  dom.gameJudgeOverlay.append(label);
+  scheduleEffectOverlayHide(dom);
 }
 
 /**
@@ -99,23 +142,59 @@ export function clearGameJudgeOverlay(dom: AppDom): void {
     hideJudgeOverlayTimer = null;
   }
 
+  if (hideEffectOverlayTimer !== null) {
+    window.clearTimeout(hideEffectOverlayTimer);
+    hideEffectOverlayTimer = null;
+  }
+
   dom.gameJudgeOverlay.replaceChildren();
 }
 
 /**
- * 판정 텍스트가 일정 시간 뒤 자동으로 사라지게 예약한다.
+ * 기본 판정 텍스트가 일정 시간 뒤 자동으로 사라지게 예약한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
  * - 반환값 : 없음
  */
-function scheduleJudgeOverlayHide(dom: AppDom): void {
+function scheduleMainJudgeOverlayHide(dom: AppDom): void {
   if (hideJudgeOverlayTimer !== null) {
     window.clearTimeout(hideJudgeOverlayTimer);
   }
 
   hideJudgeOverlayTimer = window.setTimeout(() => {
-    dom.gameJudgeOverlay.replaceChildren();
+    removeGameOverlayNode(dom, "main");
     hideJudgeOverlayTimer = null;
   }, JUDGE_OVERLAY_DURATION_MS);
+}
+
+/**
+ * 효과 보너스 텍스트가 일정 시간 뒤 자동으로 사라지게 예약한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 반환값 : 없음
+ */
+function scheduleEffectOverlayHide(dom: AppDom): void {
+  if (hideEffectOverlayTimer !== null) {
+    window.clearTimeout(hideEffectOverlayTimer);
+  }
+
+  hideEffectOverlayTimer = window.setTimeout(() => {
+    removeGameOverlayNode(dom, "effect");
+    hideEffectOverlayTimer = null;
+  }, JUDGE_OVERLAY_DURATION_MS);
+}
+
+/**
+ * overlay 안에서 지정한 종류의 판정 텍스트만 제거한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : overlayKind : 제거할 overlay node 종류
+ * - 반환값 : 없음
+ */
+function removeGameOverlayNode(
+  dom: AppDom,
+  overlayKind: "main" | "effect",
+): void {
+  const existingNode = dom.gameJudgeOverlay.querySelector(`[data-overlay-kind="${overlayKind}"]`);
+
+  existingNode?.remove();
 }
 
 /**

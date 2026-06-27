@@ -1355,6 +1355,24 @@ select:disabled {
   color: #ff6f6f;
 }
 
+.game-judge-text-effect {
+  font-size: 21px;
+  font-weight: 800;
+}
+
+.game-judge-text-gliss {
+  color: #ffd84a;
+  font-size: 17px;
+}
+
+.game-judge-text-vib {
+  color: #58bfff;
+}
+
+.game-judge-text-trem {
+  color: #c490ff;
+}
+
 .selection-rect {
   position: absolute;
   box-sizing: border-box;
@@ -1569,6 +1587,57 @@ select:disabled {
 
 .practice-result-grid strong {
   color: var(--text);
+}
+
+.practice-result-grid .result-judge-perfect,
+.practice-result-grid .result-judge-perfect strong {
+  color: #188b3c;
+}
+
+.practice-result-grid .result-judge-ok,
+.practice-result-grid .result-judge-ok strong,
+.practice-result-grid .result-judge-early,
+.practice-result-grid .result-judge-early strong {
+  color: #1479b8;
+}
+
+.practice-result-grid .result-judge-bad,
+.practice-result-grid .result-judge-bad strong,
+.practice-result-grid .result-judge-timing-bad,
+.practice-result-grid .result-judge-timing-bad strong {
+  color: #b46913;
+}
+
+.practice-result-grid .result-judge-miss,
+.practice-result-grid .result-judge-miss strong,
+.practice-result-grid .result-judge-late,
+.practice-result-grid .result-judge-late strong,
+.practice-result-grid .result-judge-timing-miss,
+.practice-result-grid .result-judge-timing-miss strong {
+  color: #c83333;
+}
+
+.practice-result-grid .result-effect-gliss,
+.practice-result-grid .result-effect-gliss strong,
+.game-total-grid .game-effect-gliss,
+.game-total-grid .game-effect-gliss strong {
+  color: #188b3c;
+}
+
+.practice-result-grid .result-effect-vib,
+.practice-result-grid .result-effect-vib strong,
+.game-total-grid .game-effect-vib,
+.game-total-grid .game-effect-vib strong {
+  color: #1479b8;
+}
+
+.practice-result-grid .result-effect-trem,
+.practice-result-grid .result-effect-trem strong,
+.game-total-grid .game-effect-trem,
+.game-total-grid .game-effect-trem strong,
+.practice-result-grid .result-effect-bonus,
+.practice-result-grid .result-effect-bonus strong {
+  color: #7a4bb3;
 }
 
 .practice-sync-form {
