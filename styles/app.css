@@ -183,6 +183,60 @@ select:disabled {
   box-shadow: inset 0 0 0 1px #dbe6ec, 0 1px 6px rgb(0 0 0 / 32%);
 }
 
+.app-shell[data-menu-theme="dark"] .menu-area .player-main {
+  border-color: #465966;
+  background: #1f2931;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .practice-mode-button {
+  border-color: #557b68;
+  background: #20382c;
+  color: #c9f0d8;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .practice-mode-button.on {
+  border-color: #7fa890;
+  background: #294b39;
+  box-shadow: inset 0 0 0 1px #7fa890;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-panel {
+  border-color: #466855;
+  background: #1d2c25;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-panel[data-state="error"] {
+  border-color: #8f5a5a;
+  background: #332525;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-rules-button,
+.app-shell[data-menu-theme="dark"] .menu-area .game-notice,
+.app-shell[data-menu-theme="dark"] .menu-area .game-diagnostic-line span,
+.app-shell[data-menu-theme="dark"] .menu-area .game-score-grid span {
+  border-color: #466855;
+  background: #25372f;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-rules-button {
+  color: #d7f3df;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-notice,
+.app-shell[data-menu-theme="dark"] .menu-area .game-diagnostic-line,
+.app-shell[data-menu-theme="dark"] .menu-area .game-score-grid {
+  color: #b7c9bf;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-diagnostic-line strong,
+.app-shell[data-menu-theme="dark"] .menu-area .game-score-grid strong {
+  color: #f1f8f4;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-total-grid {
+  border-top-color: #466855;
+}
+
 .app-shell[data-menu-theme="dark"] .edit-panel {
   border-bottom-color: #2f3d46;
   background: #162028;
