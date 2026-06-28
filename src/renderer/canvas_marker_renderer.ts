@@ -769,8 +769,7 @@ function getDisplayCenterY(
     return baseCenter;
   }
 
-  const direction = centOffset > 0 ? -1 : 1;
-  const targetRow = noteRows[rowIndex + direction];
+  const targetRow = findMicroPitchTargetRow(row, noteRows, centOffset);
 
   if (targetRow !== undefined) {
     const targetCenter = targetRow.y + targetRow.height / 2;
@@ -779,7 +778,60 @@ function getDisplayCenterY(
   }
 
   // 악기 범위 끝에서는 이웃 note row 간격을 구할 수 없으므로 현재 row 높이만큼 외삽한다.
-  return baseCenter - Math.sign(centOffset) * row.height * (Math.abs(centOffset) / 100);
+  return baseCenter + getMicroPitchScreenDirection(row, noteRows, centOffset) *
+    row.height *
+    (Math.abs(centOffset) / 100);
+}
+
+/**
+ * centOffset 부호에 대응하는 실제 pitch 이웃 row를 찾는다.
+ * - 인수 : row : 기준 note row layout
+ * - 인수 : noteRows : 현재 화면 순서의 note row 목록
+ * - 인수 : centOffset : -100~100 cent 단위 표시 위치 보정값
+ * - 반환값 : +cent이면 더 높은 pitch row, -cent이면 더 낮은 pitch row
+ */
+function findMicroPitchTargetRow(
+  row: CanvasLayoutRow,
+  noteRows: readonly CanvasLayoutRow[],
+  centOffset: number,
+): CanvasLayoutRow | undefined {
+  if (row.midi === undefined) {
+    return undefined;
+  }
+
+  const baseMidi = row.midi;
+  const candidates = noteRows.filter((candidate) =>
+    candidate.midi !== undefined &&
+    (centOffset > 0 ? candidate.midi > baseMidi : candidate.midi < baseMidi)
+  );
+
+  return candidates.sort((left, right) =>
+    Math.abs((left.midi ?? 0) - baseMidi) - Math.abs((right.midi ?? 0) - baseMidi)
+  )[0];
+}
+
+/**
+ * 악기 범위 끝에서 centOffset 부호가 향해야 할 화면 y 방향을 추론한다.
+ * - 인수 : row : 기준 note row layout
+ * - 인수 : noteRows : 현재 화면 순서의 note row 목록
+ * - 인수 : centOffset : -100~100 cent 단위 표시 위치 보정값
+ * - 반환값 : y 증가 방향이면 1, y 감소 방향이면 -1
+ */
+function getMicroPitchScreenDirection(
+  row: CanvasLayoutRow,
+  noteRows: readonly CanvasLayoutRow[],
+  centOffset: number,
+): -1 | 1 {
+  const oppositeRow = findMicroPitchTargetRow(row, noteRows, -centOffset);
+
+  if (oppositeRow === undefined) {
+    return centOffset > 0 ? -1 : 1;
+  }
+
+  const baseCenter = row.y + row.height / 2;
+  const oppositeCenter = oppositeRow.y + oppositeRow.height / 2;
+
+  return oppositeCenter > baseCenter ? -1 : 1;
 }
 
 /**
