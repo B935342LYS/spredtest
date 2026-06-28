@@ -410,6 +410,55 @@ export function bindScorePointerControls(
     syncPastePreviewOverlay(dom, session.getState());
   };
 
+  const cutRangeSelection = (): void => {
+    const state = session.getState();
+
+    if (state.mode.kind !== "edit" || state.rangeSelection === null) {
+      return;
+    }
+
+    const rangeClipboard = copyRangeSelectionToClipboard(
+      state.document.score,
+      state.rangeSelection,
+    );
+    const result = createDeleteEditsForRangeSelection(
+      state.document.score,
+      state.rangeSelection,
+    );
+
+    if (rangeClipboard.cells.length === 0 || result.edits.length === 0) {
+      const protectedText = result.protectedGlobalStartCellCount > 0
+        ? ` Protected ${result.protectedGlobalStartCellCount} required start cell(s).`
+        : "";
+
+      setStatusMessage("warning", `No selected cells to cut.${protectedText}`);
+      return;
+    }
+
+    const anchorCol = lastPointerColumn ?? state.rangeSelection.startCol;
+
+    session.setState({
+      ...state,
+      rangeSelection: null,
+      rangeClipboard,
+      pastePreview: {
+        anchorCol,
+      },
+      statusMessage: {
+        level: "info",
+        text: result.protectedGlobalStartCellCount > 0
+          ? `Cut ${rangeClipboard.cells.length} cell(s). Protected ${result.protectedGlobalStartCellCount} required start cell(s). Move mouse and press Ctrl+V to paste.`
+          : `Cut ${rangeClipboard.cells.length} cell(s). Move mouse and press Ctrl+V to paste.`,
+      },
+    });
+    syncLeftStatus(dom, session.getState());
+    syncRangeSelectionOverlay(dom, session.getState());
+    syncPastePreviewOverlay(dom, session.getState());
+    session.applyScoreTextEdits(result.edits, {
+      label: `Cut ${result.edits.length} cells`,
+    });
+  };
+
   const pasteRangeClipboard = (): void => {
     const state = session.getState();
 
@@ -884,6 +933,15 @@ export function bindScorePointerControls(
       if (state.rangeSelection !== null) {
         event.preventDefault();
         copyRangeSelection();
+      }
+
+      return;
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "x") {
+      if (state.rangeSelection !== null && state.mode.kind === "edit") {
+        event.preventDefault();
+        cutRangeSelection();
       }
 
       return;
