@@ -1588,9 +1588,10 @@ select:disabled {
   :root {
     --label-width: 76px;
     --compact-menu-scale: 0.55;
+    --compact-edit-scale: 0.55;
     --menu-height: calc(112px * var(--compact-menu-scale));
     --menu-area-max-height: var(--menu-height);
-    --edit-panel-max-height: 18vh;
+    --edit-panel-max-height: calc(224px * var(--compact-edit-scale));
   }
 
   .menu-area {
@@ -1609,8 +1610,17 @@ select:disabled {
     overflow: visible;
   }
 
-  .edit-row {
+  .edit-panel {
+    height: var(--edit-panel-max-height);
     max-height: var(--edit-panel-max-height);
+    overflow: hidden;
+  }
+
+  .edit-row {
+    width: calc(100% / var(--compact-edit-scale));
+    max-height: 224px;
+    transform: scale(var(--compact-edit-scale));
+    transform-origin: top left;
     overflow: auto;
   }
 
