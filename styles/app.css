@@ -1586,8 +1586,9 @@ select:disabled {
 
 @media (max-width: 900px) and (max-height: 760px) {
   :root {
+    --label-width: 76px;
     --menu-height: 84px;
-    --menu-area-max-height: 22vh;
+    --menu-area-max-height: 18vh;
     --edit-panel-max-height: 18vh;
     --ui-control-height: 24px;
     --ui-small-control-height: 19px;
@@ -1618,13 +1619,94 @@ select:disabled {
   }
 
   .player-main {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto;
     gap: var(--ui-compact-gap);
-    padding: var(--ui-panel-padding-y) var(--ui-panel-padding-x) calc(var(--ui-control-height) + 4px);
+    align-content: stretch;
+    padding: var(--ui-panel-padding-y) var(--ui-panel-padding-x);
   }
 
-  .transport-row,
-  .audio-row {
+  .playback-status,
+  .details-button {
+    position: static;
+  }
+
+  .playback-status {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 54px;
+  }
+
+  .details-button {
+    grid-column: 3;
+    grid-row: 1;
+    padding: 0 6px;
+  }
+
+  .practice-mode-button {
+    display: none;
+  }
+
+  .music-meta {
+    grid-column: 2;
+    grid-row: 1;
+    justify-content: center;
+    gap: 4px;
+    overflow: hidden;
+    font-size: var(--ui-font-size);
+    white-space: nowrap;
+  }
+
+  .music-meta .artist,
+  .music-meta .title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .transport-row {
+    grid-column: 1 / 4;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    justify-content: stretch;
+    align-items: center;
     gap: var(--ui-gap);
+  }
+
+  .seek-field {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: 24px minmax(0, 1fr) 32px;
+  }
+
+  .audio-row {
+    grid-column: 1 / 4;
+    grid-row: 3;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    justify-content: stretch;
+    align-items: center;
+    gap: var(--ui-gap);
+    min-height: var(--ui-control-height);
+    overflow: hidden;
+  }
+
+  .compact-field input[type="range"] {
+    width: min(108px, 34vw);
+  }
+
+  .audio-row .compact-field {
+    min-width: 0;
+  }
+
+  .audio-row .status-pill {
+    min-width: 70px;
+  }
+
+  .audio-row select {
+    width: 72px;
   }
 
   .game-panel {
@@ -1664,6 +1746,16 @@ select:disabled {
   .transport-button {
     width: calc(var(--ui-control-height) + 8px);
     min-width: calc(var(--ui-control-height) + 8px);
+  }
+
+  .score-viewer {
+    grid-template-columns: minmax(72px, var(--label-width)) minmax(0, 1fr);
+  }
+
+  .layout-toolbar {
+    width: max(58px, calc(100% - 8px));
+    left: 4px;
+    top: 4px;
   }
 }
 
