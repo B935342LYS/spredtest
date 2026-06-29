@@ -141,17 +141,20 @@ export function collectGameJudgeTargetsAtSeconds(
         continue;
       }
 
+      const explicitTremTargetId = getExplicitTremRelaxedTargetIdAtSeconds(event, mapper, scoreSeconds);
+      const isRapidRepeatTrem = rapidRepeatTremEventIds.has(event.eventId);
+      const isTremRelaxed = explicitTremTargetId !== null || isRapidRepeatTrem;
+
       targets.push({
-        eventId: event.eventId,
+        eventId: explicitTremTargetId ?? event.eventId,
         trackId: event.trackId,
         startSeconds,
         endSeconds,
         targetMidi: event.sound.midi,
         targetCentOffset: event.sound.centOffset,
         attackRequired: isAttackRequiredNoteEvent(event),
-        tremRelaxed: isRelaxedExplicitTremAtSeconds(event, mapper, scoreSeconds) ||
-          rapidRepeatTremEventIds.has(event.eventId),
-        rapidRepeatTrem: rapidRepeatTremEventIds.has(event.eventId),
+        tremRelaxed: isTremRelaxed,
+        rapidRepeatTrem: isRapidRepeatTrem,
       });
     }
   }
@@ -574,19 +577,22 @@ function hasExplicitTremEffect(event: NoteEvent): boolean {
 }
 
 /**
- * 현재 score time이 2~4 division explicit trem segment 안에 있는지 확인한다.
+ * 현재 score time이 속한 2~4 division explicit trem 내부 hit 식별자를 만든다.
  * - 인수 : event : 검사할 note event
  * - 인수 : mapper : tick을 seconds로 바꾸는 tempo mapper
  * - 인수 : scoreSeconds : 현재 판정 score seconds
- * - 반환값 : 2~4 division trem segment 내부이면 true
+ * - 반환값 : trem 내부 hit 식별자. 해당하지 않으면 null
  */
-function isRelaxedExplicitTremAtSeconds(
+function getExplicitTremRelaxedTargetIdAtSeconds(
   event: NoteEvent,
   mapper: TickTimeMapper,
   scoreSeconds: number,
-): boolean {
-  for (const effect of event.effects) {
+): string | null {
+  for (let index = 0; index < event.effects.length; index += 1) {
+    const effect = event.effects[index];
+
     if (
+      effect === undefined ||
       effect.trem === null ||
       effect.trem === undefined ||
       effect.trem.division < EXPLICIT_TREM_RELAX_MIN_DIVISION ||
@@ -599,11 +605,18 @@ function isRelaxedExplicitTremAtSeconds(
     const endSeconds = mapper.tickToSeconds(effect.time.endTick);
 
     if (scoreSeconds >= startSeconds && scoreSeconds < endSeconds) {
-      return true;
+      const durationSeconds = endSeconds - startSeconds;
+      const localRatio = durationSeconds <= 0 ? 0 : (scoreSeconds - startSeconds) / durationSeconds;
+      const hitIndex = Math.min(
+        effect.trem.division - 1,
+        Math.max(0, Math.floor(localRatio * effect.trem.division)),
+      );
+
+      return `${event.eventId}:trem-relaxed:${index}:${hitIndex}`;
     }
   }
 
-  return false;
+  return null;
 }
 
 /**
