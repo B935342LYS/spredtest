@@ -533,7 +533,9 @@ export function bindScorePointerControls(
       },
       statusMessage: {
         level: "info",
-        text: `Loop ${state.loop.pickMode} set: ${formatLoopRangeStatus(normalizedLoop, state.renderInput.columnCount)}`,
+        text: `${state.gameMode.kind === "ready" ? "Range" : "Loop"} ${state.loop.pickMode} set: ${
+          formatLoopRangeStatus(normalizedLoop, state.renderInput.columnCount)
+        }`,
       },
     });
     syncLeftStatus(dom, session.getState());
@@ -842,7 +844,11 @@ export function bindScorePointerControls(
       return;
     }
 
-    if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode) || state.layout === null) {
+    if (
+      state.busy.kind !== "idle" ||
+      (isGameModeLocked(state.gameMode) && !canPickLoopColumnWhileLocked(state)) ||
+      state.layout === null
+    ) {
       return;
     }
 
@@ -958,6 +964,18 @@ export function bindScorePointerControls(
   return {
     resetRepeatedClickCycle,
   };
+}
+
+/**
+ * practice lock 중에도 Loop/Range Practice column pick만 예외적으로 허용할지 확인한다.
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : practice ready의 view mode column pick이면 true
+ */
+function canPickLoopColumnWhileLocked(state: AppState): boolean {
+  return state.gameMode.kind === "ready" &&
+    state.mode.kind === "view" &&
+    state.loop.enabled &&
+    state.loop.pickMode !== null;
 }
 
 /**
