@@ -207,6 +207,8 @@ export type AppDom = {
   zoomInput: HTMLInputElement;
   speedInput: HTMLInputElement;
   textOffInput: HTMLInputElement;
+  loopMenuButton: HTMLButtonElement;
+  loopModeLabel: HTMLElement;
   loopToggleButton: HTMLButtonElement;
   loopStartSelect: HTMLSelectElement;
   loopEndSelect: HTMLSelectElement;

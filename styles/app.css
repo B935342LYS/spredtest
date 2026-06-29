@@ -479,6 +479,13 @@ select:disabled {
   max-width: 86px;
 }
 
+.app-shell[data-practice-range-mode="true"] .loop-panel .preview-pill,
+.pill-toggle.range-practice {
+  border-color: rgba(24, 128, 96, 0.36);
+  background: #e8f5ef;
+  color: #155f49;
+}
+
 .expand-panel,
 .track-panel {
   min-width: 160px;

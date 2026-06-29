@@ -116,6 +116,8 @@ export function collectAppDom(): AppDom {
     zoomInput: queryElement(".zoom-input", HTMLInputElement),
     speedInput: queryElement(".speed-input", HTMLInputElement),
     textOffInput: queryElement(".text-off-input", HTMLInputElement),
+    loopMenuButton: queryElement(".loop-menu-button", HTMLButtonElement),
+    loopModeLabel: queryElement(".loop-mode-label", HTMLElement),
     loopToggleButton: queryElement(".loop-toggle", HTMLButtonElement),
     loopStartSelect: queryElement(".loop-start-select", HTMLSelectElement),
     loopEndSelect: queryElement(".loop-end-select", HTMLSelectElement),

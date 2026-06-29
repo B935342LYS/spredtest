@@ -31,6 +31,11 @@ export type AppPlaybackRuntime = {
   backend: AudioBackend;
 };
 
+/** practice mode에서 Loop UI를 구간 연습 범위로 해석한 결과. */
+export type PracticeRangeState =
+  | { enabled: false }
+  | { enabled: true; startSeconds: number; endSeconds: number };
+
 /**
  * AppState의 loop column range를 playback controller용 seconds range로 변환한다.
  * - 인수 : state : 현재 앱 상태
@@ -41,6 +46,40 @@ export function createPlaybackLoopStateFromApp(
   state: AppState,
   playbackRuntime: AppPlaybackRuntime,
 ): PlaybackLoopState {
+  if (!state.loop.enabled || state.renderInput.columnCount <= 0) {
+    return { enabled: false };
+  }
+
+  const startTick = state.loop.startTick ?? 0;
+  const endTick = state.loop.endTick ?? state.renderInput.columnCount;
+
+  if (endTick <= startTick) {
+    return { enabled: false };
+  }
+
+  return {
+    enabled: true,
+    startSeconds: playbackRuntime.timeMapper.tickToSeconds({
+      numerator: startTick,
+      denominator: 1,
+    }),
+    endSeconds: playbackRuntime.timeMapper.tickToSeconds({
+      numerator: endTick,
+      denominator: 1,
+    }),
+  };
+}
+
+/**
+ * AppState의 loop column range를 practice 구간 연습용 1회 재생 범위로 변환한다.
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : playbackRuntime : tick/seconds 변환기를 포함한 playback runtime
+ * - 반환값 : practice range 상태. loop가 꺼져 있거나 잘못된 범위이면 disabled
+ */
+export function createPracticeRangeStateFromApp(
+  state: AppState,
+  playbackRuntime: AppPlaybackRuntime,
+): PracticeRangeState {
   if (!state.loop.enabled || state.renderInput.columnCount <= 0) {
     return { enabled: false };
   }

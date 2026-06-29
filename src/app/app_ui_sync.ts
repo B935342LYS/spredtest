@@ -23,6 +23,7 @@ import { composeEditRawText } from "./edit/edit_core";
 import { syncGamePitchOverlay } from "./game/game_pitch_overlay";
 import {
   isGameModeLocked,
+  isGameModeOpen,
   isGameModeTrackChangeLocked,
 } from "./game/game_types";
 import { syncGameModeUi } from "./game/game_ui";
@@ -299,9 +300,10 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
   dom.zoomInput.disabled = isBusy;
   dom.speedInput.disabled = isBusy;
   dom.textOffInput.disabled = isBusy;
-  dom.loopToggleButton.disabled = isBusy || isEditMode || isGameLocked;
-  dom.loopStartSelect.disabled = isBusy || isEditMode || isGameLocked || !state.loop.enabled;
-  dom.loopEndSelect.disabled = isBusy || isEditMode || isGameLocked || !state.loop.enabled;
+  const canEditLoopRange = canEditLoopOrPracticeRange(state);
+  dom.loopToggleButton.disabled = !canEditLoopRange;
+  dom.loopStartSelect.disabled = !canEditLoopRange || !state.loop.enabled;
+  dom.loopEndSelect.disabled = !canEditLoopRange || !state.loop.enabled;
   dom.reverseButton.disabled = isBusy;
   dom.themeButton.disabled = isBusy;
   dom.expandColumnInput.disabled = isBusy || isGameLocked;
@@ -349,10 +351,14 @@ export function syncViewOptionControls(dom: AppDom, state: AppState): void {
   dom.themeButton.setAttribute("aria-pressed", String(state.menuTheme === "dark"));
   dom.speedInput.value = String(Math.round(state.speedScale * 100));
   dom.textOffInput.checked = state.textOff;
+  const isPracticeRangeMode = isGameModeOpen(state.gameMode);
+  dom.loopMenuButton.textContent = isPracticeRangeMode ? "Range Practice" : "Loop";
+  dom.loopModeLabel.textContent = isPracticeRangeMode ? "Range" : "Loop";
   dom.loopToggleButton.textContent = state.loop.enabled ? "On" : "Off";
   dom.loopToggleButton.setAttribute("aria-pressed", String(state.loop.enabled));
   dom.loopToggleButton.classList.toggle("on", state.loop.enabled);
   dom.loopToggleButton.classList.toggle("off", !state.loop.enabled);
+  dom.loopToggleButton.classList.toggle("range-practice", isPracticeRangeMode && state.loop.enabled);
   syncLoopSelectOptions(dom.loopStartSelect, {
     defaultValue: "first",
     defaultLabel: "First",
@@ -370,6 +376,24 @@ export function syncViewOptionControls(dom: AppDom, state: AppState): void {
   dom.loopStartValue.textContent = formatLoopStartValue(state);
   dom.loopEndValue.textContent = formatLoopEndValue(state);
   dom.appShell.dataset.menuTheme = state.menuTheme;
+  dom.appShell.dataset.practiceRangeMode = String(isPracticeRangeMode);
+}
+
+/**
+ * Loop UI 또는 practice range UI를 현재 상태에서 수정할 수 있는지 확인한다.
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : 일반 view 상태 또는 practice ready 상태이면 true
+ */
+function canEditLoopOrPracticeRange(state: AppState): boolean {
+  if (state.busy.kind !== "idle" || state.mode.kind === "edit") {
+    return false;
+  }
+
+  if (state.gameMode.kind === "off" || state.gameMode.kind === "error") {
+    return true;
+  }
+
+  return state.gameMode.kind === "ready";
 }
 
 /**

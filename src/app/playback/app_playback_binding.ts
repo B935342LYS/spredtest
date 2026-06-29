@@ -8,7 +8,10 @@ import type {
 } from "../app_types";
 import { syncLeftStatus, syncUiControls } from "../app_ui_sync";
 import type { AppPlaybackRuntime } from "./app_playback";
-import { createPlaybackLoopStateFromApp } from "./app_playback";
+import {
+  createPlaybackLoopStateFromApp,
+  createPracticeRangeStateFromApp,
+} from "./app_playback";
 import type { AppNotePreviewRuntime } from "./app_note_preview";
 import type { YoutubePlaybackControl } from "../youtube/youtube_binding";
 import {
@@ -426,6 +429,10 @@ export function bindPlaybackControls(
         return;
       }
 
+      const practiceRange = createPracticeRangeStateFromApp(state, session.getPlaybackRuntime());
+      const hasReachedPracticeRangeEnd = practiceRange.enabled &&
+        judgeScoreSeconds >= practiceRange.endSeconds - 1e-6;
+
       const hasRemainingTarget = hasRemainingGameJudgeTarget(
         state.analysis,
         state.activeTrackIds,
@@ -433,7 +440,10 @@ export function bindPlaybackControls(
         judgeScoreSeconds,
       );
 
-      if (!hasRemainingTarget && !hasPendingEffectBonusTarget(judgeScoreSeconds)) {
+      if (
+        hasReachedPracticeRangeEnd ||
+        (!hasRemainingTarget && !hasPendingEffectBonusTarget(judgeScoreSeconds))
+      ) {
         clearGameJudgeOverlay(dom);
 
         const nextState = {
@@ -890,13 +900,20 @@ export function bindPlaybackControls(
       }
 
       const loopState = measurePerf("playbackToggle.createLoopState", () =>
-        createPlaybackLoopStateFromApp(state, playbackRuntime)
+        state.gameMode.kind === "playing"
+          ? { enabled: false as const }
+          : createPlaybackLoopStateFromApp(state, playbackRuntime)
       );
+      const practiceRange = state.gameMode.kind === "playing"
+        ? createPracticeRangeStateFromApp(state, playbackRuntime)
+        : { enabled: false as const };
       const playStartSeconds = playbackState.kind === "paused"
         ? measurePerf("playbackToggle.getPausedCurrentSeconds", () =>
             playbackRuntime.controller.getCurrentScoreSeconds()
           )
-        : Number(dom.seekInput.value);
+        : practiceRange.enabled
+          ? practiceRange.startSeconds
+          : Number(dom.seekInput.value);
 
       if (state.gameMode.kind === "paused") {
         session.setState({

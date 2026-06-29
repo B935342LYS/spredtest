@@ -27,7 +27,7 @@ import {
   syncFullscreenButton,
   toggleFullscreen,
 } from "./app_view_actions";
-import { isGameModeLocked } from "./game/game_types";
+import { isGameModeLocked, isGameModeOpen } from "./game/game_types";
 import {
   renderDynamicViewportLayers,
   syncLayoutScroll,
@@ -270,11 +270,12 @@ function toggleLoop(
 ): void {
   const state = session.getState();
 
-  if (state.mode.kind === "edit" || isGameModeLocked(state.gameMode)) {
+  if (!canEditLoopOrPracticeRange(state)) {
     return;
   }
 
   const enabled = !state.loop.enabled;
+  const isPracticeRangeMode = isGameModeOpen(state.gameMode);
 
   session.setState({
     ...state,
@@ -285,7 +286,9 @@ function toggleLoop(
     },
     statusMessage: {
       level: "info",
-      text: enabled ? "Loop enabled." : "Loop disabled.",
+      text: isPracticeRangeMode
+        ? enabled ? "Range practice enabled." : "Range practice disabled."
+        : enabled ? "Loop enabled." : "Loop disabled.",
     },
   });
   session.setState(renderDynamicViewportLayers(dom, session.getState()));
@@ -305,7 +308,7 @@ function applyLoopStartSelect(
 ): void {
   const state = session.getState();
 
-  if (isGameModeLocked(state.gameMode)) {
+  if (!canEditLoopOrPracticeRange(state)) {
     syncUiControls(dom, state);
     return;
   }
@@ -347,7 +350,7 @@ function applyLoopEndSelect(
 ): void {
   const state = session.getState();
 
-  if (isGameModeLocked(state.gameMode)) {
+  if (!canEditLoopOrPracticeRange(state)) {
     syncUiControls(dom, state);
     return;
   }
@@ -390,6 +393,23 @@ function parseLoopColumnSelectValue(value: string): number | null {
   const tick = Number.parseInt(value.slice("col:".length), 10);
 
   return Number.isInteger(tick) && tick >= 0 ? tick : null;
+}
+
+/**
+ * Loop UI 또는 practice range UI를 현재 상태에서 수정할 수 있는지 확인한다.
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : 일반 view 상태 또는 practice ready 상태이면 true
+ */
+function canEditLoopOrPracticeRange(state: AppState): boolean {
+  if (state.busy.kind !== "idle" || state.mode.kind === "edit") {
+    return false;
+  }
+
+  if (state.gameMode.kind === "off" || state.gameMode.kind === "error") {
+    return true;
+  }
+
+  return state.gameMode.kind === "ready";
 }
 
 /**
