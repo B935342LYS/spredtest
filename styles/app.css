@@ -1584,13 +1584,13 @@ select:disabled {
   }
 }
 
-@media (max-width: 900px) and (max-height: 760px) {
+@media (max-width: 900px) {
   :root {
     --label-width: 76px;
     --compact-menu-scale: 0.55;
     --compact-edit-scale: 0.55;
-    --menu-height: calc(112px * var(--compact-menu-scale));
-    --menu-area-max-height: var(--menu-height);
+    --menu-height: 112px;
+    --menu-area-max-height: none;
     --edit-panel-max-height: calc(224px * var(--compact-edit-scale));
   }
 
@@ -1598,11 +1598,10 @@ select:disabled {
     grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.55fr) minmax(0, 0.85fr);
     width: calc(100% / var(--compact-menu-scale));
     min-height: var(--menu-height);
-    height: var(--menu-height);
-    max-height: var(--menu-height);
+    height: auto;
+    max-height: none;
     overflow: visible;
-    transform: scale(var(--compact-menu-scale));
-    transform-origin: top left;
+    zoom: var(--compact-menu-scale);
   }
 
   .menu-area:has(.menu-dropdown:hover),
@@ -1619,8 +1618,7 @@ select:disabled {
   .edit-row {
     width: calc(100% / var(--compact-edit-scale));
     max-height: 224px;
-    transform: scale(var(--compact-edit-scale));
-    transform-origin: top left;
+    zoom: var(--compact-edit-scale);
     overflow: auto;
   }
 
