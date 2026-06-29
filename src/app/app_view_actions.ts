@@ -9,6 +9,9 @@ import type {
   UiStatusMessage,
 } from "./app_types";
 
+const DEFAULT_MIN_ZOOM_PERCENT = 50;
+const COMPACT_MIN_ZOOM_PERCENT = 20;
+
 /**
  * zoom input 값을 허용 범위 안의 percent 정수로 설정한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
@@ -84,12 +87,31 @@ export function fitScoreHeightZoom(
     };
   }
 
-  setZoomPercent(dom, (targetHeight / baseStageHeight) * 100);
+  const minZoomPercent = getFitHeightMinZoomPercent();
+
+  dom.zoomInput.min = String(minZoomPercent);
+  setZoomPercent(dom, (targetHeight / baseStageHeight) * 100, minZoomPercent);
 
   return {
     level: "info",
     text: `Fit Height: ${dom.zoomInput.value}%`,
   };
+}
+
+/**
+ * fit height가 사용할 최소 zoom percent를 현재 viewport 조건에 맞춰 고른다.
+ * - 인수 : 없음
+ * - 반환값 : 세로가 좁은 모바일형 화면이면 더 낮은 최소 zoom, 아니면 기본 최소 zoom
+ */
+function getFitHeightMinZoomPercent(): number {
+  if (
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 900px) and (max-height: 760px)").matches
+  ) {
+    return COMPACT_MIN_ZOOM_PERCENT;
+  }
+
+  return DEFAULT_MIN_ZOOM_PERCENT;
 }
 
 /**

@@ -16,6 +16,19 @@
   --score-viewport-height: 1400px;
   --score-roll-background: #525252;
   --menu-height: 112px;
+  --menu-area-max-height: none;
+  --edit-panel-max-height: 224px;
+  --ui-control-height: 30px;
+  --ui-small-control-height: 24px;
+  --ui-panel-radius: 8px;
+  --ui-control-radius: 6px;
+  --ui-gap: 8px;
+  --ui-compact-gap: 6px;
+  --ui-panel-padding-y: 8px;
+  --ui-panel-padding-x: 10px;
+  --ui-font-size: 12px;
+  --ui-small-font-size: 11px;
+  --ui-micro-font-size: 10px;
   --status-height: 28px;
   font-family: Arial, "Noto Sans KR", sans-serif;
 }
@@ -46,15 +59,15 @@ button,
 select,
 input[type="text"],
 input[type="number"] {
-  min-height: 30px;
+  min-height: var(--ui-control-height);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--ui-control-radius);
   background: var(--surface);
   color: var(--text);
 }
 
 button {
-  padding: 0 10px;
+  padding: 0 var(--ui-panel-padding-x);
   cursor: pointer;
 }
 
@@ -62,10 +75,10 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 30px;
-  padding: 0 10px;
+  min-height: var(--ui-control-height);
+  padding: 0 var(--ui-panel-padding-x);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--ui-control-radius);
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
@@ -117,10 +130,18 @@ select:disabled {
   gap: 12px;
   align-items: start;
   min-height: var(--menu-height);
+  max-height: var(--menu-area-max-height);
+  overflow: visible;
   padding: 10px 14px;
   border-bottom: 1px solid var(--line);
   background: var(--surface);
-  z-index: 20;
+  z-index: 80;
+}
+
+.menu-area:has(.menu-dropdown:hover),
+.menu-area:has(.menu-dropdown:focus-within) {
+  z-index: 300;
+  overflow: visible;
 }
 
 .app-shell[data-menu-theme="dark"] .menu-area {
@@ -327,9 +348,9 @@ select:disabled {
 
 .left-tool-group {
   display: grid;
-  grid-template-rows: 34px 34px minmax(16px, auto);
+  grid-template-rows: var(--ui-control-height) var(--ui-control-height) minmax(16px, auto);
   align-items: stretch;
-  gap: 7px;
+  gap: var(--ui-compact-gap);
   min-width: 0;
 }
 
@@ -356,7 +377,7 @@ select:disabled {
 .tool-menu-row,
 .tool-action-row {
   display: grid;
-  gap: 8px;
+  gap: var(--ui-gap);
   min-width: 0;
 }
 
@@ -384,17 +405,17 @@ select:disabled {
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 34px;
+  height: var(--ui-control-height);
   min-width: 0;
   padding: 0 clamp(4px, 0.75vw, 12px);
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--ui-control-radius);
   background: var(--surface-muted);
   cursor: pointer;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: clamp(11px, 1.05vw, 14px);
+  font-size: clamp(var(--ui-small-font-size), 1.05vw, 14px);
 }
 
 .tool-action-row .toggle-button,
@@ -415,15 +436,15 @@ select:disabled {
 
 .menu-panel {
   position: absolute;
-  top: 34px;
+  top: var(--ui-control-height);
   left: 0;
-  z-index: 200;
+  z-index: 400;
   display: none;
   min-width: 190px;
-  gap: 8px;
-  padding: 14px 10px 10px;
+  gap: var(--ui-gap);
+  padding: calc(var(--ui-panel-padding-y) + 6px) var(--ui-panel-padding-x) var(--ui-panel-padding-y);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--ui-panel-radius);
   background: var(--surface);
   box-shadow: 0 10px 24px rgb(23 32 38 / 16%);
 }
@@ -481,7 +502,7 @@ select:disabled {
 .player-group {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
+  gap: var(--ui-gap);
   min-width: 0;
 }
 
@@ -499,12 +520,12 @@ select:disabled {
   position: relative;
   display: grid;
   grid-template-rows: auto auto auto;
-  gap: 4px;
+  gap: calc(var(--ui-compact-gap) - 2px);
   align-content: center;
   min-width: 0;
-  padding: 8px 10px 34px;
+  padding: var(--ui-panel-padding-y) var(--ui-panel-padding-x) calc(var(--ui-control-height) + 4px);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--ui-panel-radius);
   background: #fafafa;
 }
 
@@ -533,21 +554,21 @@ select:disabled {
 .audio-row {
   flex-wrap: wrap;
   justify-content: center;
-  gap: 8px;
+  gap: var(--ui-gap);
   min-width: 0;
 }
 
 .audio-row {
-  min-height: 30px;
+  min-height: var(--ui-control-height);
 }
 
 .details-button {
   position: absolute;
   top: 6px;
   right: 8px;
-  min-height: 24px;
+  min-height: var(--ui-small-control-height);
   padding: 0 8px;
-  font-size: 12px;
+  font-size: var(--ui-font-size);
 }
 
 .playback-status {
@@ -560,8 +581,8 @@ select:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  min-width: 38px;
+  width: calc(var(--ui-control-height) + 8px);
+  min-width: calc(var(--ui-control-height) + 8px);
   padding: 0;
   font-size: 16px;
   line-height: 1;
@@ -572,9 +593,9 @@ select:disabled {
   grid-template-columns: 28px minmax(96px, 1fr) 36px;
   align-items: center;
   width: clamp(170px, 38vw, 420px);
-  gap: 6px;
+  gap: var(--ui-compact-gap);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--ui-font-size);
 }
 
 .seek-field input {
@@ -585,9 +606,9 @@ select:disabled {
 .switch-field {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--ui-compact-gap);
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--ui-font-size);
   color: var(--muted);
 }
 
@@ -597,7 +618,7 @@ select:disabled {
 
 .status-pill {
   min-width: 72px;
-  padding: 3px 8px;
+  padding: max(2px, calc(var(--ui-panel-padding-y) - 5px)) 8px;
   border-radius: 999px;
   background: var(--accent-weak);
   color: var(--accent);
@@ -613,7 +634,7 @@ select:disabled {
   position: absolute;
   right: 8px;
   bottom: 6px;
-  min-height: 24px;
+  min-height: var(--ui-small-control-height);
   width: 146px;
   min-width: 146px;
   padding: 0 6px;
@@ -623,7 +644,7 @@ select:disabled {
   color: #1f5b3c;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: var(--ui-small-font-size);
   font-weight: 700;
 }
 
@@ -638,9 +659,9 @@ select:disabled {
   display: none;
   min-width: 0;
   width: 100%;
-  padding: 30px 6px 6px;
+  padding: calc(var(--ui-small-control-height) + 6px) var(--ui-compact-gap) var(--ui-compact-gap);
   border: 1px solid #b9d7c4;
-  border-radius: 8px;
+  border-radius: var(--ui-panel-radius);
   background: #f6fbf7;
 }
 
@@ -653,7 +674,7 @@ select:disabled {
 .game-panel[data-state="error"] {
   display: grid;
   align-content: center;
-  gap: 4px;
+  gap: calc(var(--ui-compact-gap) - 2px);
 }
 
 .game-panel[data-state="error"] {
@@ -675,7 +696,7 @@ select:disabled {
 .game-score-grid {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--ui-gap);
 }
 
 .game-panel-head {
@@ -691,39 +712,39 @@ select:disabled {
 }
 
 .game-rules-button {
-  min-height: 24px;
+  min-height: var(--ui-small-control-height);
   padding: 0 8px;
   border-color: #8ab79b;
   background: #ffffff;
   color: #2c6044;
-  font-size: 12px;
+  font-size: var(--ui-font-size);
 }
 
 .game-sync-button {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  min-height: 24px;
+  gap: calc(var(--ui-compact-gap) - 1px);
+  min-height: var(--ui-small-control-height);
   padding: 0 7px;
   border: 1px solid #8ab79b;
-  border-radius: 6px;
+  border-radius: var(--ui-control-radius);
   background: #ffffff;
   color: #2c6044;
-  font-size: 12px;
+  font-size: var(--ui-font-size);
 }
 
 .game-mode-control {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
+  min-height: var(--ui-small-control-height);
   overflow: hidden;
   border: 1px solid #8ab79b;
-  border-radius: 6px;
+  border-radius: var(--ui-control-radius);
   background: #ffffff;
 }
 
 .game-mode-button {
-  min-height: 24px;
+  min-height: var(--ui-small-control-height);
   min-width: 36px;
   padding: 0 6px;
   border: 0;
@@ -731,7 +752,7 @@ select:disabled {
   border-radius: 0;
   background: #ffffff;
   color: #2c6044;
-  font-size: 12px;
+  font-size: var(--ui-font-size);
   font-weight: 700;
 }
 
@@ -974,6 +995,7 @@ select:disabled {
 .edit-panel {
   grid-row: 2;
   display: none;
+  max-height: var(--edit-panel-max-height);
   overflow: hidden;
   border-bottom: 1px solid var(--line);
   background: #f0f1f2;
@@ -999,20 +1021,20 @@ select:disabled {
     minmax(420px, 2.4fr)
     minmax(190px, 0.95fr);
   align-items: flex-start;
-  gap: 10px;
-  max-height: 224px;
-  padding: 10px 14px;
+  gap: calc(var(--ui-gap) + 2px);
+  max-height: var(--edit-panel-max-height);
+  padding: calc(var(--ui-panel-padding-y) + 2px) 14px;
   overflow: auto;
 }
 
 .edit-card {
   display: grid;
-  gap: 6px;
+  gap: var(--ui-compact-gap);
   min-width: 0;
   max-width: 100%;
-  padding: 8px;
+  padding: var(--ui-panel-padding-y);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--ui-panel-radius);
   background: var(--surface);
 }
 
@@ -1025,7 +1047,7 @@ select:disabled {
 .micro-label,
 .edit-help {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--ui-small-font-size);
 }
 
 .edit-card-title {
@@ -1039,7 +1061,7 @@ select:disabled {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--ui-gap);
   min-width: 0;
 }
 
@@ -1055,9 +1077,9 @@ select:disabled {
 .edit-panel select,
 .edit-panel input[type="text"],
 .edit-panel input[type="number"] {
-  min-height: 26px;
+  min-height: calc(var(--ui-control-height) - 4px);
   padding: 0 6px;
-  font-size: 12px;
+  font-size: var(--ui-font-size);
 }
 
 .edit-panel input::placeholder {
@@ -1139,24 +1161,24 @@ select:disabled {
 }
 
 .pill-toggle {
-  min-height: 28px;
+  min-height: calc(var(--ui-control-height) - 2px);
   padding: 0 10px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: var(--ui-font-size);
 }
 
 .tempo-mark-group .pill-toggle {
-  min-height: 22px;
+  min-height: calc(var(--ui-small-control-height) - 2px);
   padding: 2px 8px;
-  font-size: 11px;
+  font-size: var(--ui-small-font-size);
   line-height: 1.1;
 }
 
 .tuplet-toolbar > button:not(.pill-toggle),
 .actions-card button {
-  min-height: 24px;
+  min-height: var(--ui-small-control-height);
   padding: 0 8px;
-  font-size: 12px;
+  font-size: var(--ui-font-size);
 }
 
 .pill-toggle.on {
@@ -1562,6 +1584,89 @@ select:disabled {
   }
 }
 
+@media (max-width: 900px) and (max-height: 760px) {
+  :root {
+    --menu-height: 84px;
+    --menu-area-max-height: 22vh;
+    --edit-panel-max-height: 18vh;
+    --ui-control-height: 24px;
+    --ui-small-control-height: 19px;
+    --ui-panel-radius: 5px;
+    --ui-control-radius: 4px;
+    --ui-gap: 5px;
+    --ui-compact-gap: 3px;
+    --ui-panel-padding-y: 4px;
+    --ui-panel-padding-x: 6px;
+    --ui-font-size: 10px;
+    --ui-small-font-size: 9px;
+    --ui-micro-font-size: 8px;
+  }
+
+  .menu-area {
+    gap: var(--ui-gap);
+    padding: var(--ui-panel-padding-y) var(--ui-panel-padding-x);
+    overflow: auto;
+  }
+
+  .menu-area:has(.menu-dropdown:hover),
+  .menu-area:has(.menu-dropdown:focus-within) {
+    overflow: visible;
+  }
+
+  .player-group {
+    gap: var(--ui-gap);
+  }
+
+  .player-main {
+    gap: var(--ui-compact-gap);
+    padding: var(--ui-panel-padding-y) var(--ui-panel-padding-x) calc(var(--ui-control-height) + 4px);
+  }
+
+  .transport-row,
+  .audio-row {
+    gap: var(--ui-gap);
+  }
+
+  .game-panel {
+    padding: calc(var(--ui-small-control-height) + 5px) var(--ui-compact-gap) var(--ui-compact-gap);
+  }
+
+  .game-panel-head,
+  .game-score-grid {
+    gap: var(--ui-gap);
+  }
+
+  .game-notice,
+  .game-diagnostic-line span,
+  .game-score-grid span {
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .edit-row {
+    gap: var(--ui-gap);
+    padding: var(--ui-panel-padding-y) var(--ui-panel-padding-x);
+  }
+
+  .edit-card {
+    gap: var(--ui-compact-gap);
+    padding: var(--ui-panel-padding-y);
+  }
+
+  button,
+  select,
+  input[type="text"],
+  input[type="number"],
+  .toggle-button {
+    min-height: var(--ui-control-height);
+  }
+
+  .transport-button {
+    width: calc(var(--ui-control-height) + 8px);
+    min-width: calc(var(--ui-control-height) + 8px);
+  }
+}
+
 .info-dialog {
   width: min(760px, calc(100vw - 32px));
   max-height: calc(100vh - 32px);
@@ -1677,7 +1782,7 @@ select:disabled {
   border-radius: 6px;
   background: #fafafa;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--ui-font-size);
 }
 
 .practice-result-grid span {
