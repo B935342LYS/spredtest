@@ -27,6 +27,8 @@ const PREVIOUS_NOTE_GRACE_SECONDS = NOTE_TRANSITION_GRACE_SECONDS;
 const RAPID_REPEAT_TREM_MIN_COUNT = 3;
 const RAPID_REPEAT_TREM_MAX_NOTE_TICKS = 1;
 const RAPID_REPEAT_TREM_MAX_GAP_TICKS = 1e-6;
+const EXPLICIT_TREM_RELAX_MIN_DIVISION = 2;
+const EXPLICIT_TREM_RELAX_MAX_DIVISION = 4;
 const TIMING_MAX_MATCH_MS = 500;
 const JUDGE_THRESHOLDS: Record<PracticeJudgeMode, {
   perfectErrorCent: number;
@@ -146,6 +148,8 @@ export function collectGameJudgeTargetsAtSeconds(
         targetMidi: event.sound.midi,
         targetCentOffset: event.sound.centOffset,
         attackRequired: isAttackRequiredNoteEvent(event),
+        tremRelaxed: isRelaxedExplicitTremAtSeconds(event, mapper, scoreSeconds) ||
+          rapidRepeatTremEventIds.has(event.eventId),
         rapidRepeatTrem: rapidRepeatTremEventIds.has(event.eventId),
       });
     }
@@ -242,15 +246,15 @@ export function judgeGameScoringSample(
 
   const thresholds = JUDGE_THRESHOLDS[judgeMode];
   const pitchLabel = classifyPitchError(selectedErrorCent, thresholds);
-  const isRapidRepeatTremHit = selectedTarget.rapidRepeatTrem === true && pitchLabel !== "Miss";
-  const timingMatch = judgeMode === "easy" || timing === undefined || isRapidRepeatTremHit
+  const isTremRelaxedHit = selectedTarget.tremRelaxed === true && pitchLabel !== "Miss";
+  const timingMatch = judgeMode === "easy" || timing === undefined || isTremRelaxedHit
     ? createEmptyTimingMatch()
     : judgeTimingForTarget(selectedTarget, timing, thresholds);
-  const label = isRapidRepeatTremHit ? "Perfect" : applyTimingDowngrade(pitchLabel, timingMatch.result);
+  const label = isTremRelaxedHit ? "Perfect" : applyTimingDowngrade(pitchLabel, timingMatch.result);
   const pitchAccuracy = getPitchAccuracy(label);
   const difficulty = trackDifficulty[selectedTarget.trackId];
   const scoreEligible = judgeMode === "easy" ||
-    isRapidRepeatTremHit ||
+    isTremRelaxedHit ||
     isScoreEligibleForAttack(selectedTarget, label, timingMatch.onsetId, timing);
   const scoreContribution = label === "Miss" || !scoreEligible ? 0 : difficulty * pitchAccuracy;
 
@@ -566,6 +570,39 @@ function addRapidRepeatTremRunEventIds(
  */
 function hasExplicitTremEffect(event: NoteEvent): boolean {
   return event.effects.some((effect) => effect.trem !== null && effect.trem !== undefined);
+}
+
+/**
+ * 현재 score time이 2~4 division explicit trem segment 안에 있는지 확인한다.
+ * - 인수 : event : 검사할 note event
+ * - 인수 : mapper : tick을 seconds로 바꾸는 tempo mapper
+ * - 인수 : scoreSeconds : 현재 판정 score seconds
+ * - 반환값 : 2~4 division trem segment 내부이면 true
+ */
+function isRelaxedExplicitTremAtSeconds(
+  event: NoteEvent,
+  mapper: TickTimeMapper,
+  scoreSeconds: number,
+): boolean {
+  for (const effect of event.effects) {
+    if (
+      effect.trem === null ||
+      effect.trem === undefined ||
+      effect.trem.division < EXPLICIT_TREM_RELAX_MIN_DIVISION ||
+      effect.trem.division > EXPLICIT_TREM_RELAX_MAX_DIVISION
+    ) {
+      continue;
+    }
+
+    const startSeconds = mapper.tickToSeconds(effect.time.startTick);
+    const endSeconds = mapper.tickToSeconds(effect.time.endTick);
+
+    if (scoreSeconds >= startSeconds && scoreSeconds < endSeconds) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**

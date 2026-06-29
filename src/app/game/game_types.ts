@@ -80,6 +80,7 @@ export type GameJudgeTarget = {
   targetMidi: number;
   targetCentOffset: number;
   attackRequired: boolean;
+  tremRelaxed?: boolean;
   rapidRepeatTrem?: boolean;
 };
 
