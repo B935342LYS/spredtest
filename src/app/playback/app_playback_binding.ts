@@ -32,10 +32,12 @@ import {
   collectGameEffectBonusTargets,
   getGlissIntervalIndexAtSeconds,
   judgeGlissIntervalBonus,
+  judgeTremAttackBonus,
   judgeVibWindowBonus,
   shouldLockFailedGlissBonusTarget,
   type GameEffectFrame,
   type GameEffectBonusTarget,
+  type GameTremRuntimeState,
 } from "../game/game_effect_judge";
 import {
   clearGameJudgeOverlay,
@@ -106,6 +108,7 @@ export function bindPlaybackControls(
   let lastProcessedEffectFrameAtMs: number | null = null;
   let judgedEffectIntervalIds = new Set<string>();
   let failedEffectTargetIds = new Set<string>();
+  let tremRuntimeByTargetId = new Map<string, GameTremRuntimeState>();
   let countdownAudioContext: AudioContext | null = null;
 
   /**
@@ -126,6 +129,7 @@ export function bindPlaybackControls(
     lastProcessedEffectFrameAtMs = null;
     judgedEffectIntervalIds = new Set<string>();
     failedEffectTargetIds = new Set<string>();
+    tremRuntimeByTargetId = new Map<string, GameTremRuntimeState>();
   };
 
   /**
@@ -189,9 +193,44 @@ export function bindPlaybackControls(
 
     const trackDifficulty = normalizeGameTrackDifficulty(state.document.score.musicData.scoreDifficulty);
 
-    // gliss는 interval마다, vib는 effect segment마다 한 번씩 검사해 성공 시 bonus를 더한다.
+    // gliss는 interval마다, vib는 effect segment마다, trem은 attack streak마다 검사해 성공 시 bonus를 더한다.
     for (const target of effectBonusTargets) {
       if (failedEffectTargetIds.has(target.targetId)) {
+        continue;
+      }
+
+      if (target.kind === "trem") {
+        const bonus = judgeTremAttackBonus(
+          target,
+          timingOnsetCandidates,
+          getTremRuntimeState(target.targetId),
+          judgeScoreSeconds,
+          trackDifficulty,
+        );
+
+        if (bonus === null) {
+          continue;
+        }
+
+        const currentState = session.getState();
+
+        if (currentState.gameMode.kind !== "playing") {
+          return lastBonus;
+        }
+
+        const nextSummary = applyGameEffectBonus(currentState.gameMode.summary, bonus);
+        const nextState = {
+          ...currentState,
+          gameMode: {
+            kind: "playing" as const,
+            summary: nextSummary,
+            pitchFrame: currentState.gameMode.pitchFrame,
+          },
+        };
+
+        session.setState(nextState);
+        syncGameModeUi(dom, nextState);
+        lastBonus = bonus;
         continue;
       }
 
@@ -265,6 +304,30 @@ export function bindPlaybackControls(
   };
 
   /**
+   * trem target의 runtime streak 상태를 가져오거나 새로 만든다.
+   * - 인수 : targetId : trem target 식별자
+   * - 반환값 : target별 trem streak 상태
+   */
+  const getTremRuntimeState = (targetId: string): GameTremRuntimeState => {
+    const existing = tremRuntimeByTargetId.get(targetId);
+
+    if (existing !== undefined) {
+      return existing;
+    }
+
+    const created: GameTremRuntimeState = {
+      acceptedOnsetIds: new Set<number>(),
+      lastAcceptedScoreSeconds: null,
+      streakCount: 0,
+      rewardedOnsetIds: new Set<number>(),
+    };
+
+    tremRuntimeByTargetId.set(targetId, created);
+
+    return created;
+  };
+
+  /**
    * practice effect 판정용 최근 pitch frame 창을 갱신한다.
    * - 인수 : frame : 현재 game mode pitch frame
    * - 인수 : judgeScoreSeconds : Sync 보정이 적용된 현재 score time
@@ -304,6 +367,10 @@ export function bindPlaybackControls(
       }
 
       return target.targetId;
+    }
+
+    if (target.kind === "trem") {
+      return null;
     }
 
     const intervalIndex = getGlissIntervalIndexAtSeconds(target, judgeScoreSeconds);

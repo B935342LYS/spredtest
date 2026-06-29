@@ -215,9 +215,15 @@ select:disabled {
   background: #321f22;
 }
 
+.app-shell[data-menu-theme="dark"] .menu-area .game-panel[data-judge-mode="easy"] {
+  border-color: #4f6f9a;
+  background: #1c283a;
+}
+
 .app-shell[data-menu-theme="dark"] .menu-area .game-rules-button,
 .app-shell[data-menu-theme="dark"] .menu-area .game-sync-button,
-.app-shell[data-menu-theme="dark"] .menu-area .game-pro-button,
+.app-shell[data-menu-theme="dark"] .menu-area .game-mode-control,
+.app-shell[data-menu-theme="dark"] .menu-area .game-mode-button,
 .app-shell[data-menu-theme="dark"] .menu-area .game-notice,
 .app-shell[data-menu-theme="dark"] .menu-area .game-diagnostic-line span,
 .app-shell[data-menu-theme="dark"] .menu-area .game-score-grid span {
@@ -227,11 +233,25 @@ select:disabled {
 
 .app-shell[data-menu-theme="dark"] .menu-area .game-rules-button,
 .app-shell[data-menu-theme="dark"] .menu-area .game-sync-button,
-.app-shell[data-menu-theme="dark"] .menu-area .game-pro-button {
+.app-shell[data-menu-theme="dark"] .menu-area .game-mode-button {
   color: #d7f3df;
 }
 
-.app-shell[data-menu-theme="dark"] .menu-area .game-pro-button.on {
+.app-shell[data-menu-theme="dark"] .menu-area .game-mode-button[data-judge-mode="easy"].on {
+  border-color: #89b4ff;
+  background: #263d62;
+  color: #dbeafe;
+  box-shadow: inset 0 0 0 1px #89b4ff;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-mode-button[data-judge-mode="standard"].on {
+  border-color: #7fa890;
+  background: #294b39;
+  color: #def7e8;
+  box-shadow: inset 0 0 0 1px #7fa890;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-mode-button[data-judge-mode="pro"].on {
   border-color: #ef8c8c;
   background: #4a2428;
   color: #ffdede;
@@ -255,6 +275,10 @@ select:disabled {
 
 .app-shell[data-menu-theme="dark"] .menu-area .game-panel[data-judge-mode="pro"] .game-total-grid {
   border-top-color: #8f5a5a;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-panel[data-judge-mode="easy"] .game-total-grid {
+  border-top-color: #4f6f9a;
 }
 
 .app-shell[data-menu-theme="dark"] .edit-panel {
@@ -642,6 +666,11 @@ select:disabled {
   background: #fff5f5;
 }
 
+.game-panel[data-judge-mode="easy"] {
+  border-color: #8bb7ef;
+  background: #f4f8ff;
+}
+
 .game-panel-head,
 .game-score-grid {
   display: flex;
@@ -683,19 +712,50 @@ select:disabled {
   font-size: 12px;
 }
 
-.game-pro-button {
+.game-mode-control {
+  display: inline-flex;
+  align-items: center;
   min-height: 24px;
-  min-width: 48px;
-  padding: 0 8px;
-  border: 1px solid #cda6a6;
+  overflow: hidden;
+  border: 1px solid #8ab79b;
   border-radius: 6px;
   background: #ffffff;
-  color: #7f1d1d;
+}
+
+.game-mode-button {
+  min-height: 24px;
+  min-width: 36px;
+  padding: 0 6px;
+  border: 0;
+  border-right: 1px solid #d7e7dc;
+  border-radius: 0;
+  background: #ffffff;
+  color: #2c6044;
   font-size: 12px;
   font-weight: 700;
 }
 
-.game-pro-button.on {
+.game-mode-button:last-child {
+  border-right: 0;
+}
+
+.game-mode-button.on {
+  color: #1f5138;
+}
+
+.game-mode-button[data-judge-mode="easy"].on {
+  background: #dbeafe;
+  color: #1d4ed8;
+  box-shadow: inset 0 0 0 1px #60a5fa;
+}
+
+.game-mode-button[data-judge-mode="standard"].on {
+  background: #dff1e6;
+  color: #1f5138;
+  box-shadow: inset 0 0 0 1px #2f604b;
+}
+
+.game-mode-button[data-judge-mode="pro"].on {
   border-color: #b91c1c;
   background: #fee2e2;
   color: #991b1b;
@@ -775,6 +835,10 @@ select:disabled {
 
 .game-panel[data-judge-mode="pro"] .game-total-grid {
   border-top-color: #f0b5b5;
+}
+
+.game-panel[data-judge-mode="easy"] .game-total-grid {
+  border-top-color: #b8d5fb;
 }
 
 .game-total-grid span {
@@ -1561,7 +1625,7 @@ select:disabled {
 }
 
 .practice-rules-dialog {
-  width: min(920px, calc(100vw - 32px));
+  width: min(1080px, calc(100vw - 32px));
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--text);
@@ -1906,7 +1970,7 @@ select:disabled {
 }
 
 .layout-dialog {
-  width: min(920px, calc(100vw - 32px));
+  width: min(1080px, calc(100vw - 32px));
   max-height: min(760px, calc(100vh - 32px));
   border: 1px solid var(--line);
   border-radius: 8px;

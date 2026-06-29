@@ -32,6 +32,14 @@ const JUDGE_THRESHOLDS: Record<PracticeJudgeMode, {
   timingBadMs: number;
   timingMissMs: number;
 }> = {
+  easy: {
+    perfectErrorCent: 50,
+    okErrorCent: 100,
+    badErrorCent: 200,
+    timingDisplayMs: 80,
+    timingBadMs: 150,
+    timingMissMs: 250,
+  },
   standard: {
     perfectErrorCent: 50,
     okErrorCent: 100,
@@ -227,13 +235,14 @@ export function judgeGameScoringSample(
 
   const thresholds = JUDGE_THRESHOLDS[judgeMode];
   const pitchLabel = classifyPitchError(selectedErrorCent, thresholds);
-  const timingMatch = timing === undefined
+  const timingMatch = judgeMode === "easy" || timing === undefined
     ? createEmptyTimingMatch()
     : judgeTimingForTarget(selectedTarget, timing, thresholds);
   const label = applyTimingDowngrade(pitchLabel, timingMatch.result);
   const pitchAccuracy = getPitchAccuracy(label);
   const difficulty = trackDifficulty[selectedTarget.trackId];
-  const scoreEligible = isScoreEligibleForAttack(selectedTarget, label, timingMatch.onsetId, timing);
+  const scoreEligible = judgeMode === "easy" ||
+    isScoreEligibleForAttack(selectedTarget, label, timingMatch.onsetId, timing);
   const scoreContribution = label === "Miss" || !scoreEligible ? 0 : difficulty * pitchAccuracy;
 
   return {
@@ -531,7 +540,7 @@ function classifyPitchError(
 /**
  * 현재 judge mode에서 sample이 combo를 이어갈 수 있는지 확인한다.
  * - 인수 : sample : 점수 반영 대상 sample
- * - 인수 : judgeMode : standard/pro 판정 엄격도
+ * - 인수 : judgeMode : easy/standard/pro 판정 엄격도
  * - 반환값 : combo 증가 대상이면 true
  */
 function shouldContinueGameCombo(
@@ -542,7 +551,7 @@ function shouldContinueGameCombo(
     return false;
   }
 
-  return judgeMode === "standard" || sample.label !== "Bad";
+  return judgeMode !== "pro" || sample.label !== "Bad";
 }
 
 /**

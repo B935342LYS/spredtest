@@ -51,7 +51,12 @@ export function syncGameModeUi(dom: AppDom, state: AppState): void {
   const summary = getGameScoreSummary(state.gameMode);
   const isOpen = isGameModeOpen(state.gameMode);
   const isLocked = isGameModeLocked(state.gameMode);
-  const isProMode = state.practiceJudgeMode === "pro";
+  const modeButtons = [dom.gameEasyButton, dom.gameStandardButton, dom.gameProButton];
+  const isModeChangeLocked = state.busy.kind !== "idle" ||
+    (
+      state.gameMode.kind !== "off" &&
+      state.gameMode.kind !== "ready"
+    );
   const statusText = state.gameMode.kind === "preparing"
     ? state.gameMode.message
     : state.gameMode.kind === "error"
@@ -75,15 +80,15 @@ export function syncGameModeUi(dom: AppDom, state: AppState): void {
   dom.gameScore.textContent = String(Math.round(summary.score));
   dom.gameSyncValue.textContent = formatGameSyncOffsetMs(state.gameSyncOffsetMs);
   dom.practiceSyncValue.textContent = formatGameSyncOffsetMs(state.gameSyncOffsetMs);
-  dom.gameProButton.disabled = state.busy.kind !== "idle" ||
-    (
-      state.gameMode.kind !== "off" &&
-      state.gameMode.kind !== "ready"
-    );
-  dom.gameProButton.textContent = isProMode ? "Pro on" : "Pro";
-  dom.gameProButton.setAttribute("aria-pressed", String(isProMode));
-  dom.gameProButton.classList.toggle("on", isProMode);
-  dom.gameProButton.classList.toggle("off", !isProMode);
+  for (const button of modeButtons) {
+    const buttonMode = button.dataset.judgeMode;
+    const isSelected = buttonMode === state.practiceJudgeMode;
+
+    button.disabled = isModeChangeLocked;
+    button.setAttribute("aria-pressed", String(isSelected));
+    button.classList.toggle("on", isSelected);
+    button.classList.toggle("off", !isSelected);
+  }
   syncGameDiagnostics(dom, getVisiblePitchFrame(state));
   dom.practiceModeButton.disabled = state.busy.kind !== "idle" && !isLocked;
   dom.practiceModeButton.textContent = isOpen ? "exit practice" : "practice mode (beta)";
@@ -208,7 +213,7 @@ export function openPracticeResultDialogForState(dom: AppDom, state: AppState): 
   dom.resultTitle.title = title;
   dom.resultArtist.textContent = artist;
   dom.resultArtist.title = artist;
-  dom.resultMode.textContent = state.practiceJudgeMode === "pro" ? "Pro" : "Standard";
+  dom.resultMode.textContent = formatPracticeJudgeModeLabel(state.practiceJudgeMode);
   dom.resultAccuracy.textContent = formatAccuracyPercent(summary.accuracyPercent);
   dom.resultTimingAccuracy.textContent = formatAccuracyPercent(summary.timingAccuracyPercent);
   dom.resultScore.textContent = String(Math.round(summary.score));
@@ -228,6 +233,22 @@ export function openPracticeResultDialogForState(dom: AppDom, state: AppState): 
 
   if (!dom.practiceResultDialog.open) {
     dom.practiceResultDialog.showModal();
+  }
+}
+
+/**
+ * practice judge mode를 result dialog 표시 이름으로 바꾼다.
+ * - 인수 : mode : practice 판정 모드
+ * - 반환값 : 표시할 mode 이름
+ */
+function formatPracticeJudgeModeLabel(mode: AppState["practiceJudgeMode"]): string {
+  switch (mode) {
+    case "easy":
+      return "Easy";
+    case "standard":
+      return "Standard";
+    case "pro":
+      return "Pro";
   }
 }
 

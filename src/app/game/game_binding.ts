@@ -53,6 +53,22 @@ function stopMicrophoneStream(stream: MediaStream | null): void {
 }
 
 /**
+ * practice judge mode를 사용자 표시용 이름으로 바꾼다.
+ * - 인수 : mode : practice 판정 모드
+ * - 반환값 : status 문구에 사용할 mode 이름
+ */
+function formatPracticeJudgeModeName(mode: PracticeJudgeMode): string {
+  switch (mode) {
+    case "easy":
+      return "Easy";
+    case "standard":
+      return "Standard";
+    case "pro":
+      return "Pro";
+  }
+}
+
+/**
  * 음악 pitch detection에 맞춘 마이크 입력 제약을 만든다.
  * - 인수 : 없음
  * - 반환값 : getUserMedia에 전달할 audio constraint
@@ -157,6 +173,39 @@ export function bindGameModeControls(
   };
 
   /**
+   * practice judge mode를 ready/off 상태에서만 변경한다.
+   * - 인수 : nextMode : 선택할 practice 판정 모드
+   * - 반환값 : 없음
+   */
+  const setPracticeJudgeMode = (nextMode: PracticeJudgeMode): void => {
+    const state = session.getState();
+
+    if (
+      state.busy.kind !== "idle" ||
+      (
+        state.gameMode.kind !== "off" &&
+        state.gameMode.kind !== "ready"
+      )
+    ) {
+      syncGameModeUi(dom, state);
+      return;
+    }
+
+    const nextState = {
+      ...state,
+      practiceJudgeMode: nextMode,
+      statusMessage: {
+        level: "info" as const,
+        text: `Practice ${formatPracticeJudgeModeName(nextMode)} Mode enabled.`,
+      },
+    };
+
+    session.setState(nextState);
+    syncGameModeUi(dom, nextState);
+    syncLeftStatus(dom, nextState);
+  };
+
+  /**
    * Sync calibration beep loop를 중지한다.
    * - 인수 : 없음
    * - 반환값 : 없음
@@ -253,34 +302,9 @@ export function bindGameModeControls(
     dom.practiceSyncDialog.showModal();
   });
 
-  dom.gameProButton.addEventListener("click", () => {
-    const state = session.getState();
-
-    if (
-      state.busy.kind !== "idle" ||
-      (
-        state.gameMode.kind !== "off" &&
-        state.gameMode.kind !== "ready"
-      )
-    ) {
-      syncGameModeUi(dom, state);
-      return;
-    }
-
-    const nextMode: PracticeJudgeMode = state.practiceJudgeMode === "pro" ? "standard" : "pro";
-    const nextState = {
-      ...state,
-      practiceJudgeMode: nextMode,
-      statusMessage: {
-        level: "info" as const,
-        text: nextMode === "pro" ? "Practice Pro Mode enabled." : "Practice Standard Mode enabled.",
-      },
-    };
-
-    session.setState(nextState);
-    syncGameModeUi(dom, nextState);
-    syncLeftStatus(dom, nextState);
-  });
+  dom.gameEasyButton.addEventListener("click", () => setPracticeJudgeMode("easy"));
+  dom.gameStandardButton.addEventListener("click", () => setPracticeJudgeMode("standard"));
+  dom.gameProButton.addEventListener("click", () => setPracticeJudgeMode("pro"));
 
   dom.practiceSyncCloseButton.addEventListener("click", () => {
     stopSyncBeepLoop();

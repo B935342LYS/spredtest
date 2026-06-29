@@ -13,7 +13,9 @@ import type { TickTimeMapper } from "../../audio/audio_types";
 import type {
   GameEffectBonusResult,
   GamePitchFrame,
+  GameTimingOnsetCandidate,
 } from "./game_types";
+import { timeFractionToNumber } from "../../audio/tick_time_mapper";
 
 const GLISS_INTERVAL_SECONDS = 0.25;
 const GLISS_INTERVAL_BONUS_MULTIPLIER = 0.25;
@@ -36,6 +38,12 @@ const VIB_IN_TUNE_ERROR_CENT = 70;
 const VIB_MIN_IN_TUNE_RATIO = 0.6;
 const VIB_DERIVATIVE_DEAD_ZONE_CENT = 2;
 const VIB_BONUS_MULTIPLIER = 0.5;
+const TREM_MIN_REPEAT_COUNT = 3;
+const TREM_MAX_NOTE_TICKS = 1;
+const TREM_MAX_GAP_TICKS = 1e-6;
+const TREM_MIN_ATTACK_INTERVAL_SECONDS = 0.06;
+const TREM_MAX_ATTACK_INTERVAL_SECONDS = 0.45;
+const TREM_BONUS_MULTIPLIER = 0.12;
 
 /** effect bonus 판정이 참조하는 pitch frame과 score time 묶음. */
 export type GameEffectFrame = {
@@ -67,8 +75,28 @@ export type GameVibBonusTarget = {
   targetCentOffset: number;
 };
 
+/** practice 중 반복 attack streak으로 판정할 tremolo effect bonus 대상. */
+export type GameTremBonusTarget = {
+  kind: "trem";
+  targetId: string;
+  trackId: TrackId;
+  startSeconds: number;
+  endSeconds: number;
+  targetMidi: number;
+  targetCentOffset: number;
+  source: "explicit" | "rapidRepeat";
+};
+
+/** trem target별 attack streak 판정 상태. */
+export type GameTremRuntimeState = {
+  acceptedOnsetIds: Set<number>;
+  lastAcceptedScoreSeconds: number | null;
+  streakCount: number;
+  rewardedOnsetIds: Set<number>;
+};
+
 /** practice 중 판정할 effect bonus 대상. */
-export type GameEffectBonusTarget = GameGlissBonusTarget | GameVibBonusTarget;
+export type GameEffectBonusTarget = GameGlissBonusTarget | GameVibBonusTarget | GameTremBonusTarget;
 
 /**
  * analyzer 결과에서 active track의 effect bonus target 목록을 만든다.
@@ -114,11 +142,81 @@ export function collectGameEffectBonusTargets(
 
       if (isNoteEvent(event)) {
         collectVibBonusTargetsForNote(event, mapper, targets);
+        collectExplicitTremBonusTargetsForNote(event, mapper, targets);
       }
     }
+
+    collectRapidRepeatTremBonusTargetsForTrack(trackResult.events, mapper, targets);
   }
 
   return targets;
+}
+
+/**
+ * trem target의 반복 attack streak이 bonus 조건을 만족하는지 확인한다.
+ * - 인수 : target : 판정할 trem bonus 대상
+ * - 인수 : onsetCandidates : timing 입력에서 추출한 attack 후보 목록
+ * - 인수 : runtimeState : target별 trem streak 상태
+ * - 인수 : judgeScoreSeconds : Sync 보정이 적용된 현재 score time
+ * - 인수 : trackDifficulty : track별 점수 가중 난이도
+ * - 반환값 : 성공하면 Trem! bonus 결과, 아니면 null
+ */
+export function judgeTremAttackBonus(
+  target: GameTremBonusTarget,
+  onsetCandidates: readonly GameTimingOnsetCandidate[],
+  runtimeState: GameTremRuntimeState,
+  judgeScoreSeconds: number,
+  trackDifficulty: Record<TrackId, number>,
+): GameEffectBonusResult | null {
+  if (judgeScoreSeconds < target.startSeconds || judgeScoreSeconds > target.endSeconds) {
+    return null;
+  }
+
+  const candidates = onsetCandidates
+    .filter((candidate) =>
+      candidate.scoreSeconds >= target.startSeconds &&
+      candidate.scoreSeconds <= target.endSeconds &&
+      candidate.scoreSeconds <= judgeScoreSeconds &&
+      !runtimeState.acceptedOnsetIds.has(candidate.id) &&
+      !runtimeState.rewardedOnsetIds.has(candidate.id)
+    )
+    .sort((left, right) => left.scoreSeconds - right.scoreSeconds);
+
+  for (const candidate of candidates) {
+    const intervalSeconds = runtimeState.lastAcceptedScoreSeconds === null
+      ? null
+      : candidate.scoreSeconds - runtimeState.lastAcceptedScoreSeconds;
+
+    if (intervalSeconds !== null && intervalSeconds < TREM_MIN_ATTACK_INTERVAL_SECONDS) {
+      runtimeState.acceptedOnsetIds.add(candidate.id);
+      continue;
+    }
+
+    runtimeState.streakCount = intervalSeconds === null ||
+      intervalSeconds > TREM_MAX_ATTACK_INTERVAL_SECONDS
+      ? 1
+      : runtimeState.streakCount + 1;
+    runtimeState.lastAcceptedScoreSeconds = candidate.scoreSeconds;
+    runtimeState.acceptedOnsetIds.add(candidate.id);
+
+    if (runtimeState.streakCount < 2) {
+      continue;
+    }
+
+    runtimeState.rewardedOnsetIds.add(candidate.id);
+    return {
+      kind: "trem",
+      targetId: target.targetId,
+      trackId: target.trackId,
+      scoreSeconds: candidate.scoreSeconds,
+      targetMidi: target.targetMidi,
+      targetCentOffset: target.targetCentOffset,
+      bonusContribution: (trackDifficulty[target.trackId] ?? 1) * TREM_BONUS_MULTIPLIER,
+      displayText: "Trem!",
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -513,6 +611,169 @@ function collectVibBonusTargetsForNote(
       activeEndSeconds = null;
     }
   }
+}
+
+/**
+ * note event의 explicit trem effect segment를 practice bonus target으로 변환한다.
+ * - 인수 : event : trem effect를 검사할 note event
+ * - 인수 : mapper : tick을 seconds로 바꾸는 tempo mapper
+ * - 인수 : targets : 변환 결과를 추가할 target 배열
+ * - 반환값 : 없음
+ */
+function collectExplicitTremBonusTargetsForNote(
+  event: NoteEvent,
+  mapper: TickTimeMapper,
+  targets: GameEffectBonusTarget[],
+): void {
+  for (let index = 0; index < event.effects.length; index += 1) {
+    const effect = event.effects[index];
+
+    if (effect === undefined || effect.trem === null || effect.trem === undefined) {
+      continue;
+    }
+
+    const startSeconds = mapper.tickToSeconds(effect.time.startTick);
+    const endSeconds = mapper.tickToSeconds(effect.time.endTick);
+
+    if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || endSeconds <= startSeconds) {
+      continue;
+    }
+
+    targets.push({
+      kind: "trem",
+      targetId: `${event.eventId}:trem:${index}`,
+      trackId: event.trackId,
+      startSeconds,
+      endSeconds,
+      targetMidi: event.sound.midi,
+      targetCentOffset: event.sound.centOffset,
+      source: "explicit",
+    });
+  }
+}
+
+/**
+ * active track의 1tick 동일 pitch 반복 note를 implicit trem target으로 변환한다.
+ * - 인수 : events : track의 analyzer event 목록
+ * - 인수 : mapper : tick을 seconds로 바꾸는 tempo mapper
+ * - 인수 : targets : 변환 결과를 추가할 target 배열
+ * - 반환값 : 없음
+ */
+function collectRapidRepeatTremBonusTargetsForTrack(
+  events: readonly AnalyzedEvent[],
+  mapper: TickTimeMapper,
+  targets: GameEffectBonusTarget[],
+): void {
+  const noteEvents = events
+    .filter(isNoteEvent)
+    .slice()
+    .sort((left, right) =>
+      timeFractionToNumber(left.time.startTick) - timeFractionToNumber(right.time.startTick)
+    );
+  let repeatStartIndex = 0;
+
+  for (let index = 1; index <= noteEvents.length; index += 1) {
+    const previous = noteEvents[index - 1];
+    const current = noteEvents[index];
+
+    if (
+      previous !== undefined &&
+      current !== undefined &&
+      isRapidRepeatTremPair(previous, current)
+    ) {
+      continue;
+    }
+
+    pushRapidRepeatTremTarget(noteEvents, repeatStartIndex, index, mapper, targets);
+    repeatStartIndex = index;
+  }
+}
+
+/**
+ * 두 note event가 rapid repeat trem 후보로 연속될 수 있는지 확인한다.
+ * - 인수 : left : 앞 note event
+ * - 인수 : right : 뒤 note event
+ * - 반환값 : 같은 pitch class의 1tick note가 gap 없이 이어지면 true
+ */
+function isRapidRepeatTremPair(left: NoteEvent, right: NoteEvent): boolean {
+  const leftStartTick = timeFractionToNumber(left.time.startTick);
+  const leftEndTick = timeFractionToNumber(left.time.endTick);
+  const rightStartTick = timeFractionToNumber(right.time.startTick);
+  const rightEndTick = timeFractionToNumber(right.time.endTick);
+
+  return left.trackId === right.trackId &&
+    !hasExplicitTremEffect(left) &&
+    !hasExplicitTremEffect(right) &&
+    leftEndTick - leftStartTick <= TREM_MAX_NOTE_TICKS + TREM_MAX_GAP_TICKS &&
+    rightEndTick - rightStartTick <= TREM_MAX_NOTE_TICKS + TREM_MAX_GAP_TICKS &&
+    Math.abs(rightStartTick - leftEndTick) <= TREM_MAX_GAP_TICKS &&
+    getPitchClassCent(left) === getPitchClassCent(right);
+}
+
+/**
+ * note event가 explicit trem modifier segment를 포함하는지 확인한다.
+ * - 인수 : event : 검사할 note event
+ * - 반환값 : trem effect segment가 하나라도 있으면 true
+ */
+function hasExplicitTremEffect(event: NoteEvent): boolean {
+  return event.effects.some((effect) => effect.trem !== null && effect.trem !== undefined);
+}
+
+/**
+ * rapid repeat 후보 note run이 충분히 길면 trem target을 추가한다.
+ * - 인수 : noteEvents : startTick 기준으로 정렬된 note event 목록
+ * - 인수 : startIndex : 반복 run 시작 index
+ * - 인수 : endIndex : 반복 run 끝 다음 index
+ * - 인수 : mapper : tick을 seconds로 바꾸는 tempo mapper
+ * - 인수 : targets : 변환 결과를 추가할 target 배열
+ * - 반환값 : 없음
+ */
+function pushRapidRepeatTremTarget(
+  noteEvents: readonly NoteEvent[],
+  startIndex: number,
+  endIndex: number,
+  mapper: TickTimeMapper,
+  targets: GameEffectBonusTarget[],
+): void {
+  if (endIndex - startIndex < TREM_MIN_REPEAT_COUNT) {
+    return;
+  }
+
+  const first = noteEvents[startIndex];
+  const last = noteEvents[endIndex - 1];
+
+  if (first === undefined || last === undefined) {
+    return;
+  }
+
+  const startSeconds = mapper.tickToSeconds(first.time.startTick);
+  const endSeconds = mapper.tickToSeconds(last.time.endTick);
+
+  if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || endSeconds <= startSeconds) {
+    return;
+  }
+
+  targets.push({
+    kind: "trem",
+    targetId: `${first.eventId}:rapid-repeat-trem:${endIndex - startIndex}`,
+    trackId: first.trackId,
+    startSeconds,
+    endSeconds,
+    targetMidi: first.sound.midi,
+    targetCentOffset: first.sound.centOffset,
+    source: "rapidRepeat",
+  });
+}
+
+/**
+ * octave를 제외한 pitch class cent 값을 만든다.
+ * - 인수 : event : pitch를 확인할 note event
+ * - 반환값 : 0 이상 1199 이하의 정수 cent 값
+ */
+function getPitchClassCent(event: NoteEvent): number {
+  const absoluteCent = Math.round(event.sound.midi * 100 + event.sound.centOffset);
+
+  return ((absoluteCent % 1200) + 1200) % 1200;
 }
 
 /**

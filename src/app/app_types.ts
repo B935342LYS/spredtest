@@ -226,6 +226,8 @@ export type AppDom = {
   practiceModeButton: HTMLButtonElement;
   gameSyncButton: HTMLButtonElement;
   gameSyncValue: HTMLElement;
+  gameEasyButton: HTMLButtonElement;
+  gameStandardButton: HTMLButtonElement;
   gameProButton: HTMLButtonElement;
   gameRulesButton: HTMLButtonElement;
   practiceSyncDialog: HTMLDialogElement;

@@ -143,7 +143,11 @@
                     <div class="game-panel-head">
                         <button type="button" class="game-rules-button">Rules</button>
                         <button type="button" class="game-sync-button">Sync <strong class="game-sync-value">+90 ms</strong></button>
-                        <button type="button" class="game-pro-button" aria-pressed="false">Pro</button>
+                        <div class="game-mode-control" aria-label="Practice judge mode">
+                            <button type="button" class="game-mode-button" data-judge-mode="easy" aria-pressed="false">Easy</button>
+                            <button type="button" class="game-mode-button" data-judge-mode="standard" aria-pressed="true">Std</button>
+                            <button type="button" class="game-mode-button game-pro-button" data-judge-mode="pro" aria-pressed="false">Pro</button>
+                        </div>
                         <span class="status-pill game-status">off</span>
                     </div>
                     <p class="game-notice">Pitch judging is a practice aid and may not be exact. Use a microphone in a quiet place.</p>
@@ -513,6 +517,7 @@
                     <thead>
                         <tr>
                             <th>Result</th>
+                            <th>Easy</th>
                             <th>Standard</th>
                             <th>Pro</th>
                             <th>Accuracy</th>
@@ -523,12 +528,14 @@
                         <tr>
                             <td>Perfect</td>
                             <td>&lt; 50 cent</td>
+                            <td>&lt; 50 cent</td>
                             <td>&lt; 30 cent</td>
                             <td>100%</td>
                             <td>Added</td>
                         </tr>
                         <tr>
                             <td>Ok</td>
+                            <td>50-99 cent</td>
                             <td>50-99 cent</td>
                             <td>30-59 cent</td>
                             <td>66.7%</td>
@@ -537,12 +544,14 @@
                         <tr>
                             <td>Bad</td>
                             <td>100-199 cent</td>
+                            <td>100-199 cent</td>
                             <td>60-99 cent</td>
                             <td>33.3%</td>
                             <td>Added</td>
                         </tr>
                         <tr>
                             <td>Miss</td>
+                            <td>200 cent or more</td>
                             <td>200 cent or more</td>
                             <td>100 cent or more</td>
                             <td>0%</td>
@@ -557,6 +566,7 @@
                     <thead>
                         <tr>
                             <th>Timing offset</th>
+                            <th>Easy</th>
                             <th>Pro offset</th>
                             <th>Accuracy</th>
                             <th>Result</th>
@@ -565,24 +575,28 @@
                     <tbody>
                         <tr>
                             <td>&lt; 80 ms</td>
+                            <td>Ignored</td>
                             <td>&lt; 50 ms</td>
                             <td>100%</td>
                             <td>No timing text. Pitch judge stays unchanged.</td>
                         </tr>
                         <tr>
                             <td>80-149 ms</td>
+                            <td>Ignored</td>
                             <td>50-99 ms</td>
                             <td>66.7%</td>
                             <td>Shows small early or late text. Pitch judge stays unchanged.</td>
                         </tr>
                         <tr>
                             <td>150-249 ms</td>
+                            <td>Ignored</td>
                             <td>100-149 ms</td>
                             <td>33.3%</td>
                             <td>Shows small early or late text. Final judge is downgraded to Bad.</td>
                         </tr>
                         <tr>
                             <td>250 ms or more</td>
+                            <td>Ignored</td>
                             <td>150 ms or more</td>
                             <td>0%</td>
                             <td>Final judge becomes Miss even if the pitch is correct.</td>
@@ -608,7 +622,11 @@
                         </tr>
                         <tr>
                             <th scope="row">Combo</th>
-                            <td>Standard: score-eligible Perfect, Ok, or Bad continues the combo. Pro: Bad or Miss resets it.</td>
+                            <td>Easy and Standard: score-eligible Perfect, Ok, or Bad continues the combo. Pro: Bad or Miss resets it.</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Easy mode</th>
+                            <td>Pitch-only mode. Timing offsets and missing attacks do not block scoring.</td>
                         </tr>
                         <tr>
                             <th scope="row">No input</th>

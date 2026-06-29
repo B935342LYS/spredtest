@@ -189,6 +189,8 @@ export function collectAppDom(): AppDom {
     practiceModeButton: queryElement(".practice-mode-button", HTMLButtonElement),
     gameSyncButton: queryElement(".game-sync-button", HTMLButtonElement),
     gameSyncValue: queryElement(".game-sync-value", HTMLElement),
+    gameEasyButton: queryElement(".game-mode-button[data-judge-mode='easy']", HTMLButtonElement),
+    gameStandardButton: queryElement(".game-mode-button[data-judge-mode='standard']", HTMLButtonElement),
     gameProButton: queryElement(".game-pro-button", HTMLButtonElement),
     gameRulesButton: queryElement(".game-rules-button", HTMLButtonElement),
     practiceSyncDialog: queryElement("#practice-sync", HTMLDialogElement),
