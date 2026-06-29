@@ -61,6 +61,7 @@ export function syncGameModeUi(dom: AppDom, state: AppState): void {
   dom.gameStatus.textContent = statusText;
   dom.gameStatus.title = statusText;
   dom.gameAccuracy.textContent = formatAccuracyPercent(summary.accuracyPercent);
+  dom.gameTimingAccuracy.textContent = formatAccuracyPercent(summary.timingAccuracyPercent);
   dom.gamePerfectCount.textContent = String(summary.perfectCount);
   dom.gameOkCount.textContent = String(summary.okCount);
   dom.gameBadCount.textContent = String(summary.badCount);

@@ -65,12 +65,20 @@ export function getNumberRampToken(ramp: NumberEditRamp): string {
 }
 
 /**
- * number UI 입력값을 세 자리 숫자 문자열로 정규화한다.
+ * number UI 입력값을 전역 number 셀에 사용할 수 있는 숫자 문자열로 정규화한다.
  * - 인수 : value : number input에 들어온 원본 문자열
- * - 반환값 : 숫자만 남기고 앞 세 자리까지만 유지한 문자열
+ * - 반환값 : 숫자와 첫 번째 소수점만 남긴 문자열
  */
 export function normalizeNumberRawInput(value: string): string {
-  return value.replace(/\D/g, "").slice(0, 3);
+  const numericText = value.replace(/[^\d.]/g, "");
+  const dotIndex = numericText.indexOf(".");
+
+  if (dotIndex < 0) {
+    return numericText;
+  }
+
+  // BPM은 실수 입력을 허용하므로 첫 번째 소수점은 유지하고, 이후 소수점만 제거한다.
+  return `${numericText.slice(0, dotIndex + 1)}${numericText.slice(dotIndex + 1).replace(/\./g, "")}`;
 }
 
 /**

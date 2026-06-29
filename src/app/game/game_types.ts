@@ -79,6 +79,7 @@ export type GameJudgeTarget = {
   endSeconds: number;
   targetMidi: number;
   targetCentOffset: number;
+  attackRequired: boolean;
 };
 
 /** timing 판정에 사용할 입력 시작 후보. */
@@ -107,6 +108,8 @@ export type GameScoringSampleResult = {
   pitchAccuracy: number;
   label: "Perfect" | "Ok" | "Bad" | "Miss";
   status: "hit" | "miss";
+  scoreEligible: boolean;
+  scoreBlockedReason: "attackRequired" | null;
   scoreContribution: number;
   timing: GameTimingJudgeResult;
   timingOnsetId: number | null;

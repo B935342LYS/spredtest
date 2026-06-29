@@ -22,6 +22,7 @@ import type {
 const PERFECT_ERROR_CENT = 50;
 const OK_ERROR_CENT = 100;
 const BAD_ERROR_CENT = 200;
+const NEXT_NOTE_GRACE_SECONDS = 0.03334;
 const PREVIOUS_NOTE_GRACE_SECONDS = 0.03334;
 const TIMING_DISPLAY_THRESHOLD_MS = 80;
 const TIMING_BAD_THRESHOLD_MS = 150;
@@ -38,6 +39,7 @@ export type GameTimingJudgeOptions = {
   onsetCandidates: readonly GameTimingOnsetCandidate[];
   judgedEventIds: ReadonlySet<string>;
   consumedOnsetIds: ReadonlySet<number>;
+  attackSatisfiedEventIds: ReadonlySet<string>;
 };
 
 /**
@@ -80,7 +82,7 @@ export function collectGameJudgeTargetsAtSeconds(
   const activeTrackIdSet = new Set(activeTrackIds);
   const targets: GameJudgeTarget[] = [];
 
-  // active track의 현재 NoteEvent만 판정 후보로 수집한다.
+  // active track의 현재 NoteEvent와 짧은 전환 보정 구간의 이웃 NoteEvent를 판정 후보로 수집한다.
   for (const trackResult of analysis.trackResults) {
     if (!activeTrackIdSet.has(trackResult.trackId)) {
       continue;
@@ -94,7 +96,10 @@ export function collectGameJudgeTargetsAtSeconds(
       const startSeconds = mapper.tickToSeconds(event.time.startTick);
       const endSeconds = mapper.tickToSeconds(event.time.endTick);
 
-      if (scoreSeconds < startSeconds || scoreSeconds >= endSeconds + PREVIOUS_NOTE_GRACE_SECONDS) {
+      if (
+        scoreSeconds < startSeconds - NEXT_NOTE_GRACE_SECONDS ||
+        scoreSeconds >= endSeconds + PREVIOUS_NOTE_GRACE_SECONDS
+      ) {
         continue;
       }
 
@@ -105,6 +110,7 @@ export function collectGameJudgeTargetsAtSeconds(
         endSeconds,
         targetMidi: event.sound.midi,
         targetCentOffset: event.sound.centOffset,
+        attackRequired: isAttackRequiredNoteEvent(event),
       });
     }
   }
@@ -204,7 +210,8 @@ export function judgeGameScoringSample(
   const label = applyTimingDowngrade(pitchLabel, timingMatch.result);
   const pitchAccuracy = getPitchAccuracy(label);
   const difficulty = trackDifficulty[selectedTarget.trackId];
-  const scoreContribution = label === "Miss" ? 0 : difficulty * pitchAccuracy;
+  const scoreEligible = isScoreEligibleForAttack(selectedTarget, label, timingMatch.onsetId, timing);
+  const scoreContribution = label === "Miss" || !scoreEligible ? 0 : difficulty * pitchAccuracy;
 
   return {
     targetEventId: selectedTarget.eventId,
@@ -215,6 +222,8 @@ export function judgeGameScoringSample(
     pitchAccuracy,
     label,
     status: label === "Miss" ? "miss" : "hit",
+    scoreEligible,
+    scoreBlockedReason: scoreEligible ? null : "attackRequired",
     scoreContribution,
     timing: timingMatch.result,
     timingOnsetId: timingMatch.onsetId,
@@ -349,6 +358,10 @@ export function applyGameScoringSample(
   summary: GameScoreSummary,
   sample: GameScoringSampleResult,
 ): GameScoreSummary {
+  if (!sample.scoreEligible) {
+    return summary;
+  }
+
   const perfectCount = summary.perfectCount + (sample.label === "Perfect" ? 1 : 0);
   const okCount = summary.okCount + (sample.label === "Ok" ? 1 : 0);
   const badCount = summary.badCount + (sample.label === "Bad" ? 1 : 0);
@@ -359,7 +372,7 @@ export function applyGameScoringSample(
   const timingLateCount = summary.timingLateCount + (sample.timing.kind === "late" ? 1 : 0);
   const timingBadCount = summary.timingBadCount + (sample.timing.kind === "bad" ? 1 : 0);
   const timingMissCount = summary.timingMissCount + (sample.timing.kind === "miss" ? 1 : 0);
-  const currentCombo = sample.label === "Perfect" || sample.label === "Ok"
+  const currentCombo = sample.scoreEligible && sample.label !== "Miss"
     ? summary.currentCombo + 1
     : 0;
   const scoredSampleCount = perfectCount + okCount + badCount + missCount;
@@ -422,6 +435,36 @@ export function applyGameEffectBonus(
  */
 function isNoteEvent(event: AnalyzedEvent): event is NoteEvent {
   return event.eventKind === "note";
+}
+
+/**
+ * note event가 새 attack 확인을 요구하는지 판단한다.
+ * - 인수 : event : 판정 target으로 변환할 note event
+ * - 반환값 : gliss 종료 anchor처럼 legato 문맥이면 false, 일반 note이면 true
+ */
+function isAttackRequiredNoteEvent(event: NoteEvent): boolean {
+  return event.glissRole?.role !== "end";
+}
+
+/**
+ * attack credit 기준으로 scoring sample이 점수와 combo를 받을 수 있는지 판단한다.
+ * - 인수 : target : pitch 판정에서 선택된 note target
+ * - 인수 : label : pitch/timing을 반영한 최종 label
+ * - 인수 : timingOnsetId : 이번 sample에 배정된 onset id
+ * - 인수 : timing : timing/attack 판정 런타임 상태
+ * - 반환값 : 점수와 combo 지급 가능 여부
+ */
+function isScoreEligibleForAttack(
+  target: GameJudgeTarget,
+  label: GameScoringSampleResult["label"],
+  timingOnsetId: number | null,
+  timing: GameTimingJudgeOptions | undefined,
+): boolean {
+  if (label === "Miss" || timing === undefined || !target.attackRequired) {
+    return true;
+  }
+
+  return timingOnsetId !== null || timing.attackSatisfiedEventIds.has(target.eventId);
 }
 
 /**

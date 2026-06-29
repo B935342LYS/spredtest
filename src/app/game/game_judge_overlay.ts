@@ -52,7 +52,7 @@ export function showGameJudgeOverlay(
   }
 
   const label = document.createElement("div");
-  const showCombo = sample.label === "Perfect" || sample.label === "Ok";
+  const showCombo = sample.scoreEligible && sample.label !== "Miss";
   const showTiming = sample.timing.kind === "early" ||
     sample.timing.kind === "late" ||
     sample.timing.kind === "bad";

@@ -227,6 +227,7 @@ export function collectAppDom(): AppDom {
     gamePanel: queryElement(".game-panel", HTMLElement),
     gameStatus: queryElement(".game-status", HTMLElement),
     gameAccuracy: queryElement(".game-accuracy", HTMLElement),
+    gameTimingAccuracy: queryElement(".game-timing-accuracy", HTMLElement),
     gamePerfectCount: queryElement(".game-perfect-count", HTMLElement),
     gameOkCount: queryElement(".game-ok-count", HTMLElement),
     gameBadCount: queryElement(".game-bad-count", HTMLElement),

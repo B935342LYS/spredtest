@@ -18,11 +18,17 @@ import type {
 const GLISS_INTERVAL_SECONDS = 0.25;
 const GLISS_INTERVAL_BONUS_MULTIPLIER = 0.25;
 const GLISS_MAX_ERROR_CENT = 100;
+const GLISS_GRACE_RATIO = 0.5;
+const GLISS_MAX_GRACE_SECONDS = 0.15;
 const VIB_WINDOW_SECONDS = 0.8;
 const VIB_MIN_WINDOW_SECONDS = 0.3;
+const VIB_SHORT_TARGET_SECONDS = 0.25;
+const VIB_SHORT_MIN_WINDOW_SECONDS = 0.1;
 const VIB_MIN_FRAME_COUNT = 4;
+const VIB_SHORT_MIN_FRAME_COUNT = 3;
 const VIB_MIN_AMPLITUDE_CENT = 10;
 const VIB_MIN_DIRECTION_CHANGES = 2;
+const VIB_SHORT_MIN_DIRECTION_CHANGES = 1;
 const VIB_MIN_RATE_HZ = 2;
 const VIB_MAX_RATE_HZ = 9.5;
 const VIB_MAX_AVERAGE_ERROR_CENT = 60;
@@ -138,8 +144,7 @@ export function judgeGlissIntervalBonus(
     !frame.isVoiced ||
     frame.midi === null ||
     frame.centOffset === null ||
-    scoreSeconds < target.startSeconds ||
-    scoreSeconds > target.endSeconds ||
+    !isSecondsInsideGlissJudgeWindow(target, scoreSeconds) ||
     intervalIndex < 0
   ) {
     return null;
@@ -184,7 +189,7 @@ export function shouldLockFailedGlissBonusTarget(
   intervalIndex: number,
   frames: readonly GameEffectFrame[],
 ): boolean {
-  if (scoreSeconds < target.startSeconds || scoreSeconds > target.endSeconds || intervalIndex < 0) {
+  if (!isSecondsInsideGlissJudgeWindow(target, scoreSeconds) || intervalIndex < 0) {
     return false;
   }
 
@@ -217,6 +222,13 @@ export function judgeVibWindowBonus(
     return null;
   }
 
+  const targetDurationSeconds = target.endSeconds - target.startSeconds;
+  const isShortTarget = targetDurationSeconds <= VIB_SHORT_TARGET_SECONDS;
+  const minFrameCount = isShortTarget ? VIB_SHORT_MIN_FRAME_COUNT : VIB_MIN_FRAME_COUNT;
+  const minWindowSeconds = isShortTarget
+    ? Math.min(VIB_MIN_WINDOW_SECONDS, Math.max(VIB_SHORT_MIN_WINDOW_SECONDS, targetDurationSeconds * 0.55))
+    : VIB_MIN_WINDOW_SECONDS;
+  const minDirectionChanges = isShortTarget ? VIB_SHORT_MIN_DIRECTION_CHANGES : VIB_MIN_DIRECTION_CHANGES;
   const windowStartSeconds = Math.max(target.startSeconds, scoreSeconds - VIB_WINDOW_SECONDS);
   const usableFrames = frames.filter((entry) =>
     entry.scoreSeconds >= windowStartSeconds &&
@@ -228,7 +240,7 @@ export function judgeVibWindowBonus(
     entry.frame.centOffset !== null
   );
 
-  if (usableFrames.length < VIB_MIN_FRAME_COUNT) {
+  if (usableFrames.length < minFrameCount) {
     return null;
   }
 
@@ -238,7 +250,7 @@ export function judgeVibWindowBonus(
   if (
     firstFrame === undefined ||
     lastFrame === undefined ||
-    lastFrame.scoreSeconds - firstFrame.scoreSeconds < VIB_MIN_WINDOW_SECONDS
+    lastFrame.scoreSeconds - firstFrame.scoreSeconds < minWindowSeconds
   ) {
     return null;
   }
@@ -267,7 +279,7 @@ export function judgeVibWindowBonus(
     amplitudeCent < VIB_MIN_AMPLITUDE_CENT ||
     rateHz < VIB_MIN_RATE_HZ ||
     rateHz > VIB_MAX_RATE_HZ ||
-    directionChangeCount < VIB_MIN_DIRECTION_CHANGES
+    directionChangeCount < minDirectionChanges
   ) {
     return null;
   }
@@ -358,11 +370,17 @@ export function getGlissIntervalIndexAtSeconds(
     return null;
   }
 
-  if (scoreSeconds < target.startSeconds || scoreSeconds > target.endSeconds) {
+  if (!isSecondsInsideGlissJudgeWindow(target, scoreSeconds)) {
     return null;
   }
 
-  return Math.floor((scoreSeconds - target.startSeconds) / GLISS_INTERVAL_SECONDS);
+  const rawIndex = Math.floor((Math.max(scoreSeconds, target.startSeconds) - target.startSeconds) / GLISS_INTERVAL_SECONDS);
+  const maxIndex = Math.max(
+    0,
+    Math.ceil((target.endSeconds - target.startSeconds) / GLISS_INTERVAL_SECONDS) - 1,
+  );
+
+  return Math.min(rawIndex, maxIndex);
 }
 
 /**
@@ -414,6 +432,33 @@ function hasUnvoicedFrameInGlissInterval(
     entry.frame.midi === null ||
     entry.frame.centOffset === null
   );
+}
+
+/**
+ * gliss target의 bonus 판정 grace 길이를 계산한다.
+ * - 인수 : target : 판정할 gliss bonus 대상
+ * - 반환값 : 앞뒤로 확장할 초 단위 grace
+ */
+function getGlissJudgeGraceSeconds(target: GameGlissBonusTarget): number {
+  const durationSeconds = Math.max(0, target.endSeconds - target.startSeconds);
+
+  return Math.min(durationSeconds * GLISS_GRACE_RATIO, GLISS_MAX_GRACE_SECONDS);
+}
+
+/**
+ * 현재 시간이 gliss bonus 판정용 확장 구간 안인지 확인한다.
+ * - 인수 : target : 판정할 gliss bonus 대상
+ * - 인수 : scoreSeconds : 현재 Sync 보정 score time
+ * - 반환값 : 원래 gliss 구간에 grace를 더한 범위 안이면 true
+ */
+function isSecondsInsideGlissJudgeWindow(
+  target: GameGlissBonusTarget,
+  scoreSeconds: number,
+): boolean {
+  const graceSeconds = getGlissJudgeGraceSeconds(target);
+
+  return scoreSeconds >= target.startSeconds - graceSeconds &&
+    scoreSeconds <= target.endSeconds + graceSeconds;
 }
 
 /**

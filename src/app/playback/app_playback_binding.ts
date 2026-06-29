@@ -99,6 +99,7 @@ export function bindPlaybackControls(
   let timingOnsetCandidates: GameTimingOnsetCandidate[] = [];
   let consumedTimingOnsetIds = new Set<number>();
   let judgedTimingEventIds = new Set<string>();
+  let attackSatisfiedEventIds = new Set<string>();
   let nextTimingOnsetId = 1;
   let effectBonusTargets: GameEffectBonusTarget[] = [];
   let effectFrames: GameEffectFrame[] = [];
@@ -118,6 +119,7 @@ export function bindPlaybackControls(
     timingOnsetCandidates = [];
     consumedTimingOnsetIds = new Set<number>();
     judgedTimingEventIds = new Set<string>();
+    attackSatisfiedEventIds = new Set<string>();
     nextTimingOnsetId = 1;
     effectBonusTargets = [];
     effectFrames = [];
@@ -315,9 +317,14 @@ export function bindPlaybackControls(
    * - 반환값 : 현재 이후 남은 gliss target 구간이 있으면 true
    */
   const hasPendingEffectBonusTarget = (judgeScoreSeconds: number): boolean =>
-    effectBonusTargets.some((target) =>
-      judgeScoreSeconds <= target.endSeconds
-    );
+    effectBonusTargets.some((target) => {
+      if (target.kind === "gliss") {
+        return getGlissIntervalIndexAtSeconds(target, judgeScoreSeconds) !== null ||
+          judgeScoreSeconds <= target.endSeconds;
+      }
+
+      return judgeScoreSeconds <= target.endSeconds;
+    });
 
   /**
    * practice mode의 최신 pitch frame을 현재 score time에 맞춰 점수로 누적한다.
@@ -395,6 +402,7 @@ export function bindPlaybackControls(
           onsetCandidates: timingOnsetCandidates,
           judgedEventIds: judgedTimingEventIds,
           consumedOnsetIds: consumedTimingOnsetIds,
+          attackSatisfiedEventIds,
         },
       );
 
@@ -411,6 +419,14 @@ export function bindPlaybackControls(
 
       if (sample.timingJudgedEventId !== null) {
         judgedTimingEventIds.add(sample.timingJudgedEventId);
+        attackSatisfiedEventIds.add(sample.timingJudgedEventId);
+      }
+
+      if (!sample.scoreEligible) {
+        if (effectBonus !== null) {
+          showGameEffectBonusOverlay(dom, session.getState(), effectBonus);
+        }
+        return;
       }
 
       const nextSummary = applyGameScoringSample(state.gameMode.summary, sample);

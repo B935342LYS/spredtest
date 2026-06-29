@@ -158,10 +158,11 @@
                         <span>Bad <strong class="game-bad-count">0</strong></span>
                         <span>Miss <strong class="game-miss-count">0</strong></span>
                         <span>Combo <strong class="game-combo">0</strong></span>
+                        <span>Score <strong class="game-score">0</strong></span>
                     </div>
                     <div class="game-score-grid game-total-grid" aria-label="Practice mode totals">
                         <span>Accuracy <strong class="game-accuracy">0%</strong></span>
-                        <span>Score <strong class="game-score">0</strong></span>
+                        <span>Timing <strong class="game-timing-accuracy">0%</strong></span>
                         <span class="game-effect-gliss">Gliss! <strong class="game-gliss-bonus-count">0</strong></span>
                         <span class="game-effect-vib">Vib! <strong class="game-vib-bonus-count">0</strong></span>
                         <span class="game-effect-trem">Trem! <strong class="game-trem-bonus-count">0</strong></span>
@@ -197,7 +198,7 @@
                 <section class="edit-card number-card" aria-label="Number edit tools">
                     <div class="edit-card-title">Number</div>
                     <div class="edit-control-row">
-                        <input class="number-raw-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" placeholder="num">
+                        <input class="number-raw-input" type="text" inputmode="decimal" pattern="[0-9]*\.?[0-9]*" placeholder="num">
                         <div class="tempo-mark-group">
                             <span class="micro-label">Tempo mark</span>
                             <div class="pill-row">
@@ -547,21 +548,32 @@
             <section class="practice-rules-section" aria-label="Timing judge ranges">
                 <h3>Timing Judge</h3>
                 <table class="practice-rules-table">
+                    <thead>
+                        <tr>
+                            <th>Timing offset</th>
+                            <th>Accuracy</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         <tr>
-                            <th scope="row">&lt; 80 ms</th>
+                            <td>&lt; 80 ms</td>
+                            <td>100%</td>
                             <td>No timing text. Pitch judge stays unchanged.</td>
                         </tr>
                         <tr>
-                            <th scope="row">80-149 ms</th>
+                            <td>80-149 ms</td>
+                            <td>66.7%</td>
                             <td>Shows small early or late text. Pitch judge stays unchanged.</td>
                         </tr>
                         <tr>
-                            <th scope="row">150-249 ms</th>
+                            <td>150-249 ms</td>
+                            <td>33.3%</td>
                             <td>Shows small early or late text. Final judge is downgraded to Bad.</td>
                         </tr>
                         <tr>
-                            <th scope="row">250 ms or more</th>
+                            <td>250 ms or more</td>
+                            <td>0%</td>
                             <td>Final judge becomes Miss even if the pitch is correct.</td>
                         </tr>
                     </tbody>
@@ -569,27 +581,31 @@
             </section>
             <section class="practice-rules-section" aria-label="Score formula">
                 <h3>Score Formula</h3>
-                <table class="practice-rules-table">
+                <table class="practice-rules-table practice-score-formula-table">
                     <tbody>
                         <tr>
-                            <th scope="row">Score per a note</th>
-                            <td>track difficulty x pitch accuracy</td>
+                            <th scope="row">Score per note</th>
+                            <td>Track difficulty x pitch accuracy, only when the note is score eligible.</td>
                         </tr>
                         <tr>
                             <th scope="row">Total score</th>
-                            <td>sum of all sample scores</td>
+                            <td>Sum of hit note scores.</td>
                         </tr>
                         <tr>
                             <th scope="row">Track difficulty</th>
-                            <td>Basic 1.0, Optional 1.2, Extra 1.5 unless score difficulty overrides it</td>
+                            <td>Uses custom difficulty from Music Info when set; otherwise defaults to Basic 1.0, Optional 1.2, Extra 1.5.</td>
                         </tr>
                         <tr>
                             <th scope="row">Combo</th>
-                            <td>Perfect or Ok continues the combo. Bad or Miss resets it.</td>
+                            <td>Score-eligible Perfect, Ok, or Bad continues the combo. Miss resets it.</td>
                         </tr>
                         <tr>
                             <th scope="row">No input</th>
-                            <td>Silence or unclear pitch does not create a Miss sample.</td>
+                            <td>Silence or unclear pitch does not create a Miss sample and adds no score.</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Effect bonus</th>
+                            <td>Playing articulations well adds bonus score.<br>Missing an effect bonus does not create a penalty.</td>
                         </tr>
                     </tbody>
                 </table>

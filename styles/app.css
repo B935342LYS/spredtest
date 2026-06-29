@@ -732,7 +732,12 @@ select:disabled {
 }
 
 .game-total-grid span {
-  min-width: 96px;
+  min-width: 76px;
+}
+
+.game-total-grid span:has(.game-accuracy),
+.game-total-grid span:has(.game-timing-accuracy) {
+  min-width: 104px;
 }
 
 .game-score-grid strong {
@@ -1761,6 +1766,12 @@ select:disabled {
   background: var(--surface-muted);
   color: var(--text);
   font-weight: 700;
+}
+
+.practice-score-formula-table th[scope="row"] {
+  width: 132px;
+  min-width: 132px;
+  white-space: nowrap;
 }
 
 .details-form {

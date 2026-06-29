@@ -263,6 +263,7 @@ export type AppDom = {
   gamePanel: HTMLElement;
   gameStatus: HTMLElement;
   gameAccuracy: HTMLElement;
+  gameTimingAccuracy: HTMLElement;
   gamePerfectCount: HTMLElement;
   gameOkCount: HTMLElement;
   gameBadCount: HTMLElement;
