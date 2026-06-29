@@ -9,6 +9,7 @@ import type {
 } from "../../core/analyze/types";
 import type { TrackId } from "../../core/score/types";
 import type { TickTimeMapper } from "../../audio/audio_types";
+import { timeFractionToNumber } from "../../audio/tick_time_mapper";
 import type {
   GameJudgeTarget,
   GameEffectBonusResult,
@@ -23,6 +24,9 @@ import type {
 const NOTE_TRANSITION_GRACE_SECONDS = 0.12;
 const NEXT_NOTE_GRACE_SECONDS = NOTE_TRANSITION_GRACE_SECONDS;
 const PREVIOUS_NOTE_GRACE_SECONDS = NOTE_TRANSITION_GRACE_SECONDS;
+const RAPID_REPEAT_TREM_MIN_COUNT = 3;
+const RAPID_REPEAT_TREM_MAX_NOTE_TICKS = 1;
+const RAPID_REPEAT_TREM_MAX_GAP_TICKS = 1e-6;
 const TIMING_MAX_MATCH_MS = 500;
 const JUDGE_THRESHOLDS: Record<PracticeJudgeMode, {
   perfectErrorCent: number;
@@ -117,6 +121,8 @@ export function collectGameJudgeTargetsAtSeconds(
       continue;
     }
 
+    const rapidRepeatTremEventIds = collectRapidRepeatTremEventIds(trackResult.events);
+
     for (const event of trackResult.events) {
       if (!isNoteEvent(event)) {
         continue;
@@ -140,6 +146,7 @@ export function collectGameJudgeTargetsAtSeconds(
         targetMidi: event.sound.midi,
         targetCentOffset: event.sound.centOffset,
         attackRequired: isAttackRequiredNoteEvent(event),
+        rapidRepeatTrem: rapidRepeatTremEventIds.has(event.eventId),
       });
     }
   }
@@ -235,13 +242,15 @@ export function judgeGameScoringSample(
 
   const thresholds = JUDGE_THRESHOLDS[judgeMode];
   const pitchLabel = classifyPitchError(selectedErrorCent, thresholds);
-  const timingMatch = judgeMode === "easy" || timing === undefined
+  const isRapidRepeatTremHit = selectedTarget.rapidRepeatTrem === true && pitchLabel !== "Miss";
+  const timingMatch = judgeMode === "easy" || timing === undefined || isRapidRepeatTremHit
     ? createEmptyTimingMatch()
     : judgeTimingForTarget(selectedTarget, timing, thresholds);
-  const label = applyTimingDowngrade(pitchLabel, timingMatch.result);
+  const label = isRapidRepeatTremHit ? "Perfect" : applyTimingDowngrade(pitchLabel, timingMatch.result);
   const pitchAccuracy = getPitchAccuracy(label);
   const difficulty = trackDifficulty[selectedTarget.trackId];
   const scoreEligible = judgeMode === "easy" ||
+    isRapidRepeatTremHit ||
     isScoreEligibleForAttack(selectedTarget, label, timingMatch.onsetId, timing);
   const scoreContribution = label === "Miss" || !scoreEligible ? 0 : difficulty * pitchAccuracy;
 
@@ -467,6 +476,96 @@ export function applyGameEffectBonus(
  */
 function isNoteEvent(event: AnalyzedEvent): event is NoteEvent {
   return event.eventKind === "note";
+}
+
+/**
+ * active track event 목록에서 1tick rapid-repeat trem run에 속한 note event id를 수집한다.
+ * - 인수 : events : analyzer가 만든 track event 목록
+ * - 반환값 : rapid-repeat trem으로 완화 판정을 적용할 note event id 집합
+ */
+function collectRapidRepeatTremEventIds(events: readonly AnalyzedEvent[]): Set<string> {
+  const noteEvents = events
+    .filter(isNoteEvent)
+    .sort((left, right) =>
+      timeFractionToNumber(left.time.startTick) - timeFractionToNumber(right.time.startTick)
+    );
+  const eventIds = new Set<string>();
+  let runStartIndex = 0;
+
+  for (let index = 1; index <= noteEvents.length; index += 1) {
+    const previous = noteEvents[index - 1];
+    const current = noteEvents[index];
+
+    if (
+      previous !== undefined &&
+      current !== undefined &&
+      canContinueRapidRepeatTremRun(previous, current)
+    ) {
+      continue;
+    }
+
+    addRapidRepeatTremRunEventIds(noteEvents, runStartIndex, index, eventIds);
+    runStartIndex = index;
+  }
+
+  return eventIds;
+}
+
+/**
+ * 두 note event가 rapid-repeat trem run으로 이어질 수 있는지 확인한다.
+ * - 인수 : left : 앞 note event
+ * - 인수 : right : 뒤 note event
+ * - 반환값 : 같은 pitch class의 1tick 이하 연속 note이면 true
+ */
+function canContinueRapidRepeatTremRun(left: NoteEvent, right: NoteEvent): boolean {
+  const leftStartTick = timeFractionToNumber(left.time.startTick);
+  const leftEndTick = timeFractionToNumber(left.time.endTick);
+  const rightStartTick = timeFractionToNumber(right.time.startTick);
+  const rightEndTick = timeFractionToNumber(right.time.endTick);
+
+  return !hasExplicitTremEffect(left) &&
+    !hasExplicitTremEffect(right) &&
+    left.trackId === right.trackId &&
+    left.sound.midi % 12 === right.sound.midi % 12 &&
+    leftEndTick - leftStartTick <= RAPID_REPEAT_TREM_MAX_NOTE_TICKS + RAPID_REPEAT_TREM_MAX_GAP_TICKS &&
+    rightEndTick - rightStartTick <= RAPID_REPEAT_TREM_MAX_NOTE_TICKS + RAPID_REPEAT_TREM_MAX_GAP_TICKS &&
+    Math.abs(rightStartTick - leftEndTick) <= RAPID_REPEAT_TREM_MAX_GAP_TICKS;
+}
+
+/**
+ * 충분히 긴 rapid-repeat run의 note event id를 결과 집합에 추가한다.
+ * - 인수 : noteEvents : 시작 tick으로 정렬된 note event 목록
+ * - 인수 : startIndex : run 시작 index
+ * - 인수 : endIndex : run 끝 다음 index
+ * - 인수 : eventIds : 결과를 누적할 id 집합
+ * - 반환값 : 없음
+ */
+function addRapidRepeatTremRunEventIds(
+  noteEvents: readonly NoteEvent[],
+  startIndex: number,
+  endIndex: number,
+  eventIds: Set<string>,
+): void {
+  if (endIndex - startIndex < RAPID_REPEAT_TREM_MIN_COUNT) {
+    return;
+  }
+
+  for (let index = startIndex; index < endIndex; index += 1) {
+    const event = noteEvents[index];
+
+    if (event !== undefined) {
+      eventIds.add(event.eventId);
+    }
+  }
+}
+
+/**
+ * note event가 explicit trem modifier segment를 포함하는지 확인한다.
+ * - 인수 : event : 검사할 note event
+ * - 반환값 : trem effect segment가 하나라도 있으면 true
+ */
+function hasExplicitTremEffect(event: NoteEvent): boolean {
+  return event.effects.some((effect) => effect.trem !== null && effect.trem !== undefined);
 }
 
 /**

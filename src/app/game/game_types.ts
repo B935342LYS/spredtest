@@ -5,8 +5,8 @@
 import type { TrackId } from "../../core/score/types";
 
 export const DEFAULT_GAME_SYNC_OFFSET_MS = 90;
-export const MIN_GAME_SYNC_OFFSET_MS = -200;
-export const MAX_GAME_SYNC_OFFSET_MS = 200;
+export const MIN_GAME_SYNC_OFFSET_MS = -500;
+export const MAX_GAME_SYNC_OFFSET_MS = 500;
 export const GAME_SYNC_OFFSET_STEP_MS = 10;
 
 /**
@@ -80,6 +80,7 @@ export type GameJudgeTarget = {
   targetMidi: number;
   targetCentOffset: number;
   attackRequired: boolean;
+  rapidRepeatTrem?: boolean;
 };
 
 /** timing 판정에 사용할 입력 시작 후보. */
