@@ -1596,7 +1596,7 @@ select:disabled {
 
   .menu-area {
     grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.55fr) minmax(0, 0.85fr);
-    width: calc(100% / var(--compact-menu-scale));
+    width: 100%;
     min-height: var(--menu-height);
     height: auto;
     max-height: none;
@@ -1616,7 +1616,7 @@ select:disabled {
   }
 
   .edit-row {
-    width: calc(100% / var(--compact-edit-scale));
+    width: 100%;
     max-height: 224px;
     zoom: var(--compact-edit-scale);
     overflow: auto;
