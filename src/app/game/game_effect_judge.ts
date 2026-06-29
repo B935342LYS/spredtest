@@ -43,6 +43,7 @@ const TREM_MAX_NOTE_TICKS = 1;
 const TREM_MAX_GAP_TICKS = 1e-6;
 const TREM_MIN_ATTACK_INTERVAL_SECONDS = 0.06;
 const TREM_MAX_ATTACK_INTERVAL_SECONDS = 0.45;
+const TREM_PITCH_HIT_MAX_ERROR_CENT = 100;
 const TREM_BONUS_MULTIPLIER = 0.12;
 
 /** effect bonus 판정이 참조하는 pitch frame과 score time 묶음. */
@@ -85,6 +86,7 @@ export type GameTremBonusTarget = {
   targetMidi: number;
   targetCentOffset: number;
   source: "explicit" | "rapidRepeat";
+  division: number | null;
 };
 
 /** trem target별 attack streak 판정 상태. */
@@ -93,6 +95,7 @@ export type GameTremRuntimeState = {
   lastAcceptedScoreSeconds: number | null;
   streakCount: number;
   rewardedOnsetIds: Set<number>;
+  rewardedSyntheticHitIds: Set<string>;
 };
 
 /** practice 중 판정할 effect bonus 대상. */
@@ -167,9 +170,16 @@ export function judgeTremAttackBonus(
   runtimeState: GameTremRuntimeState,
   judgeScoreSeconds: number,
   trackDifficulty: Record<TrackId, number>,
+  frame?: GamePitchFrame | null,
 ): GameEffectBonusResult | null {
   if (judgeScoreSeconds < target.startSeconds || judgeScoreSeconds > target.endSeconds) {
     return null;
+  }
+
+  const syntheticBonus = judgeExplicitTremSyntheticHitBonus(target, runtimeState, judgeScoreSeconds, trackDifficulty, frame);
+
+  if (syntheticBonus !== null) {
+    return syntheticBonus;
   }
 
   const candidates = onsetCandidates
@@ -648,6 +658,7 @@ function collectExplicitTremBonusTargetsForNote(
       targetMidi: event.sound.midi,
       targetCentOffset: event.sound.centOffset,
       source: "explicit",
+      division: effect.trem.division,
     });
   }
 }
@@ -762,7 +773,76 @@ function pushRapidRepeatTremTarget(
     targetMidi: first.sound.midi,
     targetCentOffset: first.sound.centOffset,
     source: "rapidRepeat",
+    division: null,
   });
+}
+
+/**
+ * explicit trem의 현재 division 위치를 pitch hit 기반 synthetic bonus로 판정한다.
+ * - 인수 : target : 판정할 trem bonus 대상
+ * - 인수 : runtimeState : target별 trem streak 및 synthetic hit 상태
+ * - 인수 : judgeScoreSeconds : Sync 보정이 적용된 현재 score time
+ * - 인수 : trackDifficulty : track별 점수 가중 난이도
+ * - 인수 : frame : 현재 practice pitch frame
+ * - 반환값 : 새 division hit가 성공하면 Trem! bonus 결과, 아니면 null
+ */
+function judgeExplicitTremSyntheticHitBonus(
+  target: GameTremBonusTarget,
+  runtimeState: GameTremRuntimeState,
+  judgeScoreSeconds: number,
+  trackDifficulty: Record<TrackId, number>,
+  frame?: GamePitchFrame | null,
+): GameEffectBonusResult | null {
+  if (
+    target.source !== "explicit" ||
+    target.division === null ||
+    frame === undefined ||
+    frame === null ||
+    !frame.isVoiced ||
+    frame.midi === null ||
+    frame.centOffset === null ||
+    calculateTremPitchErrorCent(target, frame) >= TREM_PITCH_HIT_MAX_ERROR_CENT
+  ) {
+    return null;
+  }
+
+  const durationSeconds = target.endSeconds - target.startSeconds;
+  const localRatio = durationSeconds <= 0 ? 0 : (judgeScoreSeconds - target.startSeconds) / durationSeconds;
+  const hitIndex = Math.min(
+    target.division - 1,
+    Math.max(0, Math.floor(localRatio * target.division)),
+  );
+  const hitId = `${target.targetId}:synthetic:${hitIndex}`;
+
+  if (runtimeState.rewardedSyntheticHitIds.has(hitId)) {
+    return null;
+  }
+
+  runtimeState.rewardedSyntheticHitIds.add(hitId);
+
+  return {
+    kind: "trem",
+    targetId: target.targetId,
+    trackId: target.trackId,
+    scoreSeconds: judgeScoreSeconds,
+    targetMidi: target.targetMidi,
+    targetCentOffset: target.targetCentOffset,
+    bonusContribution: (trackDifficulty[target.trackId] ?? 1) * TREM_BONUS_MULTIPLIER,
+    displayText: "Trem!",
+  };
+}
+
+/**
+ * trem target과 입력 pitch 사이의 pitch class 오차를 계산한다.
+ * - 인수 : target : 비교할 trem target
+ * - 인수 : frame : 현재 practice pitch frame
+ * - 반환값 : 0 이상 600 이하의 pitch class 오차 cent
+ */
+function calculateTremPitchErrorCent(target: GameTremBonusTarget, frame: GamePitchFrame): number {
+  const inputCent = (frame.midi ?? 0) * 100 + (frame.centOffset ?? 0);
+  const targetCent = target.targetMidi * 100 + target.targetCentOffset;
+
+  return Math.abs(calculateSignedPitchClassErrorCent(inputCent, targetCent));
 }
 
 /**

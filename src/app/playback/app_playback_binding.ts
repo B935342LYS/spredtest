@@ -206,6 +206,7 @@ export function bindPlaybackControls(
           getTremRuntimeState(target.targetId),
           judgeScoreSeconds,
           trackDifficulty,
+          state.gameMode.pitchFrame,
         );
 
         if (bonus === null) {
@@ -320,6 +321,7 @@ export function bindPlaybackControls(
       lastAcceptedScoreSeconds: null,
       streakCount: 0,
       rewardedOnsetIds: new Set<number>(),
+      rewardedSyntheticHitIds: new Set<string>(),
     };
 
     tremRuntimeByTargetId.set(targetId, created);
