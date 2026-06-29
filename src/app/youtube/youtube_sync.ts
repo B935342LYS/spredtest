@@ -48,6 +48,21 @@ export function isYoutubeBeforeVideoStart(
 }
 
 /**
+ * score time 기준으로 YouTube 영상 시작까지 남은 시간을 계산한다.
+ * - 인수 : scoreSeconds : playback controller 기준 score seconds
+ * - 인수 : offsetMs : score metadata에 저장된 YouTube offset ms
+ * - 반환값 : 영상 0초를 재생하기 전까지 기다릴 seconds
+ */
+export function secondsUntilYoutubeStart(
+  scoreSeconds: number,
+  offsetMs: number,
+): number {
+  const rawSeconds = scoreSecondsToRawYoutubeSeconds(scoreSeconds, offsetMs);
+
+  return Math.max(0, -rawSeconds);
+}
+
+/**
  * score와 YouTube player 사이의 drift가 재동기화 기준을 넘는지 확인한다.
  * - 인수 : scoreSeconds : playback controller 기준 score seconds
  * - 인수 : youtubeSeconds : YouTube player가 보고한 current time

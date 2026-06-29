@@ -20,6 +20,7 @@ import { createYoutubePlayer } from "./youtube_player";
 import {
   isYoutubeBeforeVideoStart,
   scoreSecondsToYoutubeSeconds,
+  secondsUntilYoutubeStart,
   shouldResyncYoutubeDrift,
 } from "./youtube_sync";
 import type {
@@ -67,6 +68,7 @@ export function bindYoutubeControls(
   let modeState: YoutubeModeState = { kind: "off" };
   let player: YoutubePlayerHandle | null = null;
   let driftIntervalId: ReturnType<typeof setInterval> | null = null;
+  let videoStartTimeoutId: ReturnType<typeof setTimeout> | null = null;
   let isBeforeVideoStart = false;
   let lastSeekAtMs = 0;
 
@@ -81,6 +83,7 @@ export function bindYoutubeControls(
 
   const syncInputsFromScore = (): void => {
     stopDriftCheck();
+    clearVideoStartTimer();
     player?.dispose();
     player = null;
     isBeforeVideoStart = false;
@@ -93,6 +96,7 @@ export function bindYoutubeControls(
 
   const setYoutubeModeOff = (message: string, level: "off" | "error" = "off"): void => {
     stopDriftCheck();
+    clearVideoStartTimer();
     player?.pause();
     isBeforeVideoStart = false;
     dom.youtubeToggle.checked = false;
@@ -245,10 +249,12 @@ export function bindYoutubeControls(
     },
     pause(): void {
       stopDriftCheck();
+      clearVideoStartTimer();
       player?.pause();
     },
     stop(): void {
       stopDriftCheck();
+      clearVideoStartTimer();
       syncPlayerToScoreSeconds(0, { forceSeek: true });
       player?.pause();
     },
@@ -261,6 +267,7 @@ export function bindYoutubeControls(
     },
     dispose(): void {
       stopDriftCheck();
+      clearVideoStartTimer();
       player?.dispose();
       player = null;
       dom.youtubeToggle.checked = false;
@@ -321,6 +328,7 @@ export function bindYoutubeControls(
       }
 
       player.pause();
+      scheduleVideoStartAtBoundary(scoreSeconds, youtube.offsetMs);
       isBeforeVideoStart = true;
       return false;
     }
@@ -328,6 +336,7 @@ export function bindYoutubeControls(
     const youtubeSeconds = scoreSecondsToYoutubeSeconds(scoreSeconds, youtube.offsetMs);
     const isCrossingStartBoundary = isBeforeVideoStart;
 
+    clearVideoStartTimer();
     isBeforeVideoStart = false;
 
     if (shouldForceSeek || isCrossingStartBoundary || canSeekNow()) {
@@ -408,6 +417,66 @@ export function bindYoutubeControls(
     if (driftIntervalId !== null) {
       clearInterval(driftIntervalId);
       driftIntervalId = null;
+    }
+  }
+
+  /**
+   * 음수 offset으로 영상 시작 전 구간을 재생 중일 때 영상 0초 재생을 예약한다.
+   * - 인수 : scoreSeconds : 예약 기준 score seconds
+   * - 인수 : offsetMs : score metadata에 저장된 YouTube offset ms
+   * - 반환값 : 없음
+   */
+  function scheduleVideoStartAtBoundary(scoreSeconds: number, offsetMs: number): void {
+    clearVideoStartTimer();
+
+    if (
+      player === null ||
+      !dom.youtubeToggle.checked ||
+      modeState.kind !== "ready" ||
+      !session.getPlaybackRuntime().controller.isPlaying()
+    ) {
+      return;
+    }
+
+    const delayMs = Math.max(0, Math.ceil(secondsUntilYoutubeStart(scoreSeconds, offsetMs) * 1000));
+
+    videoStartTimeoutId = setTimeout(() => {
+      videoStartTimeoutId = null;
+
+      if (
+        player === null ||
+        !dom.youtubeToggle.checked ||
+        modeState.kind !== "ready" ||
+        !session.getPlaybackRuntime().controller.isPlaying()
+      ) {
+        return;
+      }
+
+      const youtube = session.getState().document.score.musicData.youtube;
+      const currentScoreSeconds = session.getPlaybackRuntime().controller.getCurrentScoreSeconds();
+
+      if (isYoutubeBeforeVideoStart(currentScoreSeconds, youtube.offsetMs)) {
+        scheduleVideoStartAtBoundary(currentScoreSeconds, youtube.offsetMs);
+        return;
+      }
+
+      // 음수 offset 경계에서는 drift interval에 맡기지 않고 영상 0초부터 직접 시작한다.
+      player.seekTo(0);
+      lastSeekAtMs = Date.now();
+      isBeforeVideoStart = false;
+      player.play();
+    }, delayMs);
+  }
+
+  /**
+   * 예약된 YouTube 시작 timer를 취소한다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
+  function clearVideoStartTimer(): void {
+    if (videoStartTimeoutId !== null) {
+      clearTimeout(videoStartTimeoutId);
+      videoStartTimeoutId = null;
     }
   }
 
