@@ -143,6 +143,7 @@
                     <div class="game-panel-head">
                         <button type="button" class="game-rules-button">Rules</button>
                         <button type="button" class="game-sync-button">Sync <strong class="game-sync-value">+90 ms</strong></button>
+                        <button type="button" class="game-pro-button" aria-pressed="false">Pro</button>
                         <span class="status-pill game-status">off</span>
                     </div>
                     <p class="game-notice">Pitch judging is a practice aid and may not be exact. Use a microphone in a quiet place.</p>
@@ -512,7 +513,8 @@
                     <thead>
                         <tr>
                             <th>Result</th>
-                            <th>Pitch error</th>
+                            <th>Standard</th>
+                            <th>Pro</th>
                             <th>Accuracy</th>
                             <th>Score</th>
                         </tr>
@@ -521,24 +523,28 @@
                         <tr>
                             <td>Perfect</td>
                             <td>&lt; 50 cent</td>
+                            <td>&lt; 30 cent</td>
                             <td>100%</td>
                             <td>Added</td>
                         </tr>
                         <tr>
                             <td>Ok</td>
                             <td>50-99 cent</td>
+                            <td>30-59 cent</td>
                             <td>66.7%</td>
                             <td>Added</td>
                         </tr>
                         <tr>
                             <td>Bad</td>
                             <td>100-199 cent</td>
+                            <td>60-99 cent</td>
                             <td>33.3%</td>
                             <td>Added</td>
                         </tr>
                         <tr>
                             <td>Miss</td>
                             <td>200 cent or more</td>
+                            <td>100 cent or more</td>
                             <td>0%</td>
                             <td>0</td>
                         </tr>
@@ -551,6 +557,7 @@
                     <thead>
                         <tr>
                             <th>Timing offset</th>
+                            <th>Pro offset</th>
                             <th>Accuracy</th>
                             <th>Result</th>
                         </tr>
@@ -558,21 +565,25 @@
                     <tbody>
                         <tr>
                             <td>&lt; 80 ms</td>
+                            <td>&lt; 50 ms</td>
                             <td>100%</td>
                             <td>No timing text. Pitch judge stays unchanged.</td>
                         </tr>
                         <tr>
                             <td>80-149 ms</td>
+                            <td>50-99 ms</td>
                             <td>66.7%</td>
                             <td>Shows small early or late text. Pitch judge stays unchanged.</td>
                         </tr>
                         <tr>
                             <td>150-249 ms</td>
+                            <td>100-149 ms</td>
                             <td>33.3%</td>
                             <td>Shows small early or late text. Final judge is downgraded to Bad.</td>
                         </tr>
                         <tr>
                             <td>250 ms or more</td>
+                            <td>150 ms or more</td>
                             <td>0%</td>
                             <td>Final judge becomes Miss even if the pitch is correct.</td>
                         </tr>
@@ -597,7 +608,7 @@
                         </tr>
                         <tr>
                             <th scope="row">Combo</th>
-                            <td>Score-eligible Perfect, Ok, or Bad continues the combo. Miss resets it.</td>
+                            <td>Standard: score-eligible Perfect, Ok, or Bad continues the combo. Pro: Bad or Miss resets it.</td>
                         </tr>
                         <tr>
                             <th scope="row">No input</th>
@@ -623,6 +634,7 @@
             <div class="practice-result-meta">
                 <span>Title <strong class="result-title">unknown</strong></span>
                 <span>Artist <strong class="result-artist">unknown</strong></span>
+                <span>Mode <strong class="result-mode">Standard</strong></span>
             </div>
             <div class="practice-result-grid">
                 <span>Pitch Accuracy <strong class="result-accuracy">0%</strong></span>

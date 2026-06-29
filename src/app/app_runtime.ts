@@ -212,6 +212,7 @@ export function createInitialState(
     textOff: false,
     loop: { ...DEFAULT_LOOP_STATE },
     gameSyncOffsetMs: loadGameSyncOffsetMsFromLocalStorage(),
+    practiceJudgeMode: "standard",
     gameMode: { kind: "off" },
     history: createUndoHistoryState(),
     mode: { kind: "view" },
@@ -536,6 +537,7 @@ export function loadScoreTextAsInitialState(
     ok: true,
     state: {
       ...createInitialState(loadResult.document, scoreOrigin),
+      practiceJudgeMode: "standard",
       statusMessage: {
         level: "info",
         text: `${sourceLabel} loaded.`,

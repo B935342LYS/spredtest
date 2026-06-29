@@ -404,6 +404,7 @@ export function bindPlaybackControls(
           consumedOnsetIds: consumedTimingOnsetIds,
           attackSatisfiedEventIds,
         },
+        state.practiceJudgeMode,
       );
 
       if (sample === null) {
@@ -429,7 +430,7 @@ export function bindPlaybackControls(
         return;
       }
 
-      const nextSummary = applyGameScoringSample(state.gameMode.summary, sample);
+      const nextSummary = applyGameScoringSample(state.gameMode.summary, sample, state.practiceJudgeMode);
       const nextState = {
         ...state,
         gameMode: {

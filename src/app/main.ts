@@ -408,6 +408,8 @@ async function boot(): Promise<void> {
   };
 
   const loadScoreJsonText = (jsonText: string, sourceLabel: string): void => {
+    const previousPracticeJudgeMode = state.practiceJudgeMode;
+
     state = {
       ...state,
       busy: { kind: "loadingScore", message: `Loading ${sourceLabel}...` },
@@ -434,6 +436,7 @@ async function boot(): Promise<void> {
     dom.editToggle.checked = false;
     state = {
       ...nextLoadResult.state,
+      practiceJudgeMode: previousPracticeJudgeMode,
       busy: { kind: "idle" },
     };
     render();

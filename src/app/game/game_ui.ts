@@ -51,6 +51,7 @@ export function syncGameModeUi(dom: AppDom, state: AppState): void {
   const summary = getGameScoreSummary(state.gameMode);
   const isOpen = isGameModeOpen(state.gameMode);
   const isLocked = isGameModeLocked(state.gameMode);
+  const isProMode = state.practiceJudgeMode === "pro";
   const statusText = state.gameMode.kind === "preparing"
     ? state.gameMode.message
     : state.gameMode.kind === "error"
@@ -58,6 +59,7 @@ export function syncGameModeUi(dom: AppDom, state: AppState): void {
       : formatGameStatus(state);
 
   dom.gamePanel.dataset.state = state.gameMode.kind;
+  dom.gamePanel.dataset.judgeMode = state.practiceJudgeMode;
   dom.gameStatus.textContent = statusText;
   dom.gameStatus.title = statusText;
   dom.gameAccuracy.textContent = formatAccuracyPercent(summary.accuracyPercent);
@@ -73,6 +75,15 @@ export function syncGameModeUi(dom: AppDom, state: AppState): void {
   dom.gameScore.textContent = String(Math.round(summary.score));
   dom.gameSyncValue.textContent = formatGameSyncOffsetMs(state.gameSyncOffsetMs);
   dom.practiceSyncValue.textContent = formatGameSyncOffsetMs(state.gameSyncOffsetMs);
+  dom.gameProButton.disabled = state.busy.kind !== "idle" ||
+    (
+      state.gameMode.kind !== "off" &&
+      state.gameMode.kind !== "ready"
+    );
+  dom.gameProButton.textContent = isProMode ? "Pro on" : "Pro";
+  dom.gameProButton.setAttribute("aria-pressed", String(isProMode));
+  dom.gameProButton.classList.toggle("on", isProMode);
+  dom.gameProButton.classList.toggle("off", !isProMode);
   syncGameDiagnostics(dom, getVisiblePitchFrame(state));
   dom.practiceModeButton.disabled = state.busy.kind !== "idle" && !isLocked;
   dom.practiceModeButton.textContent = isOpen ? "exit practice" : "practice mode (beta)";
@@ -159,6 +170,7 @@ function formatMicState(frame: GamePitchFrame): string {
  * - 반환값 : 없음
  */
 export function openPracticeResultDialog(dom: AppDom, summary: GameScoreSummary): void {
+  dom.resultMode.textContent = "Standard";
   dom.resultAccuracy.textContent = formatAccuracyPercent(summary.accuracyPercent);
   dom.resultTimingAccuracy.textContent = formatAccuracyPercent(summary.timingAccuracyPercent);
   dom.resultScore.textContent = String(Math.round(summary.score));
@@ -196,6 +208,7 @@ export function openPracticeResultDialogForState(dom: AppDom, state: AppState): 
   dom.resultTitle.title = title;
   dom.resultArtist.textContent = artist;
   dom.resultArtist.title = artist;
+  dom.resultMode.textContent = state.practiceJudgeMode === "pro" ? "Pro" : "Standard";
   dom.resultAccuracy.textContent = formatAccuracyPercent(summary.accuracyPercent);
   dom.resultTimingAccuracy.textContent = formatAccuracyPercent(summary.timingAccuracyPercent);
   dom.resultScore.textContent = String(Math.round(summary.score));

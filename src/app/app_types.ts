@@ -18,7 +18,7 @@ import type {
 import type { DefaultNoteEditInput } from "./edit/edit_default";
 import type { ScoreEditSelection } from "./edit/edit_apply";
 import type { TupletEditDraft } from "./edit/edit_tuplet";
-import type { GameModeState } from "./game/game_types";
+import type { GameModeState, PracticeJudgeMode } from "./game/game_types";
 import type { LayoutDraftBundle } from "./layout/layout_types";
 
 /** 사용자가 볼 수 있는 짧은 상태 메시지의 중요도. */
@@ -153,6 +153,7 @@ export type AppState = {
   textOff: boolean;
   loop: LoopState;
   gameSyncOffsetMs: number;
+  practiceJudgeMode: PracticeJudgeMode;
   gameMode: GameModeState;
   history: UndoHistoryState;
   mode: AppMode;
@@ -225,6 +226,7 @@ export type AppDom = {
   practiceModeButton: HTMLButtonElement;
   gameSyncButton: HTMLButtonElement;
   gameSyncValue: HTMLElement;
+  gameProButton: HTMLButtonElement;
   gameRulesButton: HTMLButtonElement;
   practiceSyncDialog: HTMLDialogElement;
   practiceSyncCloseButton: HTMLButtonElement;
@@ -240,6 +242,7 @@ export type AppDom = {
   practiceResultDialog: HTMLDialogElement;
   resultTitle: HTMLElement;
   resultArtist: HTMLElement;
+  resultMode: HTMLElement;
   resultAccuracy: HTMLElement;
   resultTimingAccuracy: HTMLElement;
   resultScore: HTMLElement;

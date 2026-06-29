@@ -98,6 +98,9 @@ export type GameTimingJudgeResult =
   | { kind: "bad"; direction: "early" | "late"; offsetMs: number }
   | { kind: "miss"; offsetMs: number };
 
+/** practice mode의 판정 엄격도. */
+export type PracticeJudgeMode = "standard" | "pro";
+
 /** scoring interval 하나에서 생성된 판정 결과. */
 export type GameScoringSampleResult = {
   targetEventId: string;

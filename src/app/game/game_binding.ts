@@ -7,6 +7,7 @@ import type {
   AppState,
 } from "../app_types";
 import { syncLeftStatus, syncUiControls } from "../app_ui_sync";
+import { fitScoreHeight } from "../app_view_binding";
 import { saveGameSyncOffsetMsToLocalStorage } from "../../infra/game_preferences";
 import { syncGameModeUi } from "./game_ui";
 import { syncGamePitchOverlay } from "./game_pitch_overlay";
@@ -15,6 +16,7 @@ import {
   DEFAULT_GAME_SYNC_OFFSET_MS,
   GAME_SYNC_OFFSET_STEP_MS,
   createEmptyGameScoreSummary,
+  type PracticeJudgeMode,
   type GamePitchFrame,
 } from "./game_types";
 
@@ -80,6 +82,19 @@ export function bindGameModeControls(
   let syncBeepIntervalId: number | null = null;
   let lastSyncBeatAtMs: number | null = null;
   let requestId = 0;
+
+  /**
+   * practice panel이 열린 뒤 score가 현재 화면 높이에 들어오도록 맞춘다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
+  const fitPracticeScoreHeight = (): void => {
+    requestAnimationFrame(() => {
+      fitScoreHeight(dom, session, { silent: true });
+      syncLeftStatus(dom, session.getState());
+      syncUiControls(dom, session.getState());
+    });
+  };
 
   const updatePitchFrame = (frame: GamePitchFrame): void => {
     const state = session.getState();
@@ -238,6 +253,35 @@ export function bindGameModeControls(
     dom.practiceSyncDialog.showModal();
   });
 
+  dom.gameProButton.addEventListener("click", () => {
+    const state = session.getState();
+
+    if (
+      state.busy.kind !== "idle" ||
+      (
+        state.gameMode.kind !== "off" &&
+        state.gameMode.kind !== "ready"
+      )
+    ) {
+      syncGameModeUi(dom, state);
+      return;
+    }
+
+    const nextMode: PracticeJudgeMode = state.practiceJudgeMode === "pro" ? "standard" : "pro";
+    const nextState = {
+      ...state,
+      practiceJudgeMode: nextMode,
+      statusMessage: {
+        level: "info" as const,
+        text: nextMode === "pro" ? "Practice Pro Mode enabled." : "Practice Standard Mode enabled.",
+      },
+    };
+
+    session.setState(nextState);
+    syncGameModeUi(dom, nextState);
+    syncLeftStatus(dom, nextState);
+  });
+
   dom.practiceSyncCloseButton.addEventListener("click", () => {
     stopSyncBeepLoop();
     dom.practiceSyncDialog.close();
@@ -324,6 +368,7 @@ export function bindGameModeControls(
       },
     });
     session.render();
+    fitPracticeScoreHeight();
 
     navigator.mediaDevices.getUserMedia({
       audio: createMusicInputAudioConstraints(),
@@ -356,6 +401,7 @@ export function bindGameModeControls(
           },
         });
         session.render();
+        fitPracticeScoreHeight();
       })
       .catch((error: unknown) => {
         if (requestId !== currentRequestId || session.getState().gameMode.kind === "off") {

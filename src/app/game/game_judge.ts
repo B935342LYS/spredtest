@@ -13,22 +13,42 @@ import type {
   GameJudgeTarget,
   GameEffectBonusResult,
   GamePitchFrame,
+  PracticeJudgeMode,
   GameScoreSummary,
   GameScoringSampleResult,
   GameTimingJudgeResult,
   GameTimingOnsetCandidate,
 } from "./game_types";
 
-const PERFECT_ERROR_CENT = 50;
-const OK_ERROR_CENT = 100;
-const BAD_ERROR_CENT = 200;
 const NOTE_TRANSITION_GRACE_SECONDS = 0.12;
 const NEXT_NOTE_GRACE_SECONDS = NOTE_TRANSITION_GRACE_SECONDS;
 const PREVIOUS_NOTE_GRACE_SECONDS = NOTE_TRANSITION_GRACE_SECONDS;
-const TIMING_DISPLAY_THRESHOLD_MS = 80;
-const TIMING_BAD_THRESHOLD_MS = 150;
-const TIMING_MISS_THRESHOLD_MS = 250;
 const TIMING_MAX_MATCH_MS = 500;
+const JUDGE_THRESHOLDS: Record<PracticeJudgeMode, {
+  perfectErrorCent: number;
+  okErrorCent: number;
+  badErrorCent: number;
+  timingDisplayMs: number;
+  timingBadMs: number;
+  timingMissMs: number;
+}> = {
+  standard: {
+    perfectErrorCent: 50,
+    okErrorCent: 100,
+    badErrorCent: 200,
+    timingDisplayMs: 80,
+    timingBadMs: 150,
+    timingMissMs: 250,
+  },
+  pro: {
+    perfectErrorCent: 30,
+    okErrorCent: 60,
+    badErrorCent: 100,
+    timingDisplayMs: 50,
+    timingBadMs: 100,
+    timingMissMs: 150,
+  },
+};
 const DEFAULT_TRACK_DIFFICULTY: Record<TrackId, number> = {
   basic: 1,
   optional: 1.2,
@@ -174,6 +194,7 @@ export function judgeGameScoringSample(
   scoreSeconds: number,
   trackDifficulty: Record<TrackId, number>,
   timing?: GameTimingJudgeOptions,
+  judgeMode: PracticeJudgeMode = "standard",
 ): GameScoringSampleResult | null {
   if (
     frame === null ||
@@ -204,10 +225,11 @@ export function judgeGameScoringSample(
     return null;
   }
 
-  const pitchLabel = classifyPitchError(selectedErrorCent);
+  const thresholds = JUDGE_THRESHOLDS[judgeMode];
+  const pitchLabel = classifyPitchError(selectedErrorCent, thresholds);
   const timingMatch = timing === undefined
     ? createEmptyTimingMatch()
-    : judgeTimingForTarget(selectedTarget, timing);
+    : judgeTimingForTarget(selectedTarget, timing, thresholds);
   const label = applyTimingDowngrade(pitchLabel, timingMatch.result);
   const pitchAccuracy = getPitchAccuracy(label);
   const difficulty = trackDifficulty[selectedTarget.trackId];
@@ -259,6 +281,7 @@ function createEmptyTimingMatch(): {
 function judgeTimingForTarget(
   target: GameJudgeTarget,
   options: GameTimingJudgeOptions,
+  thresholds: (typeof JUDGE_THRESHOLDS)[PracticeJudgeMode],
 ): {
   result: GameTimingJudgeResult;
   onsetId: number | null;
@@ -294,7 +317,7 @@ function judgeTimingForTarget(
   const offsetMs = (selectedOnset.scoreSeconds - target.startSeconds) * 1000;
   const absOffsetMs = Math.abs(offsetMs);
 
-  if (absOffsetMs >= TIMING_MISS_THRESHOLD_MS) {
+  if (absOffsetMs >= thresholds.timingMissMs) {
     return {
       result: {
         kind: "miss",
@@ -304,7 +327,7 @@ function judgeTimingForTarget(
     };
   }
 
-  if (absOffsetMs >= TIMING_BAD_THRESHOLD_MS) {
+  if (absOffsetMs >= thresholds.timingBadMs) {
     return {
       result: {
         kind: "bad",
@@ -315,7 +338,7 @@ function judgeTimingForTarget(
     };
   }
 
-  if (absOffsetMs >= TIMING_DISPLAY_THRESHOLD_MS) {
+  if (absOffsetMs >= thresholds.timingDisplayMs) {
     return {
       result: {
         kind: offsetMs < 0 ? "early" : "late",
@@ -358,6 +381,7 @@ export function normalizeGameTrackDifficulty(
 export function applyGameScoringSample(
   summary: GameScoreSummary,
   sample: GameScoringSampleResult,
+  judgeMode: PracticeJudgeMode = "standard",
 ): GameScoreSummary {
   if (!sample.scoreEligible) {
     return summary;
@@ -373,9 +397,7 @@ export function applyGameScoringSample(
   const timingLateCount = summary.timingLateCount + (sample.timing.kind === "late" ? 1 : 0);
   const timingBadCount = summary.timingBadCount + (sample.timing.kind === "bad" ? 1 : 0);
   const timingMissCount = summary.timingMissCount + (sample.timing.kind === "miss" ? 1 : 0);
-  const currentCombo = sample.scoreEligible && sample.label !== "Miss"
-    ? summary.currentCombo + 1
-    : 0;
+  const currentCombo = shouldContinueGameCombo(sample, judgeMode) ? summary.currentCombo + 1 : 0;
   const scoredSampleCount = perfectCount + okCount + badCount + missCount;
   const timingSampleCount = timingOnTimeCount +
     timingEarlyCount +
@@ -487,20 +509,40 @@ function normalizeTrackDifficulty(trackId: TrackId, value: number | undefined): 
  * - 인수 : errorCent : 0 이상 pitch class 오차 cent
  * - 반환값 : 표시할 판정 label
  */
-function classifyPitchError(errorCent: number): GameScoringSampleResult["label"] {
-  if (errorCent < PERFECT_ERROR_CENT) {
+function classifyPitchError(
+  errorCent: number,
+  thresholds: (typeof JUDGE_THRESHOLDS)[PracticeJudgeMode],
+): GameScoringSampleResult["label"] {
+  if (errorCent < thresholds.perfectErrorCent) {
     return "Perfect";
   }
 
-  if (errorCent < OK_ERROR_CENT) {
+  if (errorCent < thresholds.okErrorCent) {
     return "Ok";
   }
 
-  if (errorCent < BAD_ERROR_CENT) {
+  if (errorCent < thresholds.badErrorCent) {
     return "Bad";
   }
 
   return "Miss";
+}
+
+/**
+ * 현재 judge mode에서 sample이 combo를 이어갈 수 있는지 확인한다.
+ * - 인수 : sample : 점수 반영 대상 sample
+ * - 인수 : judgeMode : standard/pro 판정 엄격도
+ * - 반환값 : combo 증가 대상이면 true
+ */
+function shouldContinueGameCombo(
+  sample: GameScoringSampleResult,
+  judgeMode: PracticeJudgeMode,
+): boolean {
+  if (!sample.scoreEligible || sample.label === "Miss") {
+    return false;
+  }
+
+  return judgeMode === "standard" || sample.label !== "Bad";
 }
 
 /**

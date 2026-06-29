@@ -48,6 +48,11 @@ export type ViewBindingSession = {
   youtubeControl?: YoutubePlaybackControl;
 };
 
+/** fit height 실행 시 사용자 상태 메시지 갱신 여부를 고르는 option. */
+export type FitScoreHeightOptions = {
+  silent?: boolean;
+};
+
 /** view control 전체 binding이 layout 적용 후 playback 재생성을 요청하기 위한 session 입력. */
 type ViewControlsBindingSession = ViewBindingSession & {
   resetPlaybackForCurrentState(): void;
@@ -63,6 +68,7 @@ type ViewControlsBindingSession = ViewBindingSession & {
 export function fitScoreHeight(
   dom: AppDom,
   session: ViewBindingSession,
+  options: FitScoreHeightOptions = {},
 ): void {
   const state = session.getState();
   const leftEdgeTick = getViewportLeftEdgeTick(dom, state);
@@ -73,11 +79,13 @@ export function fitScoreHeight(
     restoreViewportLeftEdgeTick(dom, session, leftEdgeTick);
   }
 
-  session.setState({
-    ...session.getState(),
-    statusMessage,
-  });
-  syncLeftStatus(dom, session.getState());
+  if (!options.silent) {
+    session.setState({
+      ...session.getState(),
+      statusMessage,
+    });
+    syncLeftStatus(dom, session.getState());
+  }
 
   if (statusMessage.level !== "info") {
     return;
@@ -95,11 +103,13 @@ export function fitScoreHeight(
 
     session.render();
     restoreViewportLeftEdgeTick(dom, session, secondPassLeftEdgeTick);
-    session.setState({
-      ...session.getState(),
-      statusMessage: nextStatusMessage,
-    });
-    syncLeftStatus(dom, session.getState());
+    if (!options.silent) {
+      session.setState({
+        ...session.getState(),
+        statusMessage: nextStatusMessage,
+      });
+      syncLeftStatus(dom, session.getState());
+    }
   });
 }
 
