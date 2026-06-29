@@ -29,6 +29,7 @@ const RAPID_REPEAT_TREM_MAX_NOTE_TICKS = 1;
 const RAPID_REPEAT_TREM_MAX_GAP_TICKS = 1e-6;
 const EXPLICIT_TREM_RELAX_MIN_DIVISION = 2;
 const EXPLICIT_TREM_RELAX_MAX_DIVISION = 4;
+const SYNTHETIC_TREM_TIMING_ONSET_ID = -1;
 const TIMING_MAX_MATCH_MS = 500;
 const JUDGE_THRESHOLDS: Record<PracticeJudgeMode, {
   perfectErrorCent: number;
@@ -271,8 +272,8 @@ export function judgeGameScoringSample(
     scoreBlockedReason: scoreEligible ? null : "attackRequired",
     scoreContribution,
     timing: timingMatch.result,
-    timingOnsetId: timingMatch.onsetId,
-    timingJudgedEventId: timingMatch.onsetId === null ? null : selectedTarget.eventId,
+    timingOnsetId: isTremRelaxedHit ? SYNTHETIC_TREM_TIMING_ONSET_ID : timingMatch.onsetId,
+    timingJudgedEventId: isTremRelaxedHit || timingMatch.onsetId !== null ? selectedTarget.eventId : null,
   };
 }
 
