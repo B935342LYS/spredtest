@@ -166,6 +166,11 @@ export type CanvasNoteRenderItem = {
   midi: number;
   text: string;
   displayShape: "rect" | "anchorSquare";
+  omittedBorders?: {
+    left?: boolean;
+    right?: boolean;
+  };
+  extendLeftToConnect?: boolean;
   displayTextAnchors: CanvasNoteDisplayTextAnchor[];
   effects: CanvasNoteEffectSegment[];
   trackId?: string;

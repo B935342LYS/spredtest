@@ -106,6 +106,7 @@ function createCanvasNoteRenderItemsForEvent(
  * - 인수 : endTick : renderer item 끝 tick
  * - 인수 : displayShape : rect 또는 anchorSquare 표시 형태
  * - 인수 : renderAlpha : active track 상태가 반영된 alpha 값
+ * - 인수 : omittedBorders : 그리지 않을 note rectangle 테두리
  * - 반환값 : canvas note renderer가 소비할 note item
  */
 function createBaseCanvasNoteRenderItem(
@@ -114,6 +115,7 @@ function createBaseCanvasNoteRenderItem(
   endTick: number,
   displayShape: CanvasNoteRenderItem["displayShape"],
   renderAlpha: number,
+  omittedBorders?: CanvasNoteRenderItem["omittedBorders"],
 ): CanvasNoteRenderItem {
   return {
     sourceEventId: event.eventId,
@@ -124,6 +126,7 @@ function createBaseCanvasNoteRenderItem(
     midi: event.sound.midi,
     text: event.text,
     displayShape,
+    omittedBorders,
     displayTextAnchors: event.displayTextAnchors
       .filter((anchor) =>
         rangesOverlap(
@@ -162,7 +165,14 @@ function createRectItemsAroundAnchorSquares(
   const rectRanges = subtractAnchorRangesFromEvent(event, anchors);
 
   return rectRanges.map((range) =>
-    createBaseCanvasNoteRenderItem(event, range.startTick, range.endTick, "rect", renderAlpha)
+    createBaseCanvasNoteRenderItem(
+      event,
+      range.startTick,
+      range.endTick,
+      "rect",
+      renderAlpha,
+      range.omittedBorders,
+    )
   );
 }
 
@@ -175,15 +185,24 @@ function createRectItemsAroundAnchorSquares(
 function subtractAnchorRangesFromEvent(
   event: NoteEvent,
   anchors: readonly NoteEvent["glissAnchors"][number][],
-): Array<{ startTick: number; endTick: number }> {
+): Array<{
+  startTick: number;
+  endTick: number;
+  omittedBorders?: CanvasNoteRenderItem["omittedBorders"];
+}> {
   const eventStartTick = timeFractionToNumber(event.time.startTick);
   const eventEndTick = timeFractionToNumber(event.time.endTick);
-  const rectRanges: Array<{ startTick: number; endTick: number }> = [];
+  const rectRanges: Array<{
+    startTick: number;
+    endTick: number;
+    omittedBorders?: CanvasNoteRenderItem["omittedBorders"];
+  }> = [];
   let cursorTick = eventStartTick;
   const internalAnchors = anchors
     .map((anchor) => ({
       startTick: timeFractionToNumber(anchor.time.startTick),
       endTick: timeFractionToNumber(anchor.time.endTick),
+      role: anchor.role,
     }))
     .filter((range) =>
       range.startTick > eventStartTick &&
@@ -198,6 +217,9 @@ function subtractAnchorRangesFromEvent(
       rectRanges.push({
         startTick: cursorTick,
         endTick: anchorRange.startTick,
+        omittedBorders: anchorRange.role === "start"
+          ? { right: true }
+          : undefined,
       });
     }
 
@@ -261,6 +283,10 @@ function createTupletGlissAnchorSquareItem(
     midi: event.sound.midi,
     text: "",
     displayShape: "anchorSquare",
+    omittedBorders: {
+      left: anchor.role === "start",
+    },
+    extendLeftToConnect: anchor.role === "start",
     displayTextAnchors: event.displayTextAnchors
       .filter((textAnchor) => sourceCellsMatch(textAnchor.source, anchor.source))
       .map((textAnchor) => ({

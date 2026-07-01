@@ -363,6 +363,9 @@ function createNoteLayoutItem(
   );
   const centerY = getDisplayCenterY(row, item.displayCentOffset, layout);
   const y = centerY - height / 2;
+  const leftExtension = item.extendLeftToConnect
+    ? CANVAS_METRICS.noteInsetX
+    : 0;
   const x = item.displayShape === "anchorSquare"
     ? startX + layout.columnWidth / 2 - height / 2
     : startX + CANVAS_METRICS.noteInsetX;
@@ -375,9 +378,9 @@ function createNoteLayoutItem(
 
   return {
     ...item,
-    x,
+    x: x - leftExtension,
     y,
-    width,
+    width: width + leftExtension,
     height,
   };
 }
@@ -489,7 +492,41 @@ function drawNoteRectangle(
       : CANVAS_COLORS.noteStroke;
   context.lineWidth = 1;
   context.fillRect(item.x, item.y, item.width, item.height);
-  context.strokeRect(item.x + 0.5, item.y + 0.5, item.width - 1, item.height - 1);
+  drawNoteBorder(context, item);
+}
+
+/**
+ * note rectangle의 윤곽선을 그린다.
+ * - 인수 : context : note layer canvas 2D context
+ * - 인수 : item : CSS pixel 좌표가 확정된 note item
+ * - 반환값 : 없음
+ */
+function drawNoteBorder(
+  context: CanvasRenderingContext2D,
+  item: CanvasNoteLayoutItem,
+): void {
+  const left = item.x + 0.5;
+  const top = item.y + 0.5;
+  const right = item.x + item.width - 0.5;
+  const bottom = item.y + item.height - 0.5;
+
+  context.beginPath();
+  context.moveTo(left, top);
+  context.lineTo(right, top);
+
+  if (!item.omittedBorders?.right) {
+    context.lineTo(right, bottom);
+  } else {
+    context.moveTo(right, bottom);
+  }
+
+  context.lineTo(left, bottom);
+
+  if (!item.omittedBorders?.left) {
+    context.lineTo(left, top);
+  }
+
+  context.stroke();
 }
 
 /**

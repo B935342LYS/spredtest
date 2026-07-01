@@ -14,7 +14,7 @@ export function scoreSecondsToRawYoutubeSeconds(
   scoreSeconds: number,
   offsetMs: number,
 ): number {
-  const rawSeconds = scoreSeconds + offsetMs / 1000;
+  const rawSeconds = scoreSeconds - offsetMs / 1000;
 
   return Number.isFinite(rawSeconds) ? rawSeconds : 0;
 }
