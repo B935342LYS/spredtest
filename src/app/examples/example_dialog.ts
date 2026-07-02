@@ -224,7 +224,7 @@ function resetExampleDialog(dom: AppDom): void {
   dom.examplesSortSelect.value = "title";
   dom.examplesSortDirectionSelect.value = "asc";
   dom.examplesLoadButton.disabled = true;
-  setExampleDialogNotice(dom, "Enter access word and load the example list.", "info");
+  setExampleDialogNotice(dom, "Public examples load automatically.", "info");
   setExampleDialogBusy(dom, false);
 }
 

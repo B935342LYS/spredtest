@@ -50,6 +50,7 @@ export function bindExampleControls(
     }
 
     openExampleDialog(dom);
+    void loadManifest(dom, session, provider, "");
   });
 
   bindExampleDialog(dom, {
@@ -64,6 +65,11 @@ export function bindExampleControls(
       }
 
       if (action.kind === "loadList") {
+        if (action.accessWord.trim().length === 0) {
+          setExampleDialogNotice(dom, "Enter access word to load extra examples.", "warning");
+          return;
+        }
+
         void loadManifest(dom, session, provider, action.accessWord);
         return;
       }
@@ -88,15 +94,11 @@ async function loadManifest(
   accessWord: string,
 ): Promise<void> {
   const trimmedAccessWord = accessWord.trim();
-
-  if (trimmedAccessWord.length === 0) {
-    setExampleDialogNotice(dom, "Enter access word.", "warning");
-    return;
-  }
+  const scopeLabel = trimmedAccessWord.length === 0 ? "public examples" : "examples";
 
   setExampleDialogBusy(dom, true);
-  setExampleDialogNotice(dom, "Loading examples...", "info");
-  setAppBusyStatus(dom, session, "Loading examples...");
+  setExampleDialogNotice(dom, `Loading ${scopeLabel}...`, "info");
+  setAppBusyStatus(dom, session, `Loading ${scopeLabel}...`);
 
   try {
     const manifest = await provider.loadManifest(trimmedAccessWord);
@@ -105,7 +107,7 @@ async function loadManifest(
     setExampleDialogNotice(dom, `Loaded ${manifest.examples.length} example(s).`, "info");
     setAppStatus(dom, session, "Example list loaded.", "info");
   } catch (error: unknown) {
-    const message = formatExampleError(error);
+    const message = formatExampleError(error, trimmedAccessWord.length === 0 ? "public" : "extra");
 
     setExampleDialogNotice(dom, message, "error");
     setAppStatus(dom, session, message, "error");
@@ -211,10 +213,15 @@ function setAppStatus(
 /**
  * Examples 오류를 사용자 표시 문구로 정리한다.
  * - 인수 : error : provider 또는 fetch에서 발생한 오류
+ * - 인수 : requestScope : 공개 목록 요청 또는 추가 목록 요청 구분
  * - 반환값 : 사용자에게 표시할 오류 문구
  */
-function formatExampleError(error: unknown): string {
+function formatExampleError(error: unknown, requestScope: "public" | "extra" = "extra"): string {
   if (isExampleError(error)) {
+    if (requestScope === "public" && error.code === "INVALID_ACCESS_WORD") {
+      return "Public example list is unavailable. Update the Examples Edge Function to allow empty access word requests.";
+    }
+
     return error.message;
   }
 
