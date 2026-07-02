@@ -5,37 +5,60 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SPRED Manual</title>
     <style>
+        :root {
+            color-scheme: light;
+            --bg: #f5f6f8;
+            --surface: #ffffff;
+            --surface-soft: #f9fafb;
+            --text: #202124;
+            --muted: #5f6368;
+            --line: #d9dde3;
+            --accent: #1a73e8;
+            --warning-bg: #fff7e0;
+            --warning-line: #f4c542;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            line-height: 1.55;
-            color: #202124;
-            background: #f6f7f9;
+            line-height: 1.58;
+            color: var(--text);
+            background: var(--bg);
         }
 
         main {
-            max-width: 880px;
+            width: min(960px, calc(100% - 32px));
             margin: 0 auto;
-            padding: 32px 20px 48px;
+            padding: 32px 0 56px;
         }
 
-        section {
-            margin-top: 28px;
+        header {
+            margin-bottom: 24px;
         }
 
         h1,
-        h2 {
-            line-height: 1.2;
+        h2,
+        h3 {
+            line-height: 1.25;
         }
 
         h1 {
             margin: 0 0 8px;
-            font-size: 28px;
+            font-size: 30px;
         }
 
         h2 {
-            margin: 0 0 10px;
-            font-size: 18px;
+            margin: 32px 0 12px;
+            font-size: 22px;
+        }
+
+        h3 {
+            margin: 0;
+            font-size: 16px;
         }
 
         p,
@@ -43,62 +66,384 @@
             font-size: 14px;
         }
 
+        ul {
+            margin: 10px 0 0;
+            padding-left: 20px;
+        }
+
         code {
-            padding: 1px 4px;
+            padding: 1px 5px;
             border-radius: 4px;
             background: #e9ecef;
+            font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+            font-size: 0.92em;
+        }
+
+        .notice {
+            margin: 16px 0;
+            padding: 14px 16px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--surface);
+        }
+
+        .notice.warning {
+            border-color: var(--warning-line);
+            background: var(--warning-bg);
+        }
+
+        .lead {
+            color: var(--muted);
+            font-size: 15px;
+        }
+
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 8px 18px;
+            padding-left: 18px;
+        }
+
+        .manual-section {
+            margin-top: 36px;
+        }
+
+        .section-intro {
+            margin: 0 0 14px;
+            color: var(--muted);
+        }
+
+        .accordion-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .section-accordion {
+            margin-top: 24px;
+        }
+
+        .section-accordion > summary {
+            min-height: 56px;
+            font-size: 17px;
+        }
+
+        .section-accordion > .detail-body {
+            padding-top: 16px;
+        }
+
+        details {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--surface);
+            overflow: hidden;
+        }
+
+        details[open] {
+            box-shadow: 0 8px 22px rgba(60, 64, 67, 0.08);
+        }
+
+        summary {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 48px;
+            padding: 12px 16px;
+            cursor: pointer;
+            list-style: none;
+            font-weight: 700;
+        }
+
+        summary::-webkit-details-marker {
+            display: none;
+        }
+
+        summary::after {
+            content: "+";
+            margin-left: auto;
+            color: var(--accent);
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        details[open] summary::after {
+            content: "-";
+        }
+
+        .detail-body {
+            padding: 0 16px 16px;
+            border-top: 1px solid var(--line);
+            background: var(--surface-soft);
+        }
+
+        .detail-body p {
+            margin: 14px 0 0;
+        }
+
+        .menu-image {
+            display: block;
+            width: min(100%, var(--image-width, 560px));
+            height: auto;
+            margin: 14px 0 4px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fff;
+        }
+
+        .menu-image.wide {
+            --image-width: 720px;
+        }
+
+        .menu-image.small {
+            --image-width: 260px;
+        }
+
+        .subsection-title {
+            margin-top: 32px;
+            padding-top: 6px;
+        }
+
+        .term-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .term {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 12px;
+            padding: 10px 12px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--surface);
+            font-size: 14px;
+        }
+
+        .term strong {
+            color: var(--accent);
+        }
+
+        @media (max-width: 640px) {
+            main {
+                width: min(100% - 20px, 960px);
+                padding-top: 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            h2 {
+                font-size: 19px;
+            }
+
+            summary {
+                padding: 12px;
+            }
+
+            .detail-body {
+                padding: 0 12px 14px;
+            }
+
+            .term {
+                grid-template-columns: 1fr;
+                gap: 4px;
+            }
         }
     </style>
 </head>
 <body>
     <main>
-        <h1>SPRED Manual</h1>
-        <p>SPRED는 악보 JSON을 만들고, 불러오고, 재생하며, practice mode로 연습하기 위한 웹 앱입니다.</p>
+        <header>
+            <h1>SPRED Manual</h1>
+            <p class="lead">오타마톤 같은 프렛리스 악기를 위한 악보 작성 / 재생 / 연습 보조 웹 앱 안내서입니다.</p>
+        </header>
 
-        <section>
-            <h2>Files</h2>
-            <ul>
-                <li><strong>JSON Load</strong>: 로컬 Score JSON 파일을 불러옵니다.</li>
-                <li><strong>JSON Download</strong>: 현재 악보를 JSON 파일로 저장합니다.</li>
-                <li><strong>Local Save / Local Load</strong>: 현재 브라우저의 local storage에 악보를 저장하거나 다시 불러옵니다.</li>
-                <li><strong>Examples</strong>: 임시 access word를 입력해 원격 예제 악보 목록을 불러옵니다.</li>
+        <aside class="notice">
+            <p>피드백, 버그 제보, 개선 의견을 환영합니다. 제작자 이메일: <code>fav_09@naver.com</code></p>
+            <p>매뉴얼의 원본은 한국어로 작성됩니다. 업데이트에 따라 실제 화면과 다른 부분이 있을 수 있으며, 현재 문서는 테스트 단계의 초안입니다.</p>
+        </aside>
+
+        <section class="manual-section" aria-labelledby="intro-title">
+            <h2 id="intro-title">1. 시작하기</h2>
+            <p>전세계 오타마토니스트 여러분 안녕하십니까?</p>
+            <p>SPRED는 별도 프로그램 설치 없이 웹 페이지에서 바로 사용할 수 있습니다. 현재는 PC와 Chrome 계열 브라우저를 중심으로 개발하고 있으며, 모바일에서는 악보 로드와 재생 위주로 사용하는 것을 권장합니다.</p>
+            <ul class="feature-list">
+                <li>악보 JSON 불러오기 / 저장하기</li>
+                <li>피아노롤 악보 재생</li>
+                <li>악보 제작과 편집</li>
+                <li>악보 양식 변경</li>
+                <li>YouTube 영상과 악보 재생 싱크</li>
+                <li>음정과 박자 평가 기능</li>
             </ul>
         </section>
 
-        <section>
-            <h2>Playback</h2>
-            <p>Play, Stop, seek bar로 재생 위치를 제어합니다. Speed는 화면 열 너비만 바꾸며 실제 재생 시간은 바꾸지 않습니다.</p>
-        </section>
+        <section class="manual-section" aria-labelledby="top-menu-title">
+            <h2 id="top-menu-title">2. 상단 메뉴</h2>
+            <p class="section-intro">상단 메뉴는 화면 위치에 따라 왼쪽 메뉴 영역, 중앙 플레이어 영역, 오른쪽 YouTube 영역으로 나눌 수 있습니다. 각 항목을 눌러 설명을 펼쳐보세요.</p>
 
-        <section>
-            <h2>Edit Mode</h2>
-            <p>Edit Mode에서는 활성 track과 선택한 입력 도구에 따라 score cell rawText를 수정합니다. Practice mode 중에는 편집과 파일 교체가 잠깁니다.</p>
-        </section>
+            <details class="section-accordion" open>
+                <summary>2.1. 왼쪽: 메뉴 영역</summary>
+                <div class="detail-body">
+                    <p class="section-intro">메뉴 영역에서는 프로그램의 각종 설정을 조정합니다.</p>
+                    <img class="menu-image wide" src="./resources/cellImage_0_0.jpg" alt="SPRED 왼쪽 상단 메뉴 영역">
 
-        <section>
-            <h2>YouTube Sync</h2>
-            <p>YouTube mode는 공식 embedded player를 follower로 사용합니다. 앱은 영상이나 음원을 저장, 캐시, 추출, 재배포하지 않습니다.</p>
-        </section>
+                    <div class="accordion-list">
+                        <details>
+                            <summary>File</summary>
+                            <div class="detail-body">
+                        <img class="menu-image small" src="./resources/cellImage_0_1.jpg" alt="File 메뉴">
+                        <p>악보 파일을 로드하거나 저장합니다. 기본적으로 악보의 확장자는 <code>.json</code>입니다.</p>
+                        <div class="term-list">
+                            <div class="term"><strong>JSON Load</strong><span>로컬 Score JSON 파일을 불러옵니다.</span></div>
+                            <div class="term"><strong>JSON Download</strong><span>현재 악보를 JSON 파일로 다운로드합니다.</span></div>
+                            <div class="term"><strong>Local Save</strong><span>현재 브라우저의 local storage에 악보를 임시 저장합니다.</span></div>
+                            <div class="term"><strong>Local Load</strong><span>같은 브라우저에 저장해둔 악보를 다시 불러옵니다.</span></div>
+                            <div class="term"><strong>Examples</strong><span>테스트용 예제 악보 목록을 불러옵니다. 현재는 베타테스터용 access word가 필요합니다.</span></div>
+                        </div>
+                        <p class="notice warning">제3자가 제작한 JSON 파일을 로드하고자 하는 경우, 사전에 안전한 파일인지 확인하는 것을 권장합니다. 장기 보관이나 공유에는 Local Save보다 JSON Download를 사용하세요.</p>
+                            </div>
+                        </details>
 
-        <section>
-            <h2>Practice Mode Beta</h2>
-            <p>마이크 입력을 사용해 pitch와 timing을 판정하는 연습 보조 기능입니다. 조용한 장소에서 마이크를 사용하세요.</p>
-        </section>
+                        <details>
+                            <summary>View</summary>
+                            <div class="detail-body">
+                        <img class="menu-image small" src="./resources/cellImage_0_2.jpg" alt="View 메뉴">
+                        <p>악보의 시각적 설정을 변경합니다.</p>
+                        <div class="term-list">
+                            <div class="term"><strong>Zoom</strong><span>악보 전체 배율을 조정합니다.</span></div>
+                            <div class="term"><strong>Speed</strong><span>악보 cell의 가로 길이를 조정합니다. 실제 재생 시간이나 BPM은 바뀌지 않습니다.</span></div>
+                            <div class="term"><strong>Fullscreen</strong><span>앱 화면을 전체 화면으로 전환합니다.</span></div>
+                            <div class="term"><strong>Fit Height</strong><span>현재 화면 높이에 맞춰 악보가 보이도록 배율을 조정합니다.</span></div>
+                            <div class="term"><strong>Normal / Reverse</strong><span>악보의 위아래 표시 방향을 전환합니다.</span></div>
+                            <div class="term"><strong>Light / Dark</strong><span>색상 테마를 변경합니다.</span></div>
+                            <div class="term"><strong>Text off</strong><span>노트 위의 텍스트 표시를 끕니다. global row 텍스트는 계속 보입니다.</span></div>
+                        </div>
+                            </div>
+                        </details>
 
-        <section>
-            <h2>Feedback Checklist</h2>
-            <ul>
-                <li>테스트 일시, 앱 URL 또는 commit</li>
-                <li>브라우저, OS, 기기 종류</li>
-                <li>사용한 예제 악보 또는 JSON 파일명</li>
-                <li>수행한 작업 순서, 기대 결과, 실제 결과</li>
-                <li>재현 가능 여부, 콘솔 오류 여부, 화면 캡처 또는 녹화 여부</li>
-            </ul>
-        </section>
+                        <details>
+                            <summary>Loop</summary>
+                            <div class="detail-body">
+                        <img class="menu-image small" src="./resources/cellImage_0_3.jpg" alt="Loop 메뉴">
+                        <p>악보의 특정 영역을 선택하여 루프할 수 있습니다.</p>
+                        <div class="term-list">
+                            <div class="term"><strong>Loop On / Off</strong><span>루프를 끄고 켭니다.</span></div>
+                            <div class="term"><strong>Start</strong><span>시작 시점을 설정합니다. 기본값은 악보 전체의 시작 시점입니다.</span></div>
+                            <div class="term"><strong>End</strong><span>종료 시점을 설정합니다. 기본값은 악보 전체의 종료 지점입니다.</span></div>
+                            <div class="term"><strong>Select Column</strong><span>선택 후 악보의 한 점을 클릭하면 시작 또는 종료 시점을 변경할 수 있습니다.</span></div>
+                        </div>
+                        <p class="notice warning">현재 매뉴얼 초안에서는 루프 UI 설명만 다룹니다. 실제 반복 재생 연결 상태는 테스트 빌드의 최신 구현을 기준으로 확인하세요.</p>
+                            </div>
+                        </details>
 
-        <section>
-            <h2>Copyright</h2>
-            <p>예제와 사용자 악보는 직접 제작한 자료, 퍼블릭 도메인, 또는 변환과 재배포가 허용된 공개 라이선스 자료를 사용해야 합니다.</p>
+                        <details>
+                            <summary>Edit Mode</summary>
+                            <div class="detail-body">
+                        <p>악보 편집 모드로 전환합니다. Edit Mode를 켠 뒤 악보 cell을 클릭하면 선택한 입력 도구와 활성 track 기준으로 악보가 수정됩니다.</p>
+                        <p>세부 입력 방법은 이후 편집 항목에서 따로 설명할 예정입니다.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>Track</summary>
+                            <div class="detail-body">
+                        <img class="menu-image small" src="./resources/cellImage_0_4.jpg" alt="Track 메뉴">
+                        <p>활성화할 트랙을 선택합니다. 현재 버전에는 <code>Basic</code>, <code>Optional</code>, <code>Extra</code> 세 종류가 있으며, 각기 다른 색으로 구분합니다.</p>
+                        <ul>
+                            <li>비활성화된 track은 화면에서 반투명하게 표시됩니다.</li>
+                            <li>비활성화된 track은 재생 시 소리가 나지 않습니다.</li>
+                            <li>track별 노트는 독립적으로 저장됩니다.</li>
+                            <li>여러 트랙을 동시에 켜고 노트를 찍으면 활성화된 트랙들에 동시에 입력될 수 있습니다.</li>
+                        </ul>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>Expand</summary>
+                            <div class="detail-body">
+                        <img class="menu-image small" src="./resources/cellImage_0_5.jpg" alt="Expand 메뉴">
+                        <p>악보의 길이를 변경합니다.</p>
+                        <div class="term-list">
+                            <div class="term"><strong>Columns</strong><span>확장 또는 정리할 기준 칸 개수를 입력합니다.</span></div>
+                            <div class="term"><strong>Expand Right</strong><span>입력한 열 수만큼 오른쪽으로 공간을 추가합니다.</span></div>
+                            <div class="term"><strong>Trim Right</strong><span>오른쪽의 불필요한 빈 공간을 정리합니다.</span></div>
+                        </div>
+                        <p class="notice warning">너무 긴 악보는 기기 성능에 영향을 줄 수 있습니다. 필요한 만큼 나누어 확장하는 것을 권장합니다.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>Clear All</summary>
+                            <div class="detail-body">
+                        <p>악보 전체를 비우고 초기 기본 상태로 되돌아갑니다.</p>
+                        <p class="notice warning">작업 중인 악보를 잃지 않도록 사용 전 <code>JSON Download</code>로 백업하세요.</p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
+
+            <details class="section-accordion" open>
+                <summary>2.2. 중앙: 플레이어 영역</summary>
+                <div class="detail-body">
+                    <p class="section-intro">전체적으로 일반적인 음악 플레이어와 비슷합니다.</p>
+                    <img class="menu-image wide" src="./resources/cellImage_0_6.jpg" alt="SPRED 중앙 플레이어 영역">
+
+                    <div class="accordion-list">
+                        <details>
+                            <summary>재생 관련 기능</summary>
+                            <div class="detail-body">
+                        <div class="term-list">
+                            <div class="term"><strong>재생, 정지</strong><span>보편적인 미디어 플레이어와 동일하게 동작합니다.</span></div>
+                            <div class="term"><strong>재생바</strong><span>현재의 진행 상태를 나타냅니다. 드래그하여 악보를 슬라이드할 수도 있습니다.</span></div>
+                            <div class="term"><strong>Volume, Wave</strong><span>악보 노트의 볼륨과 소리 유형을 결정합니다.</span></div>
+                        </div>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>Details</summary>
+                            <div class="detail-body">
+                        <img class="menu-image" src="./resources/cellImage_0_7.jpg" alt="Details dialog">
+                        <p>악보의 정보를 열람하고 편집할 수 있습니다. 단, 생성일과 수정일은 저장 시점을 기준으로 자동 갱신되며 사용자가 직접 수정할 수 없습니다.</p>
+                        <p>편집 후 <code>Save</code>를 누르면 정보가 저장됩니다. <code>File</code> -> <code>JSON Download</code> / <code>Local Save</code> 버튼으로 해당 정보를 보존할 수 있습니다.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>practice mode (beta)</summary>
+                            <div class="detail-body">
+                        <p>마이크 입력을 받아 악보와의 일치도를 측정하여 사용자의 음정과 박자 감각을 평가하는 기능입니다.</p>
+                        <p>자세한 것은 별도 항목에서 기술합니다.</p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
+
+            <details class="section-accordion" open>
+                <summary>2.3. 오른쪽: YouTube 영역</summary>
+                <div class="detail-body">
+                    <p class="section-intro">유튜브 영상을 연동해 반주처럼 재생하는 기능입니다.</p>
+                    <img class="menu-image small" src="./resources/cellImage_0_8.jpg" alt="SPRED 오른쪽 YouTube 영역">
+
+                    <div class="accordion-list">
+                        <details>
+                            <summary>YouTube sync</summary>
+                            <div class="detail-body">
+                        <div class="term-list">
+                            <div class="term"><strong>YouTube</strong><span>YouTube mode를 켜거나 끕니다.</span></div>
+                            <div class="term"><strong>URL or ID</strong><span>Video 주소 입력창에 유튜브 링크 또는 영상 ID를 입력합니다.</span></div>
+                            <div class="term"><strong>Offset (ms)</strong><span>타이밍을 조절해 악보와 맞춥니다. 기기와 브라우저에 따라 적정값이 달라질 수 있습니다.</span></div>
+                            <div class="term"><strong>Reload</strong><span>링크나 Offset 수정 후 설정값에 따라 새로고침합니다.</span></div>
+                        </div>
+                        <p>SPRED는 YouTube 영상을 다운로드, 저장, 캐시, 추출, 재배포하지 않습니다. 공식 embedded player를 사용해 악보 재생 위치를 따라오게 합니다.</p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
         </section>
     </main>
 </body>
