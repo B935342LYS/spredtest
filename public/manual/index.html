@@ -118,17 +118,37 @@
             gap: 10px;
         }
 
+        .chapter-accordion {
+            margin-top: 14px;
+            background: #ffffff;
+        }
+
+        .chapter-accordion > summary {
+            min-height: 60px;
+            font-size: 22px;
+            background: #ffffff;
+        }
+
+        .chapter-accordion > .detail-body {
+            padding-top: 16px;
+            background: #f3f5f7;
+        }
+
         .section-accordion {
             margin-top: 24px;
+            border-color: #cbd3dc;
+            background: #eef2f5;
         }
 
         .section-accordion > summary {
             min-height: 56px;
             font-size: 17px;
+            background: #eef2f5;
         }
 
         .section-accordion > .detail-body {
             padding-top: 16px;
+            background: #e7edf2;
         }
 
         details {
@@ -165,7 +185,7 @@
             line-height: 1;
         }
 
-        details[open] summary::after {
+        details[open] > summary::after {
             content: "-";
         }
 
@@ -173,6 +193,34 @@
             padding: 0 16px 16px;
             border-top: 1px solid var(--line);
             background: var(--surface-soft);
+        }
+
+        .accordion-list > details {
+            border-color: #bec8d2;
+            background: #dde5ec;
+        }
+
+        .accordion-list > details > summary {
+            background: #dde5ec;
+        }
+
+        .accordion-list > details > .detail-body {
+            background: #d4dee7;
+            border-top-color: #bec8d2;
+        }
+
+        .accordion-list .accordion-list > details {
+            border-color: #afbcc8;
+            background: #cbd7e1;
+        }
+
+        .accordion-list .accordion-list > details > summary {
+            background: #cbd7e1;
+        }
+
+        .accordion-list .accordion-list > details > .detail-body {
+            background: #c1ceda;
+            border-top-color: #afbcc8;
         }
 
         .detail-body p {
@@ -260,33 +308,69 @@
     <main>
         <header>
             <h1>SPRED Manual</h1>
-            <p class="lead">오타마톤 같은 프렛리스 악기를 위한 악보 작성 / 재생 / 연습 보조 웹 앱 안내서입니다.</p>
+            <p class="lead">SPRED는 오타마톤같은 프렛리스 악기를 위해 개발된 악보 작성 / 재생 / 연습 보조용 도구입니다.</p>
         </header>
 
         <aside class="notice">
-            <p>피드백, 버그 제보, 개선 의견을 환영합니다. 제작자 이메일: <code>fav_09@naver.com</code></p>
-            <p>매뉴얼의 원본은 한국어로 작성됩니다. 업데이트에 따라 실제 화면과 다른 부분이 있을 수 있으며, 현재 문서는 테스트 단계의 초안입니다.</p>
+            <p>피드백, 버그 제보, 개선 의견 환영합니다. 제작자 이메일: <code>fav_09@naver.com</code></p>
+            <p>매뉴얼의 원본은 한글로 작성되었으며, 이외의 언어로 된 매뉴얼은 AI 번역과 최소한의 검수를 거친 번역본임을 밝힙니다. 내용이 부정확하면 제보 부탁드립니다.</p>
+            <p>업데이트에 따라 매뉴얼과 달라지거나 추가된 기능이 있을 수 있습니다. 매뉴얼의 최종 갱신일은 --입니다.</p>
+            <p>아직 테스트 단계의 웹 앱입니다. 부족한 점이 있을 수 있습니다.</p>
         </aside>
 
         <section class="manual-section" aria-labelledby="intro-title">
-            <h2 id="intro-title">1. 시작하기</h2>
-            <p>전세계 오타마토니스트 여러분 안녕하십니까?</p>
-            <p>SPRED는 별도 프로그램 설치 없이 웹 페이지에서 바로 사용할 수 있습니다. 현재는 PC와 Chrome 계열 브라우저를 중심으로 개발하고 있으며, 모바일에서는 악보 로드와 재생 위주로 사용하는 것을 권장합니다.</p>
-            <ul class="feature-list">
-                <li>악보 JSON 불러오기 / 저장하기</li>
-                <li>피아노롤 악보 재생</li>
-                <li>악보 제작과 편집</li>
-                <li>악보 양식 변경</li>
-                <li>YouTube 영상과 악보 재생 싱크</li>
-                <li>음정과 박자 평가 기능</li>
-            </ul>
+            <details class="chapter-accordion" open>
+                <summary id="intro-title">1. 시작하기</summary>
+                <div class="detail-body">
+                    <p>전세계 오타마토니스트 여러분 안녕하십니까?</p>
+                    <br>
+
+                    <div class="accordion-list">
+                        <details>
+                            <summary>1.1. SPRED 소개</summary>
+                            <div class="detail-body">
+                                <p>SPRED는 오타마톤같은 프렛리스 악기를 위해 개발된 악보 작성 / 재생 / 연습 보조용 도구입니다.</p>
+                                <p>별도의 프로그램 설치 없이 바로 웹 페이지에서 이용 가능합니다.</p>
+                                <ul class="feature-list">
+                                    <li>악보 JSON 불러오기 / 저장하기</li>
+                                    <li>피아노롤 악보 재생</li>
+                                    <li>악보 제작과 편집</li>
+                                    <li>악보 양식 변경</li>
+                                    <li>YouTube 영상과 악보 재생 싱크</li>
+                                    <li>음정과 박자 평가 기능</li>
+                                </ul>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>1.2. 권장 환경</summary>
+                            <div class="detail-body">
+                                <ul>
+                                    <li>PC + Chrome 브라우저를 중심으로 개발하고 있습니다.</li>
+                                    <li>모바일에서도 악보 로드 / 재생은 가능하지만 기본 지원 대상은 아닙니다. 일부 기능은 불편하거나 동작하지 않을 수 있습니다.</li>
+                                </ul>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>1.3. 권장 사양</summary>
+                            <div class="detail-body">
+                                <p>현재 권장 사양은 테스트를 통해 정리 중입니다. 우선은 최신 Chrome 계열 브라우저가 원활하게 동작하는 PC 환경을 권장합니다.</p>
+                                <p>긴 악보, YouTube sync, practice mode는 기기 성능과 브라우저 상태에 영향을 받을 수 있습니다.</p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
         </section>
 
         <section class="manual-section" aria-labelledby="top-menu-title">
-            <h2 id="top-menu-title">2. 상단 메뉴</h2>
-            <p class="section-intro">상단 메뉴는 화면 위치에 따라 왼쪽 메뉴 영역, 중앙 플레이어 영역, 오른쪽 YouTube 영역으로 나눌 수 있습니다. 각 항목을 눌러 설명을 펼쳐보세요.</p>
+            <details class="chapter-accordion" open>
+                <summary id="top-menu-title">2. 상단 메뉴</summary>
+                <div class="detail-body">
+                    <p class="section-intro">상단 메뉴는 화면 위치에 따라 왼쪽 메뉴 영역, 중앙 플레이어 영역, 오른쪽 YouTube 영역으로 나눌 수 있습니다. 각 항목을 눌러 설명을 펼쳐보세요.</p>
 
-            <details class="section-accordion" open>
+                    <details class="section-accordion" open>
                 <summary>2.1. 왼쪽: 메뉴 영역</summary>
                 <div class="detail-body">
                     <p class="section-intro">메뉴 영역에서는 프로그램의 각종 설정을 조정합니다.</p>
@@ -447,6 +531,8 @@
                             </div>
                         </details>
                     </div>
+                </div>
+            </details>
                 </div>
             </details>
         </section>
