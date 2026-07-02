@@ -66,8 +66,8 @@ const JUDGE_THRESHOLDS: Record<PracticeJudgeMode, {
 };
 const DEFAULT_TRACK_DIFFICULTY: Record<TrackId, number> = {
   basic: 1,
-  optional: 1.2,
-  extra: 1.5,
+  optional: 2,
+  extra: 3,
 };
 
 /** scoring sample에 적용할 timing 판정 입력. */

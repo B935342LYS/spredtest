@@ -18,7 +18,7 @@ import type {
 import { timeFractionToNumber } from "../../audio/tick_time_mapper";
 
 const GLISS_INTERVAL_SECONDS = 0.25;
-const GLISS_INTERVAL_BONUS_MULTIPLIER = 0.25;
+const GLISS_INTERVAL_BONUS_MULTIPLIER = 2.5;
 const GLISS_MAX_ERROR_CENT = 100;
 const GLISS_GRACE_RATIO = 0.5;
 const GLISS_MAX_GRACE_SECONDS = 0.15;
@@ -37,14 +37,14 @@ const VIB_MAX_AVERAGE_ERROR_CENT = 60;
 const VIB_IN_TUNE_ERROR_CENT = 70;
 const VIB_MIN_IN_TUNE_RATIO = 0.6;
 const VIB_DERIVATIVE_DEAD_ZONE_CENT = 2;
-const VIB_BONUS_MULTIPLIER = 0.5;
+const VIB_BONUS_MULTIPLIER = 5.0;
 const TREM_MIN_REPEAT_COUNT = 3;
 const TREM_MAX_NOTE_TICKS = 1;
 const TREM_MAX_GAP_TICKS = 1e-6;
 const TREM_MIN_ATTACK_INTERVAL_SECONDS = 0.06;
 const TREM_MAX_ATTACK_INTERVAL_SECONDS = 0.45;
 const TREM_PITCH_HIT_MAX_ERROR_CENT = 100;
-const TREM_BONUS_MULTIPLIER = 0.12;
+const TREM_BONUS_MULTIPLIER = 0.5;
 
 /** effect bonus 판정이 참조하는 pitch frame과 score time 묶음. */
 export type GameEffectFrame = {

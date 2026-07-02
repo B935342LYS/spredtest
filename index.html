@@ -675,7 +675,7 @@
                         </tr>
                         <tr>
                             <th scope="row">Track difficulty</th>
-                            <td>Uses custom difficulty from Music Info when set; otherwise defaults to Basic 1.0, Optional 1.2, Extra 1.5.</td>
+                            <td>Uses custom difficulty from Music Info when set; otherwise defaults to Basic 1.0, Optional 2.0, Extra 3.0.</td>
                         </tr>
                         <tr>
                             <th scope="row">Combo</th>
@@ -692,6 +692,22 @@
                         <tr>
                             <th scope="row">Effect bonus</th>
                             <td>Playing articulations well adds bonus score.<br>Missing an effect bonus does not create a penalty.</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Gliss bonus</th>
+                            <td>Track difficulty x 2.5 for each successful 0.25 second gliss interval.<br>A 1 second gliss can award up to track difficulty x 10.0.</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Vib bonus</th>
+                            <td>Track difficulty x 5.0 for each successful vibrato segment.<br>The pitch must stay near the target while showing enough controlled vibration.</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Trem bonus</th>
+                            <td>Track difficulty x 0.5 for each rewarded tremolo attack.<br>The first attack starts the streak; bonus begins from the next accepted attack.</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Final score</th>
+                            <td>&Sigma;(note score) + &Sigma;(Gliss bonus) + &Sigma;(Vib bonus) + &Sigma;(Trem bonus)</td>
                         </tr>
                     </tbody>
                 </table>
