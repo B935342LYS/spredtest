@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPRED Manual</title>
+    <link rel="stylesheet" href="../manual.css">
+</head>
+<body>
+    <main>
+        <header>
+            <h1>SPRED Manual</h1>
+            <p class="lead">SPRED is a score writing, playback, and practice-assist tool developed for fretless instruments such as the Otamatone.</p>
+            <nav class="language-nav" aria-label="Manual languages">
+                <a href="../index.html">한국어</a>
+                <a href="./index.html" aria-current="page">English</a>
+            </nav>
+        </header>
+
+        <aside class="notice">
+            <p>Feedback, bug reports, and suggestions are welcome. Contact: <code>fav_09@naver.com</code></p>
+            <p>The original manual is written in Korean. Manuals in other languages are AI-assisted translations with minimal review. Please report inaccurate wording if you find any.</p>
+            <p>The app may have features that differ from this manual or were added after it was written. Last manual update: 2026-07-03.</p>
+            <p>This is still a test-stage web app. Some parts may be incomplete.</p>
+        </aside>
+
+        <section class="manual-section" aria-labelledby="intro-title">
+            <details class="chapter-accordion" open>
+                <summary id="intro-title">1. Getting Started</summary>
+                <div class="detail-body">
+                    <p>Hello to Otamatonists around the world.</p>
+                    <br>
+
+                    <div class="accordion-list">
+                        <details>
+                            <summary>1.1. About SPRED</summary>
+                            <div class="detail-body">
+                                <p>SPRED is a score writing, playback, and practice-assist tool developed for fretless instruments such as the Otamatone.</p>
+                                <p>You can use it directly in a web page without installing a separate program.</p>
+                                <ul class="feature-list">
+                                    <li>Load and save score JSON files</li>
+                                    <li>Play piano-roll style scores</li>
+                                    <li>Create and edit scores</li>
+                                    <li>Change score layouts</li>
+                                    <li>Synchronize score playback with YouTube videos</li>
+                                    <li>Pitch and timing evaluation</li>
+                                </ul>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>1.2. Recommended Environment</summary>
+                            <div class="detail-body">
+                                <ul>
+                                    <li>Development is centered on PC and Chrome.</li>
+                                    <li>Mobile devices can load and play scores, but they are not the main support target. Some features may be inconvenient or unavailable.</li>
+                                </ul>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>1.3. Recommended Specs</summary>
+                            <div class="detail-body">
+                                <p>Recommended specs are still being finalized through testing. For now, a PC that can run a recent Chrome-based browser smoothly is recommended.</p>
+                                <p>Long scores, YouTube sync, and practice mode can be affected by device performance and browser condition.</p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section class="manual-section" aria-labelledby="top-menu-title">
+            <details class="chapter-accordion" open>
+                <summary id="top-menu-title">2. Top Menu</summary>
+                <div class="detail-body">
+                    <p class="section-intro">The top menu can be divided into the left menu area, center player area, and right YouTube area. Open each item for details.</p>
+
+                    <details class="section-accordion" open>
+                        <summary>2.1. Left: Menu Area</summary>
+                        <div class="detail-body">
+                            <p class="section-intro">The menu area is used to adjust app settings.</p>
+                            <img class="menu-image wide" src="../resources/cellImage_0_0.jpg" alt="SPRED left top menu area">
+
+                            <div class="accordion-list">
+                                <details>
+                                    <summary>File</summary>
+                                    <div class="detail-body">
+                                        <img class="menu-image small" src="../resources/cellImage_0_1.jpg" alt="File menu">
+                                        <p>Load or save score files. Score files normally use the <code>.json</code> extension.</p>
+                                        <div class="term-list">
+                                            <div class="term"><strong>JSON Load</strong><span>Loads a local Score JSON file.</span></div>
+                                            <div class="term"><strong>JSON Download</strong><span>Downloads the current score as a JSON file.</span></div>
+                                            <div class="term"><strong>Local Save</strong><span>Temporarily saves the current score to this browser's local storage.</span></div>
+                                            <div class="term"><strong>Local Load</strong><span>Loads a score saved in the same browser.</span></div>
+                                            <div class="term"><strong>Examples</strong><span>Loads a list of test example scores. The current beta version requires an access word.</span></div>
+                                        </div>
+                                        <p class="notice warning">Before loading a JSON file made by someone else, make sure the file is safe. For long-term storage or sharing, use JSON Download rather than Local Save.</p>
+                                    </div>
+                                </details>
+
+                                <details>
+                                    <summary>View</summary>
+                                    <div class="detail-body">
+                                        <img class="menu-image small" src="../resources/cellImage_0_2.jpg" alt="View menu">
+                                        <p>Changes visual score settings.</p>
+                                        <div class="term-list">
+                                            <div class="term"><strong>Zoom</strong><span>Adjusts the overall score scale.</span></div>
+                                            <div class="term"><strong>Speed</strong><span>Adjusts the horizontal width of score cells. Actual playback time and BPM do not change.</span></div>
+                                            <div class="term"><strong>Fullscreen</strong><span>Switches the app to fullscreen.</span></div>
+                                            <div class="term"><strong>Fit Height</strong><span>Adjusts scale so the score fits the current screen height.</span></div>
+                                            <div class="term"><strong>Normal / Reverse</strong><span>Flips the vertical display direction of the score.</span></div>
+                                            <div class="term"><strong>Light / Dark</strong><span>Changes the color theme.</span></div>
+                                            <div class="term"><strong>Text off</strong><span>Hides text on notes. Text in global rows remains visible.</span></div>
+                                        </div>
+                                    </div>
+                                </details>
+
+                                <details>
+                                    <summary>Loop</summary>
+                                    <div class="detail-body">
+                                        <img class="menu-image small" src="../resources/cellImage_0_3.jpg" alt="Loop menu">
+                                        <p>Select a section of the score and loop it.</p>
+                                        <div class="term-list">
+                                            <div class="term"><strong>Loop On / Off</strong><span>Turns looping on or off.</span></div>
+                                            <div class="term"><strong>Start</strong><span>Sets the start point. The default is the start of the full score.</span></div>
+                                            <div class="term"><strong>End</strong><span>Sets the end point. The default is the end of the full score.</span></div>
+                                            <div class="term"><strong>Select Column</strong><span>After selecting this, click a point in the score to change the start or end point.</span></div>
+                                        </div>
+                                        <p class="notice warning">This draft manual explains the loop UI. Check the latest test build for the current state of repeated playback behavior.</p>
+                                    </div>
+                                </details>
+
+                                <details>
+                                    <summary>Edit Mode</summary>
+                                    <div class="detail-body">
+                                        <p>Switches to score editing mode. After Edit Mode is turned on, clicking a score cell edits the score using the selected input tool and active track.</p>
+                                        <p>Detailed input methods are explained in later editing sections.</p>
+                                    </div>
+                                </details>
+
+                                <details>
+                                    <summary>Track</summary>
+                                    <div class="detail-body">
+                                        <img class="menu-image small" src="../resources/cellImage_0_4.jpg" alt="Track menu">
+                                        <p>Selects active tracks. The current version has <code>Basic</code>, <code>Optional</code>, and <code>Extra</code> tracks, each shown in a different color.</p>
+                                        <ul>
+                                            <li>Inactive tracks are shown translucent on the screen.</li>
+                                            <li>Inactive tracks do not sound during playback.</li>
+                                            <li>Notes on each track are stored independently.</li>
+                                            <li>If multiple tracks are active, clicking notes can input them to all active tracks at once.</li>
+                                        </ul>
+                                    </div>
+                                </details>
+
+                                <details>
+                                    <summary>Expand</summary>
+                                    <div class="detail-body">
+                                        <img class="menu-image small" src="../resources/cellImage_0_5.jpg" alt="Expand menu">
+                                        <p>Changes the score length.</p>
+                                        <div class="term-list">
+                                            <div class="term"><strong>Columns</strong><span>Sets the number of columns used for expansion or trimming.</span></div>
+                                            <div class="term"><strong>Expand Right</strong><span>Adds that many columns to the right.</span></div>
+                                            <div class="term"><strong>Trim Right</strong><span>Removes unnecessary empty space on the right.</span></div>
+                                        </div>
+                                        <p class="notice warning">Very long scores can affect device performance. Expanding only as much as needed is recommended.</p>
+                                    </div>
+                                </details>
+
+                                <details>
+                                    <summary>Clear All</summary>
+                                    <div class="detail-body">
+                                        <p>Clears the whole score and returns it to the initial default state.</p>
+                                        <p class="notice warning">Use <code>JSON Download</code> to back up your score before using this.</p>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="section-accordion" open>
+                        <summary>2.2. Center: Player Area</summary>
+                        <div class="detail-body">
+                            <p class="section-intro">This area works much like a standard music player.</p>
+                            <img class="menu-image wide" src="../resources/cellImage_0_6.jpg" alt="SPRED center player area">
+
+                            <div class="accordion-list">
+                                <details>
+                                    <summary>Playback Controls</summary>
+                                    <div class="detail-body">
+                                        <div class="term-list">
+                                            <div class="term"><strong>Play, Stop</strong><span>Works like a typical media player.</span></div>
+                                            <div class="term"><strong>Seek bar</strong><span>Shows the current progress. You can also drag it to slide through the score.</span></div>
+                                            <div class="term"><strong>Volume, Wave</strong><span>Controls the volume and sound type of score notes.</span></div>
+                                        </div>
+                                    </div>
+                                </details>
+
+                                <details>
+                                    <summary>Details</summary>
+                                    <div class="detail-body">
+                                        <img class="menu-image" src="../resources/cellImage_0_7.jpg" alt="Details dialog">
+                                        <p>Shows and edits score information. Created and updated timestamps are automatically refreshed based on save time and cannot be edited directly.</p>
+                                        <p>After editing, press <code>Save</code>. Use <code>File</code> -> <code>JSON Download</code> or <code>Local Save</code> to preserve that information.</p>
+                                    </div>
+                                </details>
+
+                                <details>
+                                    <summary>practice mode (beta)</summary>
+                                    <div class="detail-body">
+                                        <p>Uses microphone input to measure how well your playing matches the score, helping evaluate pitch and timing.</p>
+                                        <p>Details are explained in a separate section.</p>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="section-accordion" open>
+                        <summary>2.3. Right: YouTube Area</summary>
+                        <div class="detail-body">
+                            <p class="section-intro">This feature links a YouTube video so it can play like accompaniment.</p>
+                            <img class="menu-image youtube-panel" src="../resources/cellImage_0_8.jpg" alt="SPRED right YouTube area">
+
+                            <div class="accordion-list">
+                                <details>
+                                    <summary>YouTube sync</summary>
+                                    <div class="detail-body">
+                                        <div class="term-list">
+                                            <div class="term"><strong>YouTube</strong><span>Turns YouTube mode on or off.</span></div>
+                                            <div class="term"><strong>URL or ID</strong><span>Enter a YouTube link or video ID in the video address field.</span></div>
+                                            <div class="term"><strong>Offset (ms)</strong><span>Adjusts the video's playback timing against the score. A negative value makes the video play earlier than the score, and a positive value makes it play later. The best value can vary by device and browser.</span></div>
+                                            <div class="term"><strong>Reload</strong><span>Reloads the video using the current link and Offset settings.</span></div>
+                                        </div>
+                                        <p>SPRED does not download, store, cache, extract, or redistribute YouTube videos. It uses the official embedded player and follows the score playback position.</p>
+                                        <p class="notice warning">If you do not use YouTube Premium or an ad blocker, an ad may play before the video. After the ad finishes, the video works like a normal video.</p>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </details>
+        </section>
+
+        <section class="manual-section" aria-labelledby="score-area-title">
+            <details class="chapter-accordion" open>
+                <summary id="score-area-title">3. Score Area</summary>
+                <div class="detail-body">
+                    <p>The score area shows the actual piano-roll score. Labels on the left describe each row, and score cells continue to the right along the time axis.</p>
+                    <img class="menu-image score-view" src="../resources/cellImage_0_9.jpg" alt="SPRED score area">
+
+                    <div class="accordion-list">
+                        <details>
+                            <summary>3.1. Screen Structure</summary>
+                            <div class="detail-body">
+                                <div class="term-list">
+                                    <div class="term"><strong>Row label</strong><span>Displays each row's pitch, global row, gap row, and similar information.</span></div>
+                                    <div class="term"><strong>Score canvas</strong><span>Displays note cells and global cells.</span></div>
+                                    <div class="term"><strong>Playback line</strong><span>Visually indicates the current playback position.</span></div>
+                                    <div class="term"><strong>Scroll area</strong><span>Used to move through long scores horizontally and vertically.</span></div>
+                                </div>
+                                <p>The horizontal direction means time flow. The vertical direction means the score's row structure.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>3.2. Row Types</summary>
+                            <div class="detail-body">
+                                <div class="term-list">
+                                    <div class="term"><strong>note row</strong><span>A row where actual notes are entered. It corresponds to Otamatone pitch positions.</span></div>
+                                    <div class="term"><strong>global row</strong><span>A row for values that affect the whole score flow, such as BPM, time signature, and dynamics.</span></div>
+                                    <div class="term"><strong>gap row</strong><span>A row used to create visual spacing between pitches. Notes are usually not entered here directly.</span></div>
+                                </div>
+                                <p>At first, it is recommended to enter ordinary notes in note rows and only check basic values such as BPM in global rows.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>3.3. Viewing Scores</summary>
+                            <div class="detail-body">
+                                <ul>
+                                    <li>Use horizontal scrolling to move through long scores.</li>
+                                    <li>Use vertical scrolling to move between high and low pitches.</li>
+                                    <li>Use <code>Zoom</code>, <code>Speed</code>, and <code>Fit Height</code> in the <code>View</code> menu to adjust the view.</li>
+                                    <li>Use <code>Text off</code> to hide note text and make the score cleaner.</li>
+                                </ul>
+                                <p class="notice warning">Very long scores may scroll or render slowly depending on device performance.</p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section class="manual-section" aria-labelledby="edit-mode-title">
+            <details class="chapter-accordion" open>
+                <summary id="edit-mode-title">4. Edit Mode Basics</summary>
+                <div class="detail-body">
+                    <p>Edit Mode is used to edit score cells directly. If you are creating a score for the first time, start with basic note input, deletion, Undo, and Redo.</p>
+                    <img class="menu-image edit-panel" src="../resources/cellImage_0_10.jpg" alt="Edit Mode input panel">
+
+                    <div class="accordion-list">
+                        <details>
+                            <summary>4.1. Basic Workflow</summary>
+                            <div class="detail-body">
+                                <ol>
+                                    <li>Turn on <code>Edit Mode</code>.</li>
+                                    <li>Check the track to edit in the <code>Track</code> menu.</li>
+                                    <li>Select the desired value in the input tool.</li>
+                                    <li>Click a cell in the score area.</li>
+                                    <li>The selected value is written to the current active track's cell.</li>
+                                </ol>
+                                <p class="notice warning">If several tracks are active at once, input may be written to several tracks together. Check the Track state before editing.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>4.2. Delete, Undo, and Redo</summary>
+                            <div class="detail-body">
+                                <div class="term-list">
+                                    <div class="term"><strong>Empty input / delete tool</strong><span>Clears the selected cell.</span></div>
+                                    <div class="term"><strong>Delete / Backspace</strong><span>Deletes the selected range or selected cell.</span></div>
+                                    <div class="term"><strong>Undo</strong><span>Reverts the most recent edit.</span></div>
+                                    <div class="term"><strong>Redo</strong><span>Applies an undone edit again.</span></div>
+                                </div>
+                                <p>Undo / Redo history is kept only within the current session. It may reset when a new score is loaded or the score structure changes significantly.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>4.3. Range Selection and Copy</summary>
+                            <div class="detail-body">
+                                <p>Use <code>Ctrl + drag</code> to select several cells at once.</p>
+                                <div class="term-list">
+                                    <div class="term"><strong>Ctrl + drag</strong><span>Selects a range of cells.</span></div>
+                                    <div class="term"><strong>Delete / Backspace</strong><span>Deletes the selected cell range.</span></div>
+                                    <div class="term"><strong>Ctrl + C</strong><span>Copies the selected range to the internal clipboard.</span></div>
+                                    <div class="term"><strong>Ctrl + V</strong><span>Pastes the copied range at the current position.</span></div>
+                                    <div class="term"><strong>Ctrl + X</strong><span>Cuts the selected range.</span></div>
+                                </div>
+                                <p>A preview rectangle appears before pasting. This copy feature is for SPRED score cells and is not exactly the same as copy / paste in a normal text editor.</p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section class="manual-section" aria-labelledby="notation-title">
+            <details class="chapter-accordion" open>
+                <summary id="notation-title">5. Input Symbols and Expressions</summary>
+                <div class="detail-body">
+                    <p>SPRED note cells can contain several symbols for musical expression.</p>
+                    <img class="menu-image edit-panel" src="../resources/cellImage_0_10.jpg" alt="Input tool panel">
+
+                    <div class="accordion-list">
+                        <details>
+                            <summary>5.1. Basic Input</summary>
+                            <div class="detail-body">
+                                <div class="term-list">
+                                    <div class="term"><strong>Basic note</strong><span>Inputs an ordinary note.</span></div>
+                                    <div class="term"><strong>comment</strong><span>Inputs a visible note comment without actual sound.</span></div>
+                                    <div class="term"><strong>custom text</strong><span>Inputs user-defined text into a cell.</span></div>
+                                </div>
+                                <img class="menu-image small" src="../resources/cellImage_0_11.jpg" alt="Default input mode selection">
+                                <p>When creating your first score, start with ordinary notes and simple text input.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>5.2. Long Notes and Expression Symbols</summary>
+                            <div class="detail-body">
+                                <div class="term-list">
+                                    <div class="term"><strong><code>-</code></strong><span>Used for ordinary long-note connection.</span></div>
+                                    <div class="term"><strong><code>~</code></strong><span>Used for a long-note expression with vibrato.</span></div>
+                                    <div class="term"><strong>gliss marker</strong><span>Represents glissando connection.</span></div>
+                                    <div class="term"><strong>trem marker</strong><span>Used for tremolo expression.</span></div>
+                                    <div class="term"><strong>Pitch</strong><span>Used to make the displayed row and sounding pitch different, or to enter cent-level microtones.</span></div>
+                                </div>
+                                <p>Pitch is mainly used for harmonics where finger position and sounding pitch differ, exceptional pitch handling, and microtonal expression.</p>
+                                <p>Symbols can be combined, but combinations that are difficult to interpret musically may be limited or only partly interpreted.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>5.3. Glissando Input</summary>
+                            <div class="detail-body">
+                                <p>Glissando connects a start point, optional middle points, and an end point so the pitch slides between them.</p>
+                                <img class="menu-image gliss-example" src="../resources/cellImage_0_12.jpg" alt="Glissando connection example">
+                                <div class="term-list">
+                                    <div class="term"><strong>Gliss kind</strong><span>Selects the role of the gliss marker. The basic flow is start - mid - end.</span></div>
+                                    <div class="term"><strong>start</strong><span>The point where the glissando starts.</span></div>
+                                    <div class="term"><strong>mid</strong><span>A middle point between start and end. You can place several if needed.</span></div>
+                                    <div class="term"><strong>end</strong><span>The point where the glissando ends.</span></div>
+                                    <div class="term"><strong>Gliss id</strong><span>Markers with the same id are connected as one glissando.</span></div>
+                                </div>
+                                <p>When using several glissandos at the same time or placing them close together, use different ids so the connections do not mix.</p>
+                                <p class="notice warning">Within the same id, the order should naturally follow start - mid - end. If the order is mixed or there is no end, the result may be interpreted differently from your intention.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>5.4. Tuplet Input</summary>
+                            <div class="detail-body">
+                                <p>Tuplet divides one cell into several sub-notes to express rhythms such as triplets. Because the input process is more complex than other tools, it is easiest to understand it as making a tuplet value first and then placing it in the score.</p>
+                                <img class="menu-image compact-panel" src="../resources/cellImage_0_13.jpg" alt="Tuplet input panel">
+                                <div class="term-list">
+                                    <div class="term"><strong>Tuplet mode</strong><span>Turns Tuplet input mode on or off. In this mode, tuplet-related input takes priority.</span></div>
+                                    <div class="term"><strong>Division</strong><span>Sets how many sub-notes one cell is divided into. For example, 3 is used for triplet-type input.</span></div>
+                                    <div class="term"><strong>Insert mode</strong><span>Sets how values are inserted into each slot. The selected basic note, long note, or expression settings may also be reflected.</span></div>
+                                    <div class="term"><strong>Slot</strong><span>Each individual sub-note input field. A note or rest value is placed into the selected slot.</span></div>
+                                    <div class="term"><strong>Select row</strong><span>Click a score row to put that pitch into the current slot.</span></div>
+                                    <div class="term"><strong>Finalize Value</strong><span>Confirms the sub-note structure entered in the slots. After confirming, click a score cell to place the tuplet.</span></div>
+                                </div>
+                                <p>The basic order is as follows.</p>
+                                <ol>
+                                    <li>Turn on <code>Tuplet mode</code>.</li>
+                                    <li>Choose the division count in <code>Division</code>.</li>
+                                    <li>Select the slot to edit.</li>
+                                    <li>Use <code>Select row</code> or an input tool to fill each slot's note.</li>
+                                    <li>Leave a slot empty when a rest is needed.</li>
+                                    <li>When all slots are set, press <code>Finalize Value</code>.</li>
+                                    <li>Click the desired cell in the score area to input the tuplet.</li>
+                                </ol>
+                                <p class="notice warning">A tuplet places several sub-notes inside one cell. When editing an existing tuplet, check the hit area and slot selection more carefully than with ordinary notes.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>5.5. Pitch Input</summary>
+                            <div class="detail-body">
+                                <p>The Pitch area sets the actual sounding pitch and cent-level adjustment separately, based on the note row you click in the score.</p>
+                                <div class="term-list">
+                                    <div class="term"><strong>absolutePitch</strong><span>Selects the actual sounding pitch from a note-name dropdown. If empty, the clicked note row's default pitch is used.</span></div>
+                                    <div class="term"><strong>AUTO◇ +2oct</strong><span>Automatically selects a pitch two octaves above the clicked row. Use it when the display position and actual sound differ, such as for harmonic notation.</span></div>
+                                    <div class="term"><strong>microPitch</strong><span>Raises or lowers the current pitch in cents. The allowed range is -100 to 100, with up to one decimal place.</span></div>
+                                </div>
+                                <p>The basic input order is as follows.</p>
+                                <ol>
+                                    <li>Turn on <code>Edit Mode</code>.</li>
+                                    <li>If needed, choose the actual sounding pitch in <code>absolutePitch</code>.</li>
+                                    <li>If a microtone is needed, enter a cent value in <code>microPitch</code>.</li>
+                                    <li>Click the desired note row and cell in the score area.</li>
+                                </ol>
+                                <p>For example, if you want the display position to stay on a lower row while the actual sound is a higher harmonic, use <code>absolutePitch</code> or <code>AUTO◇ +2oct</code>. For a note that should be slightly higher or lower than the base pitch, enter a positive or negative cent value in <code>microPitch</code>.</p>
+                                <p class="notice warning">Pitch modifiers can affect display position, playback pitch, and practice mode judging. If a note sounds different from what you intended, first check whether absolutePitch or microPitch values remain.</p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section class="manual-section" aria-labelledby="layout-title">
+            <details class="chapter-accordion" open>
+                <summary id="layout-title">6. Using Layout</summary>
+                <div class="detail-body">
+                    <p>Layout controls the score's vertical structure, pitch rows, gap rows, row heights, and related settings.</p>
+                    <img class="menu-image dialog-view" src="../resources/cellImage_0_14.jpg" alt="Layout dialog">
+
+                    <div class="accordion-list">
+                        <details>
+                            <summary>6.1. What Layout Does</summary>
+                            <div class="detail-body">
+                                <div class="term-list">
+                                    <div class="term"><strong>Instrument</strong><span>Manages instrument type and string settings.</span></div>
+                                    <div class="term"><strong>Rows</strong><span>Shows and edits the current score row list.</span></div>
+                                    <div class="term"><strong>Preview</strong><span>Previews the layout while editing.</span></div>
+                                    <div class="term"><strong>Add Row</strong><span>Adds a note row or gap row.</span></div>
+                                    <div class="term"><strong>Apply</strong><span>Applies the edited layout to the current score.</span></div>
+                                </div>
+                                <p>Layout is directly connected to score structure, so it is recommended to start with row height adjustments or checking presets.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>6.2. Saving and Loading Presets</summary>
+                            <div class="detail-body">
+                                <div class="term-list">
+                                    <div class="term"><strong>New Preset</strong><span>Creates a new preset from the current settings.</span></div>
+                                    <div class="term"><strong>Local Save / Local Load</strong><span>Saves or loads layout presets in the current browser.</span></div>
+                                    <div class="term"><strong>File Save / File Load</strong><span>Saves a layout preset to a file or loads one from a file.</span></div>
+                                </div>
+                                <p>Score files store the base layout, while user layout customizations are managed as separate presets.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>6.3. Notes and Cautions</summary>
+                            <div class="detail-body">
+                                <ul>
+                                    <li>Deleting rows or changing row types can conflict with existing cells.</li>
+                                    <li>If the structural conflict is large, apply or import may fail.</li>
+                                    <li>If the score looks wrong, first check the layout preset and row structure.</li>
+                                    <li>When uncertain, back up the score with <code>JSON Download</code> before editing the layout.</li>
+                                </ul>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section class="manual-section" aria-labelledby="practice-title">
+            <details class="chapter-accordion" open>
+                <summary id="practice-title">7. Practice Mode Beta</summary>
+                <div class="detail-body">
+                    <p>Practice Mode Beta uses microphone input to compare your playing with the score and help you check pitch and timing.</p>
+                    <img class="menu-image compact-panel" src="../resources/cellImage_0_15.jpg" alt="Practice Mode panel">
+
+                    <div class="accordion-list">
+                        <details>
+                            <summary>7.1. How to Start</summary>
+                            <div class="detail-body">
+                                <ol>
+                                    <li>Load the score you want to practice.</li>
+                                    <li>Check the track to practice.</li>
+                                    <li>Press <code>practice mode (beta)</code>.</li>
+                                    <li>Allow microphone permission if the browser asks.</li>
+                                    <li>If needed, adjust input delay with <code>Sync</code>.</li>
+                                    <li>Start playback.</li>
+                                </ol>
+                                <img class="menu-image sync-dialog" src="../resources/cellImage_0_16.jpg" alt="Practice Mode Sync dialog">
+                                <p>During practice mode, some features such as score loading, editing, and layout changes are locked. This prevents the scoring criteria from changing during practice.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>7.2. Judge Display</summary>
+                            <div class="detail-body">
+                                <p>Detailed criteria can be checked from Rules in the upper-left area of the Practice mode window.</p>
+                                <div class="term-list">
+                                    <div class="term"><strong>Perfect</strong><span>Pitch and timing match well.</span></div>
+                                    <div class="term"><strong>Ok</strong><span>The result is reasonably close.</span></div>
+                                    <div class="term"><strong>Bad</strong><span>The result is far off.</span></div>
+                                    <div class="term"><strong>Miss</strong><span>The result is outside the judging range.</span></div>
+                                    <div class="term"><strong>COMBO</strong><span>Shows consecutive successful judgments.</span></div>
+                                </div>
+                                <p>The result window shows pitch accuracy, timing accuracy, total score, max combo, and the count of each judgment.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>7.3. If Detection Seems Wrong</summary>
+                            <div class="detail-body">
+                                <ul>
+                                    <li>Test in a quiet place.</li>
+                                    <li>Check that the browser is using the correct microphone.</li>
+                                    <li>Very quiet sound or background noise can interfere with pitch detection.</li>
+                                    <li>If speaker sound enters the microphone loudly, judging may become unstable.</li>
+                                </ul>
+                                <p class="notice warning">Practice Mode Beta is a simple practice aid, not a game with strict judging. Results may be inaccurate.</p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section class="manual-section" aria-labelledby="security-title">
+            <details class="chapter-accordion" open>
+                <summary id="security-title">8. Security and Privacy</summary>
+                <div class="detail-body">
+                    <div class="accordion-list">
+                        <details>
+                            <summary>8.1. Be Careful with Personal Information</summary>
+                            <div class="detail-body">
+                                <ul>
+                                    <li>Do not put sensitive personal information in score metadata or comments.</li>
+                                    <li>On shared PCs, avoid using <code>Local Save</code> or clear browser data after testing.</li>
+                                    <li>Data saved in local storage may be visible to the same browser user.</li>
+                                </ul>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>8.2. Files and Access Words</summary>
+                            <div class="detail-body">
+                                <ul>
+                                    <li>When using a JSON file from someone else, make sure it comes from a trusted source.</li>
+                                    <li>It is also a good idea to ask an expert or AI agent to help inspect it for safety.</li>
+                                </ul>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section class="manual-section" aria-labelledby="terms-title">
+            <details class="chapter-accordion" open>
+                <summary id="terms-title">10. Glossary</summary>
+                <div class="detail-body">
+                    <p>Here are short explanations of terms that appear repeatedly in the app.</p>
+                    <div class="term-list">
+                        <div class="term"><strong>Score JSON</strong><span>A JSON file that stores SPRED score data.</span></div>
+                        <div class="term"><strong>cell</strong><span>One square in the score.</span></div>
+                        <div class="term"><strong>note cell</strong><span>A cell that contains an actual note or performance symbol.</span></div>
+                        <div class="term"><strong>global cell</strong><span>A cell for values that affect the whole flow, such as BPM, time signature, and dynamics.</span></div>
+                        <div class="term"><strong>track</strong><span>A score layer divided into basic, optional, and extra.</span></div>
+                        <div class="term"><strong>layout</strong><span>Information that defines score row structure, row height, and pitch placement.</span></div>
+                        <div class="term"><strong>preset</strong><span>A layout setting that can be saved and loaded again.</span></div>
+                        <div class="term"><strong>tick</strong><span>The internal unit SPRED uses to count time positions.</span></div>
+                        <div class="term"><strong>BPM</strong><span>Beats per minute.</span></div>
+                        <div class="term"><strong>offset</strong><span>A time difference used to align a video or input timing with the score.</span></div>
+                        <div class="term"><strong>manifest</strong><span>Information that describes the score list in the example database.</span></div>
+                        <div class="term"><strong>practice mode</strong><span>A beta feature that displays practice judgments using microphone input.</span></div>
+                    </div>
+                </div>
+            </details>
+        </section>
+    </main>
+</body>
+</html>
