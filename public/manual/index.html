@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -247,6 +247,27 @@
 
         .menu-image.youtube-panel {
             --image-width: 640px;
+        }
+
+        .menu-image.score-view,
+        .menu-image.edit-panel {
+            --image-width: 980px;
+        }
+
+        .menu-image.dialog-view {
+            --image-width: 860px;
+        }
+
+        .menu-image.compact-panel {
+            --image-width: 700px;
+        }
+
+        .menu-image.gliss-example {
+            --image-width: 460px;
+        }
+
+        .menu-image.sync-dialog {
+            --image-width: 520px;
         }
 
         .subsection-title {
@@ -533,6 +554,373 @@
                     </div>
                 </div>
             </details>
+                </div>
+            </details>
+        </section>
+
+        <section class="manual-section" aria-labelledby="score-area-title">
+            <details class="chapter-accordion" open>
+                <summary id="score-area-title">3. 악보 영역</summary>
+                <div class="detail-body">
+                    <p>악보 영역은 실제 피아노롤 악보가 표시되는 공간입니다. 왼쪽에는 각 줄의 의미를 나타내는 라벨이 있고, 오른쪽에는 시간 방향으로 이어지는 악보 cell이 있습니다.</p>
+                    <img class="menu-image score-view" src="./resources/cellImage_0_9.jpg" alt="SPRED 악보 영역 전체">
+
+                    <div class="accordion-list">
+                        <details>
+                            <summary>3.1. 화면 구조</summary>
+                            <div class="detail-body">
+                                <div class="term-list">
+                                    <div class="term"><strong>Row label</strong><span>각 행의 음높이, global row, gap row 같은 정보를 표시합니다.</span></div>
+                                    <div class="term"><strong>Score canvas</strong><span>실제 note cell과 global cell이 표시되는 영역입니다.</span></div>
+                                    <div class="term"><strong>Playback line</strong><span>현재 재생 위치를 시각적으로 보여주는 기준선입니다.</span></div>
+                                    <div class="term"><strong>Scroll area</strong><span>긴 악보를 가로 / 세로로 이동하며 볼 수 있습니다.</span></div>
+                                </div>
+                                <p>가로 방향은 시간의 흐름을 의미합니다. 세로 방향은 악보의 row 구조를 의미합니다.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>3.2. 행의 종류</summary>
+                            <div class="detail-body">
+                                <div class="term-list">
+                                    <div class="term"><strong>note row</strong><span>실제 음표가 입력되는 줄입니다. 오타마톤의 음높이와 대응됩니다.</span></div>
+                                    <div class="term"><strong>global row</strong><span>BPM, 박자, dynamics처럼 악보 전체 흐름에 영향을 주는 값을 입력하는 줄입니다.</span></div>
+                                    <div class="term"><strong>gap row</strong><span>음 사이의 시각적 간격을 만들기 위한 줄입니다. 일반적으로 직접 노트를 입력하지 않습니다.</span></div>
+                                </div>
+                                <p>처음에는 note row에 일반 노트를 입력하고, global row는 BPM 같은 기본값을 확인하는 정도로 사용하는 것을 권장합니다.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>3.3. 악보 보기</summary>
+                            <div class="detail-body">
+                                <ul>
+                                    <li>긴 악보는 가로 스크롤로 이동합니다.</li>
+                                    <li>높은 음 / 낮은 음은 세로 스크롤로 이동합니다.</li>
+                                    <li><code>View</code> 메뉴의 <code>Zoom</code>, <code>Speed</code>, <code>Fit Height</code>를 이용해 보기 편한 크기로 조정할 수 있습니다.</li>
+                                    <li><code>Text off</code>를 사용하면 note 위의 텍스트 표시를 줄여 더 깔끔한 악보를 볼 수 있습니다.</li>
+                                </ul>
+                                <p class="notice warning">매우 긴 악보는 기기 성능에 따라 스크롤이나 렌더링이 느려질 수 있습니다.</p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section class="manual-section" aria-labelledby="edit-mode-title">
+            <details class="chapter-accordion" open>
+                <summary id="edit-mode-title">4. Edit Mode 기본</summary>
+                <div class="detail-body">
+                    <p>Edit Mode는 악보 cell을 직접 수정하기 위한 모드입니다. 악보를 처음 작성한다면 기본 note 입력과 삭제, Undo / Redo부터 익히는 것을 권장합니다.</p>
+
+                    <div class="accordion-list">
+                        <details>
+                            <summary>4.1. 기본 사용 흐름</summary>
+                            <div class="detail-body">
+                                <ol>
+                                    <li><code>Edit Mode</code>를 켭니다.</li>
+                                    <li><code>Track</code> 메뉴에서 수정할 track을 확인합니다.</li>
+                                    <li>입력 도구에서 원하는 값을 선택합니다.</li>
+                                    <li>악보 영역의 cell을 클릭합니다.</li>
+                                    <li>선택한 입력값이 현재 active track의 cell에 기록됩니다.</li>
+                                </ol>
+                                <p class="notice warning">여러 track을 동시에 켠 상태에서 입력하면 활성화된 여러 track에 함께 입력될 수 있습니다. 편집 전 Track 상태를 확인하세요.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>4.2. 지우기와 되돌리기</summary>
+                            <div class="detail-body">
+                                <div class="term-list">
+                                    <div class="term"><strong>빈 입력 / 삭제 도구</strong><span>선택한 cell의 내용을 비웁니다.</span></div>
+                                    <div class="term"><strong>Delete / Backspace</strong><span>선택 영역 또는 선택된 cell을 지울 때 사용합니다.</span></div>
+                                    <div class="term"><strong>Undo</strong><span>최근 편집을 되돌립니다.</span></div>
+                                    <div class="term"><strong>Redo</strong><span>되돌린 편집을 다시 적용합니다.</span></div>
+                                </div>
+                                <p>Undo / Redo 기록은 현재 세션 안에서만 유지됩니다. 악보 파일을 새로 불러오거나 구조가 크게 바뀌면 초기화될 수 있습니다.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>4.3. 범위 선택과 복사</summary>
+                            <div class="detail-body">
+                                <p><code>Ctrl + drag</code>로 여러 cell을 한 번에 선택할 수 있습니다.</p>
+                                <div class="term-list">
+                                    <div class="term"><strong>Ctrl + drag</strong><span>여러 cell 범위를 선택합니다.</span></div>
+                                    <div class="term"><strong>Delete / Backspace</strong><span>선택한 범위의 cell을 삭제합니다.</span></div>
+                                    <div class="term"><strong>Ctrl + C</strong><span>선택한 범위를 내부 clipboard에 복사합니다.</span></div>
+                                    <div class="term"><strong>Ctrl + V</strong><span>복사한 범위를 현재 위치에 붙여넣습니다.</span></div>
+                                    <div class="term"><strong>Ctrl + X</strong><span>잘라내기 기능입니다.</span></div>
+                                </div>
+                                <p>붙여넣기 전에는 preview rectangle이 표시됩니다. 이 복사 기능은 SPRED 내부 score cell 복사용이며, 일반 텍스트 편집기의 복사 / 붙여넣기와 완전히 같지는 않습니다.</p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section class="manual-section" aria-labelledby="notation-title">
+            <details class="chapter-accordion" open>
+                <summary id="notation-title">5. 입력 기호와 표현</summary>
+                <div class="detail-body">
+                    <p>SPRED의 note cell은 연주 표현을 추가하기 위한 여러 기호를 포함할 수 있습니다.</p>
+                    <img class="menu-image edit-panel" src="./resources/cellImage_0_10.jpg" alt="입력 도구 패널 전체">
+
+                    <div class="accordion-list">
+                        <details>
+                            <summary>5.1. 기본 입력</summary>
+                            <div class="detail-body">
+                                <div class="term-list">
+                                    <div class="term"><strong>기본 note</strong><span>일반 음표를 입력합니다.</span></div>
+                                    <div class="term"><strong>comment</strong><span>실제 음 없이 악보 위에 표시할 설명을 입력합니다.</span></div>
+                                    <div class="term"><strong>custom text</strong><span>사용자가 직접 정한 텍스트를 cell에 입력합니다.</span></div>
+                                </div>
+                                <img class="menu-image small" src="./resources/cellImage_0_11.jpg" alt="Default 입력 모드 선택">
+                                <p>처음 악보를 만들 때는 일반 note와 간단한 텍스트 입력부터 사용하는 것을 권장합니다.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>5.2. 롱노트와 표현 기호</summary>
+                            <div class="detail-body">
+                                <div class="term-list">
+                                    <div class="term"><strong><code>-</code></strong><span>일반 롱노트 연결에 사용합니다.</span></div>
+                                    <div class="term"><strong><code>~</code></strong><span>vib가 있는 롱노트 표현에 사용합니다.</span></div>
+                                    <div class="term"><strong>gliss marker</strong><span>글리산도 연결을 표현합니다.</span></div>
+                                    <div class="term"><strong>trem marker</strong><span>트레몰로 표현에 사용합니다.</span></div>
+                                    <div class="term"><strong>Pitch</strong><span>표시된 row와 실제로 울릴 음정을 다르게 지정하거나, cent 단위 미분음을 입력할 때 사용합니다.</span></div>
+                                </div>
+                                <p>Pitch는 주로 배음처럼 손가락 위치와 실제 발음이 다른 경우, 예외적인 음 처리, 미분음 표현에 사용합니다.</p>
+                                <p>기호 조합은 가능하지만, 음악적으로 동시에 해석하기 어려운 조합은 제한되거나 일부만 해석될 수 있습니다.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>5.3. Glissando 입력</summary>
+                            <div class="detail-body">
+                                <p>Glissando는 시작 지점, 중간 지점, 끝 지점을 이어 음높이가 미끄러지듯 변하는 표현입니다.</p>
+                                <img class="menu-image gliss-example" src="./resources/cellImage_0_12.jpg" alt="Glissando 연결 예시">
+                                <div class="term-list">
+                                    <div class="term"><strong>Gliss kind</strong><span>gliss marker의 역할을 고릅니다. 기본 흐름은 start - mid - end 순서입니다.</span></div>
+                                    <div class="term"><strong>start</strong><span>글리산도가 시작되는 지점입니다.</span></div>
+                                    <div class="term"><strong>mid</strong><span>시작과 끝 사이를 지나는 중간 지점입니다. 필요할 때 여러 개를 둘 수 있습니다.</span></div>
+                                    <div class="term"><strong>end</strong><span>글리산도가 끝나는 지점입니다.</span></div>
+                                    <div class="term"><strong>Gliss id</strong><span>같은 id를 가진 marker끼리 하나의 glissando로 연결됩니다.</span></div>
+                                </div>
+                                <p>서로 다른 glissando를 동시에 쓰거나 가까운 위치에 배치할 때는 id를 다르게 지정해 연결이 섞이지 않도록 합니다.</p>
+                                <p class="notice warning">같은 id 안에서는 start - mid - end 순서가 자연스럽게 이어져야 합니다. 순서가 뒤섞이거나 end가 없는 경우 의도와 다르게 해석될 수 있습니다.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>5.4. Tuplet 입력</summary>
+                            <div class="detail-body">
+                                <p>Tuplet은 한 칸 안을 여러 분할음으로 나누어 셋잇단음 같은 리듬을 표현하는 기능입니다. 입력 과정이 다른 도구보다 복잡하므로, 먼저 tuplet 값을 만든 뒤 악보에 배치하는 흐름으로 이해하면 됩니다.</p>
+                                <img class="menu-image compact-panel" src="./resources/cellImage_0_13.jpg" alt="Tuplet 입력 패널">
+                                <div class="term-list">
+                                    <div class="term"><strong>Tuplet mode</strong><span>Tuplet 입력 모드를 켜거나 끕니다. 이 모드에서는 tuplet 관련 입력을 우선 사용합니다.</span></div>
+                                    <div class="term"><strong>Division</strong><span>한 칸을 몇 개의 분할음으로 나눌지 정합니다. 예를 들어 3이면 셋잇단음 계열 입력입니다.</span></div>
+                                    <div class="term"><strong>Insert mode</strong><span>각 분할 슬롯에 어떤 방식으로 값을 넣을지 정합니다. 선택한 기본 note, 롱노트, 표현 기호 설정이 함께 반영될 수 있습니다.</span></div>
+                                    <div class="term"><strong>Slot</strong><span>분할음 하나하나의 입력칸입니다. 현재 선택된 slot에 note나 쉼표 값을 넣습니다.</span></div>
+                                    <div class="term"><strong>Select row</strong><span>악보의 row를 클릭해 현재 slot에 해당 음높이를 넣는 방식입니다.</span></div>
+                                    <div class="term"><strong>Finalize Value</strong><span>slot에 입력한 분할음 구성을 확정합니다. 확정 후 악보 cell을 클릭해 tuplet을 배치합니다.</span></div>
+                                </div>
+                                <p>기본 순서는 아래와 같습니다.</p>
+                                <ol>
+                                    <li><code>Tuplet mode</code>를 켭니다.</li>
+                                    <li><code>Division</code>에서 분할 수를 고릅니다.</li>
+                                    <li>입력할 slot을 선택합니다.</li>
+                                    <li><code>Select row</code> 또는 입력 도구를 사용해 각 slot의 음을 채웁니다.</li>
+                                    <li>쉼표가 필요한 slot은 빈 값으로 둡니다.</li>
+                                    <li>모든 slot을 정했으면 <code>Finalize Value</code>를 누릅니다.</li>
+                                    <li>악보 영역의 원하는 cell을 클릭해 tuplet을 입력합니다.</li>
+                                </ol>
+                                <p class="notice warning">Tuplet은 여러 분할음이 하나의 cell 안에 들어가는 구조입니다. 이미 입력된 tuplet을 수정할 때는 일반 note보다 hit 영역과 slot 선택을 더 주의해서 확인하세요.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>5.5. Pitch 입력</summary>
+                            <div class="detail-body">
+                                <p>Pitch 영역은 악보에서 클릭한 row의 기본 음높이를 기준으로, 실제 발음 음정과 미세한 cent 보정을 따로 지정하는 기능입니다.</p>
+                                <div class="term-list">
+                                    <div class="term"><strong>absolutePitch</strong><span>실제로 울릴 음정을 계이름 드롭다운으로 지정합니다. 비워두면 클릭한 note row의 기본 음정을 그대로 사용합니다.</span></div>
+                                    <div class="term"><strong>AUTO◇ +2oct</strong><span>클릭한 row보다 2옥타브 높은 음정을 자동으로 지정합니다. 배음 표기처럼 표시 위치와 실제 발음이 달라지는 경우에 사용합니다.</span></div>
+                                    <div class="term"><strong>microPitch</strong><span>현재 음정에서 cent 단위로 미세하게 올리거나 내립니다. 입력 범위는 -100부터 100까지이며, 소수점 이하 1자리까지 사용할 수 있습니다.</span></div>
+                                </div>
+                                <p>기본 입력 순서는 아래와 같습니다.</p>
+                                <ol>
+                                    <li><code>Edit Mode</code>를 켭니다.</li>
+                                    <li>필요하면 <code>absolutePitch</code>에서 실제 발음 음정을 고릅니다.</li>
+                                    <li>미분음이 필요하면 <code>microPitch</code>에 cent 값을 입력합니다.</li>
+                                    <li>악보 영역의 원하는 note row와 cell을 클릭합니다.</li>
+                                </ol>
+                                <p>예를 들어 표시 위치는 낮은 음 row에 두되 실제 소리는 배음처럼 높은 음으로 내고 싶다면 <code>absolutePitch</code> 또는 <code>AUTO◇ +2oct</code>를 사용합니다. 기준 음보다 조금 높거나 낮게 연주해야 하는 음은 <code>microPitch</code>에 양수 또는 음수 cent 값을 넣습니다.</p>
+                                <p class="notice warning">Pitch modifier는 표시 위치, 재생 음정, practice mode 판정에 영향을 줄 수 있습니다. 의도한 음정과 다르게 들리면 먼저 absolutePitch와 microPitch 값이 남아 있는지 확인하세요.</p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section class="manual-section" aria-labelledby="layout-title">
+            <details class="chapter-accordion" open>
+                <summary id="layout-title">6. Layout 사용</summary>
+                <div class="detail-body">
+                    <p>Layout은 악보의 세로 구조, 음높이 행, gap row, row height 등을 정하는 기능입니다.</p>
+                    <img class="menu-image dialog-view" src="./resources/cellImage_0_14.jpg" alt="Layout dialog">
+
+                    <div class="accordion-list">
+                        <details>
+                            <summary>6.1. Layout이 하는 일</summary>
+                            <div class="detail-body">
+                                <div class="term-list">
+                                    <div class="term"><strong>Instrument</strong><span>악기 종류와 string 설정을 관리합니다.</span></div>
+                                    <div class="term"><strong>Rows</strong><span>현재 악보 row 목록을 확인하고 수정합니다.</span></div>
+                                    <div class="term"><strong>Preview</strong><span>수정 중인 layout을 미리 봅니다.</span></div>
+                                    <div class="term"><strong>Add Row</strong><span>note row 또는 gap row를 추가합니다.</span></div>
+                                    <div class="term"><strong>Apply</strong><span>수정한 layout을 현재 악보에 적용합니다.</span></div>
+                                </div>
+                                <p>Layout은 악보 구조와 직접 연결되어 있으므로, 처음에는 row height 조정이나 preset 확인 정도부터 사용하는 것을 권장합니다.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>6.2. Preset 저장과 불러오기</summary>
+                            <div class="detail-body">
+                                <div class="term-list">
+                                    <div class="term"><strong>New Preset</strong><span>현재 설정을 새 preset으로 만듭니다.</span></div>
+                                    <div class="term"><strong>Local Save / Local Load</strong><span>현재 브라우저에 layout preset을 저장하거나 불러옵니다.</span></div>
+                                    <div class="term"><strong>File Save / File Load</strong><span>layout preset을 파일로 저장하거나 파일에서 불러옵니다.</span></div>
+                                </div>
+                                <p>악보 파일은 기본 layout을 저장하고, 사용자의 layout custom은 별도 preset으로 관리하는 방향입니다.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>6.3. 주의할 점</summary>
+                            <div class="detail-body">
+                                <ul>
+                                    <li>row를 삭제하거나 종류를 바꾸면 기존 cell과 충돌할 수 있습니다.</li>
+                                    <li>구조 충돌이 큰 경우 apply 또는 import가 실패할 수 있습니다.</li>
+                                    <li>악보가 이상하게 보이면 먼저 layout preset과 row 구조를 확인하세요.</li>
+                                    <li>불확실할 때는 <code>JSON Download</code>로 악보를 백업한 뒤 layout을 수정하세요.</li>
+                                </ul>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section class="manual-section" aria-labelledby="practice-title">
+            <details class="chapter-accordion" open>
+                <summary id="practice-title">7. Practice Mode Beta</summary>
+                <div class="detail-body">
+                    <p>Practice Mode Beta는 마이크 입력을 사용하여 악보와의 일치도를 측정하고, 음정과 박자 감각을 확인하는 연습 보조 기능입니다.</p>
+                    <img class="menu-image compact-panel" src="./resources/cellImage_0_15.jpg" alt="Practice Mode panel">
+
+                    <div class="accordion-list">
+                        <details>
+                            <summary>7.1. 시작 방법</summary>
+                            <div class="detail-body">
+                                <ol>
+                                    <li>연습할 악보를 불러옵니다.</li>
+                                    <li>연습할 track을 확인합니다.</li>
+                                    <li><code>practice mode (beta)</code>를 누릅니다.</li>
+                                    <li>브라우저가 마이크 권한을 요청하면 허용합니다.</li>
+                                    <li>필요하면 <code>Sync</code>로 입력 지연을 조정합니다.</li>
+                                    <li>재생을 시작합니다.</li>
+                                </ol>
+                                <img class="menu-image sync-dialog" src="./resources/cellImage_0_16.jpg" alt="Practice Mode Sync dialog">
+                                <p>Practice mode 중에는 악보 교체, 편집, layout 변경 같은 일부 기능이 잠깁니다. 연습 중 점수 계산 기준이 바뀌는 것을 막기 위한 동작입니다.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>7.2. 판정 표시</summary>
+                            <div class="detail-body">
+                                <p>세부 내용은 Practice 모드 윈도우 좌상단의 Rules에서 확인할 수 있습니다.</p>
+                                <div class="term-list">
+                                    <div class="term"><strong>Perfect</strong><span>pitch와 timing이 잘 맞은 경우입니다.</span></div>
+                                    <div class="term"><strong>Ok</strong><span>어느 정도 맞은 경우입니다.</span></div>
+                                    <div class="term"><strong>Bad</strong><span>많이 벗어난 경우입니다.</span></div>
+                                    <div class="term"><strong>Miss</strong><span>판정 기준을 크게 벗어난 경우입니다.</span></div>
+                                    <div class="term"><strong>COMBO</strong><span>연속 성공 수를 표시합니다.</span></div>
+                                </div>
+                                <p>결과창에서는 pitch accuracy, timing accuracy, total score, max combo, 각 판정 개수 등을 확인할 수 있습니다.</p>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>7.3. 인식이 이상할 때</summary>
+                            <div class="detail-body">
+                                <ul>
+                                    <li>조용한 장소에서 테스트하세요.</li>
+                                    <li>브라우저가 올바른 마이크를 사용하고 있는지 확인하세요.</li>
+                                    <li>너무 작은 소리나 주변 소음은 pitch detection을 방해할 수 있습니다.</li>
+                                    <li>스피커 소리가 마이크에 크게 들어가면 판정이 흔들릴 수 있습니다.</li>
+                                </ul>
+                                <p class="notice warning">Practice Mode Beta는 엄밀한 판정을 갖춘 게임이 아닌 단순 연습 보조 기능입니다. 결과가 부정확할 수 있습니다.</p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section class="manual-section" aria-labelledby="security-title">
+            <details class="chapter-accordion" open>
+                <summary id="security-title">8. 보안과 개인정보</summary>
+                <div class="detail-body">
+                    <div class="accordion-list">
+                        <details>
+                            <summary>8.1. 개인정보 입력 주의</summary>
+                            <div class="detail-body">
+                                <ul>
+                                    <li>악보 metadata나 comment에 민감한 개인정보를 적지 마세요.</li>
+                                    <li>공용 PC에서는 <code>Local Save</code> 사용을 피하거나 테스트 후 브라우저 데이터를 정리하세요.</li>
+                                    <li>local storage에 저장한 데이터는 같은 브라우저 사용자에게 보일 수 있습니다.</li>
+                                </ul>
+                            </div>
+                        </details>
+
+                        <details>
+                            <summary>8.2. 파일과 access word</summary>
+                            <div class="detail-body">
+                                <ul>
+                                    <li>모르는 사람이 준 JSON 파일은 신뢰할 수 있는 출처인지 확인하세요.</li>
+                                    <li>전문가나 AI 에이전트의 도움을 빌려 안전성을 검사하는 것도 좋습니다.</li>
+                                </ul>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section class="manual-section" aria-labelledby="terms-title">
+            <details class="chapter-accordion" open>
+                <summary id="terms-title">10. 용어 정리</summary>
+                <div class="detail-body">
+                    <p>앱 안에서 반복되는 용어를 간단히 정리합니다.</p>
+                    <div class="term-list">
+                        <div class="term"><strong>Score JSON</strong><span>SPRED 악보 데이터를 저장하는 JSON 파일입니다.</span></div>
+                        <div class="term"><strong>cell</strong><span>악보의 한 칸입니다.</span></div>
+                        <div class="term"><strong>note cell</strong><span>실제 음표 또는 연주 기호가 들어가는 칸입니다.</span></div>
+                        <div class="term"><strong>global cell</strong><span>BPM, 박자, dynamics 같은 전체 흐름 값을 적는 칸입니다.</span></div>
+                        <div class="term"><strong>track</strong><span>basic / optional / extra로 나뉘는 악보 레이어입니다.</span></div>
+                        <div class="term"><strong>layout</strong><span>악보 row 구조와 높이, 음높이 배치를 정하는 정보입니다.</span></div>
+                        <div class="term"><strong>preset</strong><span>저장해두고 다시 불러올 수 있는 layout 설정입니다.</span></div>
+                        <div class="term"><strong>tick</strong><span>SPRED 내부에서 시간 위치를 세는 단위입니다.</span></div>
+                        <div class="term"><strong>BPM</strong><span>분당 박자 수입니다.</span></div>
+                        <div class="term"><strong>offset</strong><span>영상 또는 입력 타이밍을 악보와 맞추기 위한 시간 차이입니다.</span></div>
+                        <div class="term"><strong>manifest</strong><span>예제 DB에서 악보 목록을 표현하는 정보입니다.</span></div>
+                        <div class="term"><strong>practice mode</strong><span>마이크 입력으로 연습 판정을 표시하는 beta 기능입니다.</span></div>
+                    </div>
                 </div>
             </details>
         </section>
