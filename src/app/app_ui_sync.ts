@@ -323,6 +323,8 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
   dom.jsonDownloadButton.disabled = isBusy || isGameLocked;
   dom.localSaveButton.disabled = isBusy || isGameLocked;
   dom.localLoadButton.disabled = isBusy || isGameLocked;
+  dom.examplesButton.disabled = isBusy || isGameLocked;
+  dom.manualButton.disabled = isBusy;
   dom.fullscreenButton.disabled = isBusy;
   dom.fitHeightButton.disabled = isBusy;
   dom.layoutPresetToolbarSelect.disabled = isBusy || isGameLocked;

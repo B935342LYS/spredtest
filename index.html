@@ -21,6 +21,7 @@
                             <button type="button" class="json-download-button">JSON Download</button>
                             <button type="button" class="local-save-button">Local Save</button>
                             <button type="button" class="local-load-button">Local Load</button>
+                            <button type="button" class="examples-button">Examples</button>
                             <input class="json-load-input" type="file" accept="application/json,.json" hidden>
                         </div>
                     </div>
@@ -74,7 +75,7 @@
                         <button class="menu-trigger" type="button">Help</button>
                         <div class="menu-panel">
                             <button type="button" onclick="document.getElementById('legal-info').showModal()">Info</button>
-                            <button type="button" disabled>Manual</button>
+                            <button type="button" class="manual-button">Manual</button>
                         </div>
                     </div>
                 </div>
@@ -426,6 +427,26 @@
                 <p>SPRED는 프렛리스 현악기를 위한 독립적인 연습 도구입니다. SPRED는 어떠한 공식 회사, 아티스트, 브랜드, 권리자와도 제휴, 보증, 후원을 받지 않습니다.</p>
             </section>
             <button type="submit">Close</button>
+        </form>
+    </dialog>
+
+    <!-- Examples Dialog -->
+    <dialog id="examples-dialog" class="examples-dialog">
+        <form method="dialog" class="examples-form">
+            <div class="dialog-title-row">
+                <h2>Examples</h2>
+                <button type="button" class="examples-close-button" aria-label="Close">Close</button>
+            </div>
+            <label class="examples-access-field">
+                Access word
+                <input class="examples-access-word-input" type="password" autocomplete="off" spellcheck="false">
+            </label>
+            <div class="examples-toolbar">
+                <button type="button" class="examples-load-list-button">Load List</button>
+                <button type="button" class="examples-load-button" disabled>Load Example</button>
+            </div>
+            <p class="examples-notice" role="status" aria-live="polite">Enter access word and load the example list.</p>
+            <div class="examples-list" role="list" data-examples-json="[]" data-selected-example-id=""></div>
         </form>
     </dialog>
 

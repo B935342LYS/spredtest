@@ -204,6 +204,16 @@ export type AppDom = {
   jsonLoadInput: HTMLInputElement;
   localSaveButton: HTMLButtonElement;
   localLoadButton: HTMLButtonElement;
+  examplesButton: HTMLButtonElement;
+  manualButton: HTMLButtonElement;
+  examplesDialog: HTMLDialogElement;
+  examplesForm: HTMLFormElement;
+  examplesCloseButton: HTMLButtonElement;
+  examplesAccessWordInput: HTMLInputElement;
+  examplesLoadListButton: HTMLButtonElement;
+  examplesLoadButton: HTMLButtonElement;
+  examplesNotice: HTMLElement;
+  examplesList: HTMLElement;
   zoomInput: HTMLInputElement;
   speedInput: HTMLInputElement;
   textOffInput: HTMLInputElement;

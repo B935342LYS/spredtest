@@ -9,6 +9,7 @@ import {
   loadScoreTextAsInitialState,
 } from "./app_runtime";
 import { bindFileControls } from "./app_file_binding";
+import { bindExampleControls } from "./examples/example_binding";
 import { bindViewControls } from "./app_view_binding";
 import type { ScoreTextEdit } from "./edit/edit_apply";
 import {
@@ -504,6 +505,10 @@ async function boot(): Promise<void> {
   stopPlaybackAnimation = bindPlaybackControls(dom, appSession).stopPlaybackAnimation;
   bindTrackControls(dom, appSession);
   bindFileControls(dom, appSession);
+  bindExampleControls(dom, appSession);
+  dom.manualButton.addEventListener("click", () => {
+    window.open("./manual/index.html", "_blank", "noopener");
+  });
   resetRepeatedClickCycle = bindScorePointerControls(dom, appSession).resetRepeatedClickCycle;
   bindEditPanelControls(dom, {
     ...appSession,

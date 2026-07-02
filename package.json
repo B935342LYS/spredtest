@@ -18,6 +18,7 @@
     "test:audio": "tsx ./dev/test_audio.ts",
     "test:game": "tsx ./dev/test_game.ts",
     "test:partial": "tsx ./dev/test_partial_rebuild.ts",
+    "test:examples": "tsx ./dev/test_examples.ts",
     "inspect:sheet": "node --experimental-specifier-resolution=node ./src/dev/inspect_sheet.ts"
   },
   "devDependencies": {

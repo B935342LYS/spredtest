@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPRED Manual</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            line-height: 1.55;
+            color: #202124;
+            background: #f6f7f9;
+        }
+
+        main {
+            max-width: 880px;
+            margin: 0 auto;
+            padding: 32px 20px 48px;
+        }
+
+        section {
+            margin-top: 28px;
+        }
+
+        h1,
+        h2 {
+            line-height: 1.2;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+        }
+
+        h2 {
+            margin: 0 0 10px;
+            font-size: 18px;
+        }
+
+        p,
+        li {
+            font-size: 14px;
+        }
+
+        code {
+            padding: 1px 4px;
+            border-radius: 4px;
+            background: #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>SPRED Manual</h1>
+        <p>SPRED는 악보 JSON을 만들고, 불러오고, 재생하며, practice mode로 연습하기 위한 웹 앱입니다.</p>
+
+        <section>
+            <h2>Files</h2>
+            <ul>
+                <li><strong>JSON Load</strong>: 로컬 Score JSON 파일을 불러옵니다.</li>
+                <li><strong>JSON Download</strong>: 현재 악보를 JSON 파일로 저장합니다.</li>
+                <li><strong>Local Save / Local Load</strong>: 현재 브라우저의 local storage에 악보를 저장하거나 다시 불러옵니다.</li>
+                <li><strong>Examples</strong>: 임시 access word를 입력해 원격 예제 악보 목록을 불러옵니다.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Playback</h2>
+            <p>Play, Stop, seek bar로 재생 위치를 제어합니다. Speed는 화면 열 너비만 바꾸며 실제 재생 시간은 바꾸지 않습니다.</p>
+        </section>
+
+        <section>
+            <h2>Edit Mode</h2>
+            <p>Edit Mode에서는 활성 track과 선택한 입력 도구에 따라 score cell rawText를 수정합니다. Practice mode 중에는 편집과 파일 교체가 잠깁니다.</p>
+        </section>
+
+        <section>
+            <h2>YouTube Sync</h2>
+            <p>YouTube mode는 공식 embedded player를 follower로 사용합니다. 앱은 영상이나 음원을 저장, 캐시, 추출, 재배포하지 않습니다.</p>
+        </section>
+
+        <section>
+            <h2>Practice Mode Beta</h2>
+            <p>마이크 입력을 사용해 pitch와 timing을 판정하는 연습 보조 기능입니다. 조용한 장소에서 마이크를 사용하세요.</p>
+        </section>
+
+        <section>
+            <h2>Feedback Checklist</h2>
+            <ul>
+                <li>테스트 일시, 앱 URL 또는 commit</li>
+                <li>브라우저, OS, 기기 종류</li>
+                <li>사용한 예제 악보 또는 JSON 파일명</li>
+                <li>수행한 작업 순서, 기대 결과, 실제 결과</li>
+                <li>재현 가능 여부, 콘솔 오류 여부, 화면 캡처 또는 녹화 여부</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Copyright</h2>
+            <p>예제와 사용자 악보는 직접 제작한 자료, 퍼블릭 도메인, 또는 변환과 재배포가 허용된 공개 라이선스 자료를 사용해야 합니다.</p>
+        </section>
+    </main>
+</body>
+</html>
