@@ -11,9 +11,10 @@ import type {
 
 const DEFAULT_MIN_ZOOM_PERCENT = 50;
 const COMPACT_MIN_ZOOM_PERCENT = 20;
+const ZOOM_PERCENT_FRACTION_DIGITS = 3;
 
 /**
- * zoom input 값을 허용 범위 안의 percent 정수로 설정한다.
+ * zoom input 값을 허용 범위 안의 percent 값으로 설정한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
  * - 인수 : zoomPercent : 적용할 zoom percent
  * - 인수 : minZoomPercent : 선택적으로 강제할 최소 zoom percent
@@ -27,12 +28,26 @@ export function setZoomPercent(
   const min = Number(dom.zoomInput.min);
   const max = Number(dom.zoomInput.max);
   const normalizedMin = minZoomPercent ?? (Number.isFinite(min) ? min : 1);
+  const normalizedZoomPercent = Number.isFinite(zoomPercent)
+    ? zoomPercent
+    : normalizedMin;
   const boundedZoom = Math.min(
-    Math.max(zoomPercent, normalizedMin),
+    Math.max(normalizedZoomPercent, normalizedMin),
     Number.isFinite(max) ? max : 200,
   );
 
-  dom.zoomInput.value = String(Math.round(boundedZoom));
+  dom.zoomInput.value = formatZoomPercentValue(boundedZoom);
+}
+
+/**
+ * zoom percent를 input value에 넣을 소수 문자열로 정규화한다.
+ * - 인수 : zoomPercent : input value로 저장할 zoom percent
+ * - 반환값 : 불필요한 0을 제거한 percent 문자열
+ */
+function formatZoomPercentValue(zoomPercent: number): string {
+  return zoomPercent
+    .toFixed(ZOOM_PERCENT_FRACTION_DIGITS)
+    .replace(/\.?0+$/, "");
 }
 
 /**
@@ -94,7 +109,7 @@ export function fitScoreHeightZoom(
   }
 
   const minZoomPercent = getFitHeightMinZoomPercent();
-  const fitZoomPercent = Math.floor((targetHeight / baseStageHeight) * 100);
+  const fitZoomPercent = (targetHeight / baseStageHeight) * 100;
 
   dom.zoomInput.min = String(minZoomPercent);
   setZoomPercent(dom, fitZoomPercent, minZoomPercent);
