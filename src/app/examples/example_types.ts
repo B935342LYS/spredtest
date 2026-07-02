@@ -17,6 +17,7 @@ export type ExampleScoreManifestItem = {
   id: string;
   title: string;
   artist: string;
+  genre?: string;
   difficulty?: ExampleDifficulty;
   supportedTracks: ExampleTrackId[];
   durationSeconds?: number;

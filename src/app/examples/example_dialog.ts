@@ -9,7 +9,20 @@ import type {
 import type {
   ExampleScoreManifest,
   ExampleScoreManifestItem,
+  ExampleTrackId,
 } from "./example_types";
+
+/** Examples 목록 정렬 기준. */
+type ExampleSortMode =
+  | "title"
+  | "artist"
+  | "difficulty-basic"
+  | "difficulty-optional"
+  | "difficulty-extra"
+  | "updated-at";
+
+/** Examples 목록 정렬 방향. */
+type ExampleSortDirection = "asc" | "desc";
 
 /** Examples dialog에서 선택한 action. */
 export type ExampleDialogAction =
@@ -75,6 +88,22 @@ export function bindExampleDialog(
       item: selectedItem,
     });
   });
+
+  dom.examplesSortSelect.addEventListener("change", () => {
+    renderExampleRowsFromControls(dom);
+  });
+
+  dom.examplesSortDirectionSelect.addEventListener("change", () => {
+    renderExampleRowsFromControls(dom);
+  });
+
+  dom.examplesNameSearchInput.addEventListener("input", () => {
+    renderExampleRowsFromControls(dom);
+  });
+
+  dom.examplesGenreSearchInput.addEventListener("input", () => {
+    renderExampleRowsFromControls(dom);
+  });
 }
 
 /**
@@ -95,27 +124,58 @@ export function openExampleDialog(dom: AppDom): void {
  * - 반환값 : 없음
  */
 export function renderExampleManifest(dom: AppDom, manifest: ExampleScoreManifest): void {
-  dom.examplesList.replaceChildren();
   dom.examplesList.dataset.examplesJson = JSON.stringify(manifest.examples);
   dom.examplesList.dataset.selectedExampleId = "";
   dom.examplesLoadButton.disabled = true;
+  renderExampleRowsFromControls(dom);
+}
 
-  if (manifest.examples.length === 0) {
+/**
+ * 현재 정렬/필터 control 값에 맞춰 Examples 목록을 다시 렌더링한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 반환값 : 없음
+ */
+function renderExampleRowsFromControls(dom: AppDom): void {
+  const allItems = readManifestItems(dom);
+  const visibleItems = sortExampleItems(
+    filterExampleItems(
+      allItems,
+      dom.examplesNameSearchInput.value,
+      dom.examplesGenreSearchInput.value,
+    ),
+    readExampleSortMode(dom.examplesSortSelect.value),
+    readExampleSortDirection(dom.examplesSortDirectionSelect.value),
+  );
+
+  dom.examplesList.replaceChildren();
+
+  const selectedId = dom.examplesList.dataset.selectedExampleId ?? "";
+  const hasSelectedItem = visibleItems.some((item) => item.id === selectedId);
+
+  if (!hasSelectedItem) {
+    dom.examplesList.dataset.selectedExampleId = "";
+    dom.examplesLoadButton.disabled = true;
+  }
+
+  if (visibleItems.length === 0) {
     const empty = document.createElement("p");
 
     empty.className = "examples-empty";
-    empty.textContent = "No examples are available.";
+    empty.textContent = allItems.length === 0
+      ? "No examples are available."
+      : "No examples match the selected filter.";
     dom.examplesList.append(empty);
     return;
   }
 
   const fragment = document.createDocumentFragment();
 
-  for (const item of manifest.examples) {
+  for (const item of visibleItems) {
     fragment.append(createExampleRow(dom, item));
   }
 
   dom.examplesList.append(fragment);
+  selectVisibleExampleRow(dom, selectedId);
 }
 
 /**
@@ -159,6 +219,10 @@ function resetExampleDialog(dom: AppDom): void {
   dom.examplesList.replaceChildren();
   dom.examplesList.dataset.examplesJson = "[]";
   dom.examplesList.dataset.selectedExampleId = "";
+  dom.examplesNameSearchInput.value = "";
+  dom.examplesGenreSearchInput.value = "";
+  dom.examplesSortSelect.value = "title";
+  dom.examplesSortDirectionSelect.value = "asc";
   dom.examplesLoadButton.disabled = true;
   setExampleDialogNotice(dom, "Enter access word and load the example list.", "info");
   setExampleDialogBusy(dom, false);
@@ -186,6 +250,7 @@ function createExampleRow(dom: AppDom, item: ExampleScoreManifestItem): HTMLButt
   meta.textContent = formatDifficulty(item);
   meta.className = "example-row-meta";
   detail.textContent = [
+    item.genre ?? "",
     formatDuration(item.durationSeconds),
     formatSize(item.sizeBytes),
     formatDateLabel("Created", item.createdAt),
@@ -210,12 +275,215 @@ function createExampleRow(dom: AppDom, item: ExampleScoreManifestItem): HTMLButt
 function selectExampleRow(dom: AppDom, itemId: string): void {
   dom.examplesList.dataset.selectedExampleId = itemId;
   dom.examplesLoadButton.disabled = false;
+  selectVisibleExampleRow(dom, itemId);
+}
 
+/**
+ * 현재 표시 중인 example row 버튼의 선택 상태만 갱신한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : itemId : 선택할 example id
+ * - 반환값 : 없음
+ */
+function selectVisibleExampleRow(dom: AppDom, itemId: string): void {
   for (const element of Array.from(dom.examplesList.querySelectorAll(".example-row"))) {
     if (element instanceof HTMLButtonElement) {
       element.setAttribute("aria-pressed", String(element.dataset.exampleId === itemId));
     }
   }
+}
+
+/**
+ * 이름/장르 검색어에 맞게 manifest item 목록을 필터링한다.
+ * - 인수 : items : 전체 manifest item 목록
+ * - 인수 : nameQuery : 제목 또는 아티스트 검색어
+ * - 인수 : genreQuery : 장르 검색어
+ * - 반환값 : 필터링된 item 목록
+ */
+function filterExampleItems(
+  items: ExampleScoreManifestItem[],
+  nameQuery: string,
+  genreQuery: string,
+): ExampleScoreManifestItem[] {
+  const normalizedNameQuery = normalizeSearchText(nameQuery);
+  const normalizedGenreQuery = normalizeSearchText(genreQuery);
+
+  return items.filter((item) => {
+    const nameText = normalizeSearchText(`${item.title} ${item.artist}`);
+    const genreText = normalizeSearchText(item.genre ?? "");
+
+    return (
+      (normalizedNameQuery.length === 0 || nameText.includes(normalizedNameQuery)) &&
+      (normalizedGenreQuery.length === 0 || genreText.includes(normalizedGenreQuery))
+    );
+  });
+}
+
+/**
+ * 정렬 기준 value를 목록 정렬 모드로 정규화한다.
+ * - 인수 : value : sort select value
+ * - 반환값 : 정렬 모드
+ */
+function readExampleSortMode(value: string): ExampleSortMode {
+  switch (value) {
+    case "artist":
+    case "difficulty-basic":
+    case "difficulty-optional":
+    case "difficulty-extra":
+    case "updated-at":
+      return value;
+    default:
+      return "title";
+  }
+}
+
+/**
+ * 정렬 방향 value를 목록 정렬 방향으로 정규화한다.
+ * - 인수 : value : sort direction select value
+ * - 반환값 : 정렬 방향
+ */
+function readExampleSortDirection(value: string): ExampleSortDirection {
+  return value === "desc" ? "desc" : "asc";
+}
+
+/**
+ * Examples item 목록을 지정 기준으로 정렬한다.
+ * - 인수 : items : 정렬할 item 목록
+ * - 인수 : sortMode : 정렬 기준
+ * - 인수 : direction : 정렬 방향
+ * - 반환값 : 정렬된 새 배열
+ */
+function sortExampleItems(
+  items: ExampleScoreManifestItem[],
+  sortMode: ExampleSortMode,
+  direction: ExampleSortDirection,
+): ExampleScoreManifestItem[] {
+  return items.slice().sort((left, right) => {
+    const result = compareExampleItems(left, right, sortMode, direction);
+
+    return result !== 0 ? result : compareText(left.title, right.title);
+  });
+}
+
+/**
+ * 두 Examples item을 지정 기준으로 비교한다.
+ * - 인수 : left : 왼쪽 item
+ * - 인수 : right : 오른쪽 item
+ * - 인수 : sortMode : 정렬 기준
+ * - 인수 : direction : 정렬 방향
+ * - 반환값 : Array.sort 비교값
+ */
+function compareExampleItems(
+  left: ExampleScoreManifestItem,
+  right: ExampleScoreManifestItem,
+  sortMode: ExampleSortMode,
+  direction: ExampleSortDirection,
+): number {
+  switch (sortMode) {
+    case "artist":
+      return compareTextByDirection(left.artist, right.artist, direction);
+    case "difficulty-basic":
+      return compareDifficulty(left, right, "basic", direction);
+    case "difficulty-optional":
+      return compareDifficulty(left, right, "optional", direction);
+    case "difficulty-extra":
+      return compareDifficulty(left, right, "extra", direction);
+    case "updated-at":
+      return compareDate(left.updatedAt, right.updatedAt, direction);
+    case "title":
+    default:
+      return compareTextByDirection(left.title, right.title, direction);
+  }
+}
+
+/**
+ * track 난이도를 오름차순으로 비교하고 누락값은 뒤로 보낸다.
+ * - 인수 : left : 왼쪽 item
+ * - 인수 : right : 오른쪽 item
+ * - 인수 : track : 비교할 track id
+ * - 인수 : direction : 정렬 방향
+ * - 반환값 : Array.sort 비교값
+ */
+function compareDifficulty(
+  left: ExampleScoreManifestItem,
+  right: ExampleScoreManifestItem,
+  track: ExampleTrackId,
+  direction: ExampleSortDirection,
+): number {
+  const leftValue = left.difficulty?.[track];
+  const rightValue = right.difficulty?.[track];
+
+  if (leftValue === undefined && rightValue === undefined) return 0;
+  if (leftValue === undefined) return 1;
+  if (rightValue === undefined) return -1;
+
+  return direction === "desc" ? rightValue - leftValue : leftValue - rightValue;
+}
+
+/**
+ * 날짜 문자열을 정렬 방향에 맞게 비교하고 누락값은 뒤로 보낸다.
+ * - 인수 : left : 왼쪽 날짜 문자열
+ * - 인수 : right : 오른쪽 날짜 문자열
+ * - 인수 : direction : 정렬 방향
+ * - 반환값 : Array.sort 비교값
+ */
+function compareDate(
+  left: string | undefined,
+  right: string | undefined,
+  direction: ExampleSortDirection,
+): number {
+  const leftTime = left === undefined ? Number.NaN : Date.parse(left);
+  const rightTime = right === undefined ? Number.NaN : Date.parse(right);
+  const hasLeft = Number.isFinite(leftTime);
+  const hasRight = Number.isFinite(rightTime);
+
+  if (!hasLeft && !hasRight) return 0;
+  if (!hasLeft) return 1;
+  if (!hasRight) return -1;
+
+  return direction === "desc" ? rightTime - leftTime : leftTime - rightTime;
+}
+
+/**
+ * UI 표시 문자열을 localeCompare 기반으로 비교한다.
+ * - 인수 : left : 왼쪽 문자열
+ * - 인수 : right : 오른쪽 문자열
+ * - 반환값 : Array.sort 비교값
+ */
+function compareText(left: string, right: string): number {
+  return left.localeCompare(right, undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+/**
+ * UI 표시 문자열을 정렬 방향에 맞게 비교한다.
+ * - 인수 : left : 왼쪽 문자열
+ * - 인수 : right : 오른쪽 문자열
+ * - 인수 : direction : 정렬 방향
+ * - 반환값 : Array.sort 비교값
+ */
+function compareTextByDirection(
+  left: string,
+  right: string,
+  direction: ExampleSortDirection,
+): number {
+  const result = compareText(left, right);
+
+  return direction === "desc" ? -result : result;
+}
+
+/**
+ * 검색용 문자열을 대소문자와 반복 공백 차이에 둔감하게 정규화한다.
+ * - 인수 : value : 검색 대상 또는 입력 문자열
+ * - 반환값 : 검색 비교용 문자열
+ */
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFKC")
+    .toLocaleLowerCase()
+    .trim()
+    .replace(/\s+/g, " ");
 }
 
 /**

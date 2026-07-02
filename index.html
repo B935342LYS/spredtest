@@ -445,6 +445,34 @@
                 <button type="button" class="examples-load-list-button">Load List</button>
                 <button type="button" class="examples-load-button" disabled>Load Example</button>
             </div>
+            <div class="examples-controls" aria-label="Example list controls">
+                <label>
+                    Name
+                    <input class="examples-name-search-input" type="search" placeholder="Title or artist" autocomplete="off" spellcheck="false">
+                </label>
+                <label>
+                    Genre
+                    <input class="examples-genre-search-input" type="search" placeholder="Genre keyword" autocomplete="off" spellcheck="false">
+                </label>
+                <label>
+                    Sort
+                    <select class="examples-sort-select">
+                        <option value="title">Title</option>
+                        <option value="artist">Artist</option>
+                        <option value="difficulty-basic">Basic Difficulty</option>
+                        <option value="difficulty-optional">Optional Difficulty</option>
+                        <option value="difficulty-extra">Extra Difficulty</option>
+                        <option value="updated-at">Recently Updated</option>
+                    </select>
+                </label>
+                <label>
+                    Order
+                    <select class="examples-sort-direction-select">
+                        <option value="asc">Ascend</option>
+                        <option value="desc">Descend</option>
+                    </select>
+                </label>
+            </div>
             <p class="examples-notice" role="status" aria-live="polite">Enter access word and load the example list.</p>
             <div class="examples-list" role="list" data-examples-json="[]" data-selected-example-id=""></div>
         </form>

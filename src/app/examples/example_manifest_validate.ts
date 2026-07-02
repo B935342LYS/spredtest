@@ -106,6 +106,9 @@ function normalizeManifestItem(
   const artist = normalizeRequiredString(value.artist, `${path}.artist`);
   if (!artist.ok) return artist;
 
+  const genre = normalizeOptionalString(value.genre, `${path}.genre`);
+  if (!genre.ok) return genre;
+
   const tracks = normalizeSupportedTracks(value.supportedTracks, `${path}.supportedTracks`);
   if (!tracks.ok) return tracks;
 
@@ -133,6 +136,7 @@ function normalizeManifestItem(
       id: id.value,
       title: title.value,
       artist: artist.value,
+      ...(genre.value === undefined ? {} : { genre: genre.value }),
       ...(difficulty.value === undefined ? {} : { difficulty: difficulty.value }),
       supportedTracks: tracks.value,
       ...(durationSeconds.value === undefined ? {} : { durationSeconds: durationSeconds.value }),
@@ -167,6 +171,31 @@ function normalizeRequiredString(
   }
 
   return { ok: true, value: text };
+}
+
+/**
+ * optional string 값을 trim한 뒤 빈 문자열이면 생략한다.
+ * - 인수 : value : 검사할 값
+ * - 인수 : path : 오류 표시용 JSON path
+ * - 반환값 : trim된 문자열, undefined, 또는 오류 정보
+ */
+function normalizeOptionalString(
+  value: unknown,
+  path: string,
+):
+  | { ok: true; value: string | undefined }
+  | { ok: false; error: ExampleManifestValidationError } {
+  if (value === undefined || value === null) {
+    return { ok: true, value: undefined };
+  }
+
+  const text = normalizeRequiredString(value, path);
+
+  if (!text.ok) {
+    return text;
+  }
+
+  return { ok: true, value: text.value };
 }
 
 /**

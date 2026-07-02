@@ -212,6 +212,10 @@ export type AppDom = {
   examplesAccessWordInput: HTMLInputElement;
   examplesLoadListButton: HTMLButtonElement;
   examplesLoadButton: HTMLButtonElement;
+  examplesNameSearchInput: HTMLInputElement;
+  examplesGenreSearchInput: HTMLInputElement;
+  examplesSortSelect: HTMLSelectElement;
+  examplesSortDirectionSelect: HTMLSelectElement;
   examplesNotice: HTMLElement;
   examplesList: HTMLElement;
   zoomInput: HTMLInputElement;
