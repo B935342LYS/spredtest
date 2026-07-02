@@ -48,9 +48,15 @@ export function getScoreAreaFitTargetHeight(dom: AppDom): number {
   if (statusArea !== null) {
     const statusRect = statusArea.getBoundingClientRect();
     const availableHeight = statusRect.top - scoreAreaRect.top;
+    const visibleScoreAreaHeight = dom.scoreArea.clientHeight;
 
     // score 영역의 바닥 기준은 status footer의 실제 윗면으로 삼는다.
     if (Number.isFinite(availableHeight) && availableHeight > 0) {
+      // clientHeight는 가로 스크롤바가 차지한 내부 높이를 제외하므로 fit 후 세로 overflow를 막는다.
+      if (Number.isFinite(visibleScoreAreaHeight) && visibleScoreAreaHeight > 0) {
+        return Math.min(availableHeight, visibleScoreAreaHeight);
+      }
+
       return availableHeight;
     }
   }
