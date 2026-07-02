@@ -1765,11 +1765,11 @@ select:disabled {
 
 .example-row {
   display: grid;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto auto auto auto;
   gap: 3px;
   width: 100%;
   min-width: 0;
-  min-height: 70px;
+  min-height: 88px;
   padding: 9px 12px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -1805,7 +1805,8 @@ select:disabled {
 }
 
 .example-row-meta,
-.example-row-detail {
+.example-row-detail,
+.example-row-file-meta {
   display: block;
 }
 

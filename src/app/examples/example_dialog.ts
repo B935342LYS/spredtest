@@ -247,18 +247,22 @@ function createExampleRow(dom: AppDom, item: ExampleScoreManifestItem): HTMLButt
 
   title.textContent = `${item.artist} - ${item.title}`;
   title.className = "example-row-title";
-  meta.textContent = formatDifficulty(item);
+  meta.textContent = `Genre ${item.genre ?? "--"}`;
   meta.className = "example-row-meta";
-  detail.textContent = [
-    item.genre ?? "",
-    formatDuration(item.durationSeconds),
-    formatSize(item.sizeBytes),
+  detail.textContent = formatDifficulty(item);
+  detail.className = "example-row-detail";
+
+  const fileMeta = document.createElement("span");
+
+  fileMeta.textContent = [
+    formatDurationLabel(item.durationSeconds),
+    formatSizeLabel(item.sizeBytes),
     formatDateLabel("Created", item.createdAt),
     formatDateLabel("Updated", item.updatedAt),
   ].filter((text) => text.length > 0).join(" · ");
-  detail.className = "example-row-detail";
+  fileMeta.className = "example-row-file-meta";
 
-  row.append(title, meta, detail);
+  row.append(title, meta, detail, fileMeta);
   row.addEventListener("click", () => {
     selectExampleRow(dom, item.id);
   });
@@ -523,7 +527,7 @@ function formatDifficulty(item: ExampleScoreManifestItem): string {
  * - 인수 : value : duration 초 단위 값
  * - 반환값 : mm:ss 형식 또는 빈 문자열
  */
-function formatDuration(value: number | undefined): string {
+function formatDurationLabel(value: number | undefined): string {
   if (value === undefined) {
     return "";
   }
@@ -531,7 +535,7 @@ function formatDuration(value: number | undefined): string {
   const minutes = Math.floor(value / 60);
   const seconds = value % 60;
 
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  return `Duration ${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 /**
@@ -539,12 +543,12 @@ function formatDuration(value: number | undefined): string {
  * - 인수 : value : byte 단위 크기
  * - 반환값 : KiB 표시 또는 빈 문자열
  */
-function formatSize(value: number | undefined): string {
+function formatSizeLabel(value: number | undefined): string {
   if (value === undefined) {
     return "";
   }
 
-  return `${Math.round(value / 1024)} KiB`;
+  return `Size ${Math.round(value / 1024)} KiB`;
 }
 
 /**
