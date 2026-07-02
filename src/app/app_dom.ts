@@ -157,6 +157,8 @@ export function collectAppDom(): AppDom {
     detailsGenreInput: queryElement(".details-genre-input", HTMLInputElement),
     detailsWriterInput: queryElement(".details-writer-input", HTMLInputElement),
     detailsCommentInput: queryElement(".details-comment-input", HTMLTextAreaElement),
+    detailsCreatedAtInput: queryElement(".details-created-at-input", HTMLInputElement),
+    detailsUpdatedAtInput: queryElement(".details-updated-at-input", HTMLInputElement),
     detailsBasicDifficultyInput: queryElement(".details-basic-difficulty-input", HTMLInputElement),
     detailsOptionalDifficultyInput: queryElement(".details-optional-difficulty-input", HTMLInputElement),
     detailsExtraDifficultyInput: queryElement(".details-extra-difficulty-input", HTMLInputElement),

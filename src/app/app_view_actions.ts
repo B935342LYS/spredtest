@@ -165,12 +165,14 @@ export function readIntegerInput(input: HTMLInputElement, fallback: number): num
  * - 반환값 : 없음
  */
 export function populateDetailsDialog(dom: AppDom, musicData: MusicData): void {
-  // Details dialog는 생성/수정 시각을 제외한 musicData 편집 필드를 현재 score 값으로 채운다.
+  // Details dialog는 편집 가능한 metadata와 읽기 전용 timestamp를 함께 현재 score 값으로 채운다.
   dom.detailsTitleInput.value = musicData.musicTitle;
   dom.detailsArtistInput.value = musicData.musicArtist;
   dom.detailsGenreInput.value = musicData.musicGenre;
   dom.detailsWriterInput.value = musicData.scoreWriter;
   dom.detailsCommentInput.value = musicData.comment;
+  dom.detailsCreatedAtInput.value = musicData.createdAt;
+  dom.detailsUpdatedAtInput.value = musicData.updatedAt;
   dom.detailsBasicDifficultyInput.value = String(musicData.scoreDifficulty.basic);
   dom.detailsOptionalDifficultyInput.value = String(musicData.scoreDifficulty.optional);
   dom.detailsExtraDifficultyInput.value = String(musicData.scoreDifficulty.extra);

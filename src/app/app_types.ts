@@ -304,6 +304,8 @@ export type AppDom = {
   detailsGenreInput: HTMLInputElement;
   detailsWriterInput: HTMLInputElement;
   detailsCommentInput: HTMLTextAreaElement;
+  detailsCreatedAtInput: HTMLInputElement;
+  detailsUpdatedAtInput: HTMLInputElement;
   detailsBasicDifficultyInput: HTMLInputElement;
   detailsOptionalDifficultyInput: HTMLInputElement;
   detailsExtraDifficultyInput: HTMLInputElement;

@@ -2192,6 +2192,11 @@ select:disabled {
   resize: vertical;
 }
 
+.details-field input[readonly] {
+  color: var(--muted);
+  background: var(--bg);
+}
+
 .details-field.compact input {
   width: 52px;
   padding: 4px 6px;
