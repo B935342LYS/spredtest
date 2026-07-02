@@ -94,9 +94,10 @@ export function fitScoreHeightZoom(
   }
 
   const minZoomPercent = getFitHeightMinZoomPercent();
+  const fitZoomPercent = Math.floor((targetHeight / baseStageHeight) * 100);
 
   dom.zoomInput.min = String(minZoomPercent);
-  setZoomPercent(dom, (targetHeight / baseStageHeight) * 100, minZoomPercent);
+  setZoomPercent(dom, fitZoomPercent, minZoomPercent);
 
   return {
     level: "info",
