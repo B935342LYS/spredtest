@@ -263,6 +263,7 @@ export type AppDom = {
   resultTremBonusCount: HTMLElement;
   resultEffectBonusScore: HTMLElement;
   resultBestCombo: HTMLElement;
+  resultFullCombo: HTMLElement;
   gameMicState: HTMLElement;
   gameRawFrequency: HTMLElement;
   gameClarity: HTMLElement;

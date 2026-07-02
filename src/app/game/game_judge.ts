@@ -233,12 +233,12 @@ export function judgeGameScoringSample(
   let selectedTarget: GameJudgeTarget | null = null;
   let selectedErrorCent = Number.POSITIVE_INFINITY;
 
-  // 동시에 여러 active note가 있으면 pitch class 오차가 가장 작은 target 하나를 선택한다.
+  // 동시에 여러 active note가 있으면 pitch class 오차와 현재 note 구간 우선순위로 target 하나를 선택한다.
   for (const target of targets) {
     const targetCent = target.targetMidi * 100 + target.targetCentOffset;
     const errorCent = calculatePitchClassErrorCent(inputCent, targetCent);
 
-    if (errorCent < selectedErrorCent) {
+    if (isPreferredJudgeTarget(target, errorCent, selectedTarget, selectedErrorCent, scoreSeconds)) {
       selectedErrorCent = errorCent;
       selectedTarget = target;
     }
@@ -296,6 +296,58 @@ function createEmptyTimingMatch(): {
     },
     onsetId: null,
   };
+}
+
+/**
+ * pitch 오차와 현재 score time 기준으로 더 적합한 note target인지 판단한다.
+ * - 인수 : candidate : 새로 비교할 target
+ * - 인수 : candidateErrorCent : candidate의 pitch class 오차
+ * - 인수 : selected : 기존 선택 target
+ * - 인수 : selectedErrorCent : 기존 선택 target의 pitch class 오차
+ * - 인수 : scoreSeconds : 현재 판정 score time
+ * - 반환값 : candidate를 새 target으로 선택해야 하면 true
+ */
+function isPreferredJudgeTarget(
+  candidate: GameJudgeTarget,
+  candidateErrorCent: number,
+  selected: GameJudgeTarget | null,
+  selectedErrorCent: number,
+  scoreSeconds: number,
+): boolean {
+  if (selected === null) {
+    return true;
+  }
+
+  if (candidateErrorCent < selectedErrorCent) {
+    return true;
+  }
+
+  if (candidateErrorCent > selectedErrorCent) {
+    return false;
+  }
+
+  const candidateActive = isTargetActiveAtSeconds(candidate, scoreSeconds);
+  const selectedActive = isTargetActiveAtSeconds(selected, scoreSeconds);
+
+  // 동일 pitch에서는 grace로 남은 이전 note보다 실제 현재 구간에 들어온 note를 우선한다.
+  if (candidateActive !== selectedActive) {
+    return candidateActive;
+  }
+
+  return false;
+}
+
+/**
+ * target의 원래 note 발음 구간 안에 현재 score time이 있는지 확인한다.
+ * - 인수 : target : 검사할 판정 target
+ * - 인수 : scoreSeconds : 현재 판정 score time
+ * - 반환값 : grace 구간이 아니라 실제 note 구간이면 true
+ */
+function isTargetActiveAtSeconds(
+  target: GameJudgeTarget,
+  scoreSeconds: number,
+): boolean {
+  return scoreSeconds >= target.startSeconds && scoreSeconds < target.endSeconds;
 }
 
 /**

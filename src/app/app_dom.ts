@@ -226,6 +226,7 @@ export function collectAppDom(): AppDom {
     resultTremBonusCount: queryElement(".result-trem-bonus-count", HTMLElement),
     resultEffectBonusScore: queryElement(".result-effect-bonus-score", HTMLElement),
     resultBestCombo: queryElement(".result-best-combo", HTMLElement),
+    resultFullCombo: queryElement(".result-full-combo", HTMLElement),
     gameMicState: queryElement(".game-mic-state", HTMLElement),
     gameRawFrequency: queryElement(".game-raw-frequency", HTMLElement),
     gameClarity: queryElement(".game-clarity", HTMLElement),

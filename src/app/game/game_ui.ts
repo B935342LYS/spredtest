@@ -11,6 +11,7 @@ import {
   type GameScoreSummary,
   formatGameSyncOffsetMs,
   getGameScoreSummary,
+  isFullComboSummary,
   isGameModeLocked,
   isGameModeOpen,
 } from "./game_types";
@@ -192,6 +193,7 @@ export function openPracticeResultDialog(dom: AppDom, summary: GameScoreSummary)
   dom.resultTremBonusCount.textContent = String(summary.tremBonusCount);
   dom.resultEffectBonusScore.textContent = `+${Math.round(summary.effectBonusScore)}`;
   dom.resultBestCombo.textContent = String(summary.bestCombo);
+  dom.resultFullCombo.hidden = !isFullComboSummary(summary);
 
   if (!dom.practiceResultDialog.open) {
     dom.practiceResultDialog.showModal();
@@ -230,6 +232,7 @@ export function openPracticeResultDialogForState(dom: AppDom, state: AppState): 
   dom.resultTremBonusCount.textContent = String(summary.tremBonusCount);
   dom.resultEffectBonusScore.textContent = `+${Math.round(summary.effectBonusScore)}`;
   dom.resultBestCombo.textContent = String(summary.bestCombo);
+  dom.resultFullCombo.hidden = !isFullComboSummary(summary);
 
   if (!dom.practiceResultDialog.open) {
     dom.practiceResultDialog.showModal();

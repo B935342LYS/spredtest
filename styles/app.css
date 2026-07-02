@@ -1784,6 +1784,18 @@ select:disabled {
   white-space: nowrap;
 }
 
+.result-full-combo {
+  padding: 10px 12px;
+  border: 1px solid #188b3c;
+  border-radius: 6px;
+  background: #edf8f0;
+  color: #188b3c;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-align: center;
+}
+
 .practice-result-grid strong {
   color: var(--text);
 }

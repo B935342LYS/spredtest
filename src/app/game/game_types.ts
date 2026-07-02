@@ -169,6 +169,20 @@ export function createEmptyGameScoreSummary(): GameScoreSummary {
 }
 
 /**
+ * 판정된 scoring sample이 모두 combo를 이어 갔는지 확인한다.
+ * - 인수 : summary : 최종 게임 점수 집계
+ * - 반환값 : 판정된 sample이 1개 이상이고 best combo가 판정 sample 수와 같으면 true
+ */
+export function isFullComboSummary(summary: GameScoreSummary): boolean {
+  const judgedSampleCount = summary.perfectCount +
+    summary.okCount +
+    summary.badCount +
+    summary.missCount;
+
+  return judgedSampleCount > 0 && summary.bestCombo === judgedSampleCount;
+}
+
+/**
  * 게임 모드 panel을 표시해야 하는지 확인한다.
  * - 인수 : state : 현재 게임 모드 상태
  * - 반환값 : off가 아니면 true
