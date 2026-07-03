@@ -15,6 +15,7 @@ import type {
 } from "./types";
 import {
   MAX_CELL_RAW_TEXT_LENGTH,
+  MAX_SCORE_COMMENT_LENGTH,
   MAX_YOUTUBE_OFFSET_MS,
   MAX_ROW_DEFINITIONS,
   MAX_ROW_HEIGHT,
@@ -255,6 +256,11 @@ function validateBasicShapes(
     return youtubeSyncError;
   }
 
+  const musicDataTextError = validateMusicDataTextShape(score.musicData);
+  if (musicDataTextError !== null) {
+    return musicDataTextError;
+  }
+
   // instData.strings에 접근하기 전에 instData 자체가 객체인지 먼저 확인한다.
   if (!isRecord(score.instData)) {
     return invalidShape("instData must be an object.", "instData");
@@ -312,6 +318,33 @@ function validateBasicShapes(
   // tracks는 trackId 검증과 track cell 검증의 기준 배열이다.
   if (!Array.isArray(score.tracks)) {
     return invalidShape("tracks must be an array.", "tracks");
+  }
+
+  return null;
+}
+
+/**
+ * musicData의 기본 문자열 필드와 comment 길이 제한을 확인한다.
+ * - 인수 : musicData : ScoreFile 후보의 musicData 객체
+ * - 반환값 : 필드 형태 오류 또는 통과 결과
+ */
+function validateMusicDataTextShape(musicData: Record<string, unknown>): ScoreValidationError | null {
+  for (const field of ["musicTitle", "musicArtist", "musicGenre", "scoreWriter", "comment"]) {
+    if (typeof musicData[field] !== "string") {
+      return invalidShape(`musicData.${field} must be a string.`, `musicData.${field}`);
+    }
+  }
+
+  const comment = musicData.comment;
+  if (typeof comment !== "string") {
+    return invalidShape("musicData.comment must be a string.", "musicData.comment");
+  }
+
+  if (comment.length > MAX_SCORE_COMMENT_LENGTH) {
+    return invalidShape(
+      `musicData.comment length must be 0..${MAX_SCORE_COMMENT_LENGTH}.`,
+      "musicData.comment",
+    );
   }
 
   return null;

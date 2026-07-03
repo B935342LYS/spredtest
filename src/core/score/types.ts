@@ -38,7 +38,7 @@ export type MusicData = {
     musicArtist: string;    // 아티스트명 (default : "Unknown")
     musicGenre: string;     // 곡의 장르 (default : "Unknown")
     scoreWriter: string;    // 악보 제작자명 (default : "Anonymous")
-    comment: string;        // 악보 제작자 코멘트 (100자 이하)
+    comment: string;        // 악보 제작자 코멘트 (500자 이하)
     scoreDifficulty: ScoreDifficulty;   // 트랙별 난이도
     createdAt: string;      // 악보 생성 날짜 (ISO 형식)
     updatedAt: string;      // 악보 마지막 수정 날짜 (생성 시각보다 과거일 수 없음)

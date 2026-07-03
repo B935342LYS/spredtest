@@ -3,6 +3,7 @@
  */
 
 import type { MusicData } from "../core/score/types";
+import { MAX_SCORE_COMMENT_LENGTH } from "../core/score/score_limits";
 import type {
   AppDom,
   AppState,
@@ -194,7 +195,7 @@ export function readDetailsDialogMusicData(
     musicArtist: dom.detailsArtistInput.value,
     musicGenre: dom.detailsGenreInput.value,
     scoreWriter: dom.detailsWriterInput.value,
-    comment: dom.detailsCommentInput.value.slice(0, 100),
+    comment: dom.detailsCommentInput.value.slice(0, MAX_SCORE_COMMENT_LENGTH),
     scoreDifficulty: {
       basic: readIntegerInput(
         dom.detailsBasicDifficultyInput,
