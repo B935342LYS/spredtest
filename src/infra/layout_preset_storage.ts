@@ -3,6 +3,7 @@
  */
 
 import type { UserLayoutPresetData } from "../app/layout/layout_types";
+import { NORMAL_SCORE_LAYOUT_PRESET } from "../assets/templates/normal-score-layout-preset";
 import {
   parseUserLayoutPresetJson,
   serializeUserLayoutPresetData,
@@ -90,7 +91,7 @@ export function loadLayoutPresetSlotFromLocalStorage(
   const presetText = localStorage.getItem(slotKey);
 
   if (presetText === null) {
-    return null;
+    return getBundledLayoutPresetForSlot(instrumentPresetId, slotNumber);
   }
 
   const result = parseUserLayoutPresetJson(presetText);
@@ -102,6 +103,42 @@ export function loadLayoutPresetSlotFromLocalStorage(
   }
 
   return result.value;
+}
+
+/**
+ * localStorage에 사용자 저장값이 없을 때 제공할 bundled layout preset을 반환한다.
+ * - 인수 : instrumentPresetId : 현재 score의 악기 프리셋 ID
+ * - 인수 : slotNumber : 조회할 슬롯 번호
+ * - 반환값 : 기본 제공 프리셋 또는 null
+ */
+function getBundledLayoutPresetForSlot(
+  instrumentPresetId: string,
+  slotNumber: LocalLayoutPresetSlotNumber,
+): UserLayoutPresetData | null {
+  if (
+    slotNumber === 1 &&
+    instrumentPresetId === NORMAL_SCORE_LAYOUT_PRESET.instrumentPresetId
+  ) {
+    return cloneLayoutPreset(NORMAL_SCORE_LAYOUT_PRESET);
+  }
+
+  return null;
+}
+
+/**
+ * bundled preset 원본을 외부에서 수정하지 못하도록 복사한다.
+ * - 인수 : preset : 복사할 기본 제공 프리셋
+ * - 반환값 : 독립적으로 사용할 프리셋 데이터
+ */
+function cloneLayoutPreset(preset: UserLayoutPresetData): UserLayoutPresetData {
+  return {
+    ...preset,
+    instData: {
+      ...preset.instData,
+      strings: preset.instData.strings.map((stringInfo) => ({ ...stringInfo })),
+    },
+    rowDefinitions: preset.rowDefinitions.map((row) => ({ ...row })),
+  };
 }
 
 /**
