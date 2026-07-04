@@ -219,6 +219,7 @@ export function composeSingleEditForHit(
       repeatedClickCycle,
       hit,
       editRawText.rawText,
+      getExistingRawText(state, getSelectionForHit(state, hit)),
       (targetHitForSelection) => getSelectionForHit(state, targetHitForSelection),
     );
 
