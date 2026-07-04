@@ -108,7 +108,6 @@ export function cycleRawTextFromExistingCell(
  * - 인수 : cycleState : 현재 반복 클릭 cycle 상태
  * - 인수 : hit : 클릭한 score 좌표
  * - 인수 : baseRawText : edit panel에서 합성한 기본 rawText
- * - 인수 : existingRawText : 현재 cell에 저장된 rawText
  * - 인수 : getSelectionForHit : hit를 active track selection으로 바꾸는 함수
  * - 반환값 : 다음 cycle 상태와 이번 클릭에 적용할 rawText
  */
@@ -116,7 +115,6 @@ export function advanceRepeatedClickCycle(
   cycleState: RepeatedClickCycleState | null,
   hit: ScoreHit,
   baseRawText: string,
-  existingRawText: string,
   getSelectionForHit: (hit: ScoreHit) => ScoreSelection,
 ): {
   cycleState: RepeatedClickCycleState;
@@ -131,15 +129,13 @@ export function advanceRepeatedClickCycle(
     cycleState.targetKey !== targetKey ||
     cycleState.baseRawText !== baseRawText
   ) {
-    const rawText = cycleRawTextFromExistingCell(existingRawText, baseRawText);
-
     return {
       cycleState: {
         targetKey,
         baseRawText,
-        nextStep: getNextRepeatedClickStep(rawText, baseRawText),
+        nextStep: 1,
       },
-      rawText,
+      rawText: baseRawText,
     };
   }
 
@@ -170,29 +166,6 @@ export function advanceRepeatedClickCycle(
     },
     rawText: baseRawText,
   };
-}
-
-/**
- * 이번 클릭으로 적용한 rawText 다음에 이어질 반복 클릭 단계를 계산한다.
- * - 인수 : appliedRawText : 이번 클릭으로 적용한 rawText
- * - 인수 : baseRawText : edit panel에서 합성한 기본 rawText
- * - 반환값 : 다음 클릭에서 적용할 cycle 단계
- */
-function getNextRepeatedClickStep(
-  appliedRawText: string,
-  baseRawText: string,
-): RepeatedClickCycleState["nextStep"] {
-  const pitchModifierSuffix = extractPitchModifierSuffix(baseRawText);
-
-  if (appliedRawText === `-${pitchModifierSuffix}`) {
-    return 2;
-  }
-
-  if (appliedRawText === `~${pitchModifierSuffix}`) {
-    return 0;
-  }
-
-  return 1;
 }
 
 /**
