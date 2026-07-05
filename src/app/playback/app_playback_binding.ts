@@ -444,25 +444,7 @@ export function bindPlaybackControls(
         hasReachedPracticeRangeEnd ||
         (!hasRemainingTarget && !hasPendingEffectBonusTarget(judgeScoreSeconds))
       ) {
-        clearGameJudgeOverlay(dom);
-
-        const nextState = {
-          ...state,
-          gameMode: {
-            kind: "finished" as const,
-            summary: state.gameMode.summary,
-            pitchFrame: state.gameMode.pitchFrame,
-          },
-          statusMessage: {
-            level: "info" as const,
-            text: "Practice finished.",
-          },
-        };
-
-        session.setState(nextState);
-        syncGameModeUi(dom, nextState);
-        syncLeftStatus(dom, nextState);
-        openPracticeResultDialogForState(dom, nextState);
+        finishPracticePlayback(state);
         return;
       }
 
@@ -529,6 +511,63 @@ export function bindPlaybackControls(
     } catch {
       return;
     }
+  };
+
+  /**
+   * practice playback을 finished 상태로 바꾸고 result dialog를 연다.
+   * - 인수 : state : 현재 playing 상태를 가진 앱 상태
+   * - 반환값 : finished 처리를 수행했으면 true
+   */
+  const finishPracticePlayback = (state: AppState): boolean => {
+    if (state.gameMode.kind !== "playing") {
+      return false;
+    }
+
+    clearGameJudgeOverlay(dom);
+
+    const nextState = {
+      ...state,
+      gameMode: {
+        kind: "finished" as const,
+        summary: state.gameMode.summary,
+        pitchFrame: state.gameMode.pitchFrame,
+      },
+      statusMessage: {
+        level: "info" as const,
+        text: "Practice finished.",
+      },
+    };
+
+    session.setState(nextState);
+    syncGameModeUi(dom, nextState);
+    syncLeftStatus(dom, nextState);
+    openPracticeResultDialogForState(dom, nextState);
+
+    return true;
+  };
+
+  /**
+   * controller가 자연 종료된 뒤에도 practice result 처리를 보장한다.
+   * - 인수 : state : RAF에서 읽은 현재 앱 상태
+   * - 인수 : playbackRuntime : 현재 playback runtime
+   * - 반환값 : result 처리를 수행했으면 true
+   */
+  const finishPracticeAfterNaturalPlaybackEnd = (
+    state: AppState,
+    playbackRuntime: AppPlaybackRuntime,
+  ): boolean => {
+    if (state.gameMode.kind !== "playing") {
+      return false;
+    }
+
+    const currentScoreSeconds = playbackRuntime.controller.getCurrentScoreSeconds();
+    const durationSeconds = playbackRuntime.timeMapper.getDurationSeconds();
+
+    if (currentScoreSeconds < durationSeconds - 1e-6) {
+      return false;
+    }
+
+    return finishPracticePlayback(state);
   };
 
   const stopPlaybackAnimation = (resetPracticeState = true): void => {
@@ -786,8 +825,11 @@ export function bindPlaybackControls(
 
       if (!playbackRuntime.controller.isPlaying() || state.layout === null) {
         playbackRafId = null;
+        measurePerf("playbackRaf.finishPracticeAfterNaturalEnd", () =>
+          finishPracticeAfterNaturalPlaybackEnd(state, playbackRuntime)
+        );
         measurePerf("playbackRaf.syncPlaybackUiStopped", () =>
-          syncPlaybackUi(dom, state, playbackRuntime)
+          syncPlaybackUi(dom, session.getState(), playbackRuntime)
         );
         return;
       }

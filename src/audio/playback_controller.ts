@@ -244,7 +244,7 @@ export function createPlaybackController(
       stopInterval();
       state = {
         kind: "stopped",
-        seekScoreSeconds: 0,
+        seekScoreSeconds: input.schedule.durationSeconds,
         loop: LOOP_OFF,
       };
     }
