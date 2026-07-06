@@ -251,7 +251,7 @@ export function judgeGameScoringSample(
   const thresholds = JUDGE_THRESHOLDS[judgeMode];
   const pitchLabel = classifyPitchError(selectedErrorCent, thresholds);
   const isTremRelaxedHit = selectedTarget.tremRelaxed === true && pitchLabel !== "Miss";
-  const timingMatch = judgeMode === "easy" || timing === undefined || isTremRelaxedHit || !selectedTarget.attackRequired
+  const timingMatch = judgeMode === "easy" || timing === undefined || isTremRelaxedHit
     ? createEmptyTimingMatch()
     : judgeTimingForTarget(selectedTarget, timing, thresholds);
   const label = isTremRelaxedHit ? "Perfect" : applyTimingDowngrade(pitchLabel, timingMatch.result);
