@@ -230,6 +230,7 @@ export function judgeGameScoringSample(
   }
 
   const inputCent = frame.midi * 100 + frame.centOffset;
+  const thresholds = JUDGE_THRESHOLDS[judgeMode];
   let selectedTarget: GameJudgeTarget | null = null;
   let selectedErrorCent = Number.POSITIVE_INFINITY;
 
@@ -238,7 +239,7 @@ export function judgeGameScoringSample(
     const targetCent = target.targetMidi * 100 + target.targetCentOffset;
     const errorCent = calculatePitchClassErrorCent(inputCent, targetCent);
 
-    if (isPreferredJudgeTarget(target, errorCent, selectedTarget, selectedErrorCent, scoreSeconds)) {
+    if (isPreferredJudgeTarget(target, errorCent, selectedTarget, selectedErrorCent, scoreSeconds, timing, thresholds)) {
       selectedErrorCent = errorCent;
       selectedTarget = target;
     }
@@ -248,7 +249,6 @@ export function judgeGameScoringSample(
     return null;
   }
 
-  const thresholds = JUDGE_THRESHOLDS[judgeMode];
   const pitchLabel = classifyPitchError(selectedErrorCent, thresholds);
   const isTremRelaxedHit = selectedTarget.tremRelaxed === true && pitchLabel !== "Miss";
   const timingMatch = judgeMode === "easy" || timing === undefined || isTremRelaxedHit
@@ -305,6 +305,8 @@ function createEmptyTimingMatch(): {
  * - 인수 : selected : 기존 선택 target
  * - 인수 : selectedErrorCent : 기존 선택 target의 pitch class 오차
  * - 인수 : scoreSeconds : 현재 판정 score time
+ * - 인수 : timing : timing/attack 판정 런타임 상태
+ * - 인수 : thresholds : 현재 judge mode의 timing 기준
  * - 반환값 : candidate를 새 target으로 선택해야 하면 true
  */
 function isPreferredJudgeTarget(
@@ -313,6 +315,8 @@ function isPreferredJudgeTarget(
   selected: GameJudgeTarget | null,
   selectedErrorCent: number,
   scoreSeconds: number,
+  timing: GameTimingJudgeOptions | undefined,
+  thresholds: (typeof JUDGE_THRESHOLDS)[PracticeJudgeMode],
 ): boolean {
   if (selected === null) {
     return true;
@@ -328,6 +332,12 @@ function isPreferredJudgeTarget(
 
   const candidateActive = isTargetActiveAtSeconds(candidate, scoreSeconds);
   const selectedActive = isTargetActiveAtSeconds(selected, scoreSeconds);
+
+  if (
+    shouldPreferEarlyAttackNextTarget(candidate, selected, candidateActive, selectedActive, scoreSeconds, timing, thresholds)
+  ) {
+    return true;
+  }
 
   // 동일 pitch에서는 grace로 남은 이전 note보다 실제 현재 구간에 들어온 note를 우선한다.
   if (candidateActive !== selectedActive) {
@@ -348,6 +358,65 @@ function isTargetActiveAtSeconds(
   scoreSeconds: number,
 ): boolean {
   return scoreSeconds >= target.startSeconds && scoreSeconds < target.endSeconds;
+}
+
+/**
+ * legato/gliss 도착 target 뒤의 같은 pitch 일반 note를 조금 일찍 친 경우 다음 target을 우선한다.
+ * - 인수 : candidate : 새로 비교할 target
+ * - 인수 : selected : 기존 선택 target
+ * - 인수 : candidateActive : candidate가 실제 note 구간 안인지 여부
+ * - 인수 : selectedActive : selected가 실제 note 구간 안인지 여부
+ * - 인수 : scoreSeconds : 현재 판정 score time
+ * - 인수 : timing : timing/attack 판정 런타임 상태
+ * - 인수 : thresholds : 현재 judge mode의 timing 기준
+ * - 반환값 : 다음 note의 이른 attack으로 보아 candidate를 우선해야 하면 true
+ */
+function shouldPreferEarlyAttackNextTarget(
+  candidate: GameJudgeTarget,
+  selected: GameJudgeTarget,
+  candidateActive: boolean,
+  selectedActive: boolean,
+  scoreSeconds: number,
+  timing: GameTimingJudgeOptions | undefined,
+  thresholds: (typeof JUDGE_THRESHOLDS)[PracticeJudgeMode],
+): boolean {
+  return selectedActive &&
+    !candidateActive &&
+    !selected.attackRequired &&
+    candidate.attackRequired &&
+    scoreSeconds < candidate.startSeconds &&
+    hasEarlyTimingOnsetForTarget(candidate, timing, thresholds);
+}
+
+/**
+ * target 시작점에 timing Miss가 아닌 early onset 후보가 있는지 확인한다.
+ * - 인수 : target : 검사할 다음 note target
+ * - 인수 : timing : timing/attack 판정 런타임 상태
+ * - 인수 : thresholds : 현재 judge mode의 timing 기준
+ * - 반환값 : 아직 소비되지 않은 early onset이 target 시작점의 Miss 범위 안쪽에 있으면 true
+ */
+function hasEarlyTimingOnsetForTarget(
+  target: GameJudgeTarget,
+  timing: GameTimingJudgeOptions | undefined,
+  thresholds: (typeof JUDGE_THRESHOLDS)[PracticeJudgeMode],
+): boolean {
+  if (timing === undefined) {
+    return false;
+  }
+
+  for (const onset of timing.onsetCandidates) {
+    if (timing.consumedOnsetIds.has(onset.id)) {
+      continue;
+    }
+
+    const offsetMs = (onset.scoreSeconds - target.startSeconds) * 1000;
+
+    if (offsetMs < 0 && Math.abs(offsetMs) < thresholds.timingMissMs) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
