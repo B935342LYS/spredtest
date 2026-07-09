@@ -30,6 +30,15 @@ import { syncGameModeUi } from "./game/game_ui";
 import { resolveAutoPitchInputs } from "./pitch_label";
 import { isTrackId } from "../track/track_control";
 
+type DynamicViewportDrawCache = {
+  startX: number;
+  endX: number;
+  signature: string;
+};
+
+const dynamicViewportDrawCacheByScoreArea = new WeakMap<HTMLElement, DynamicViewportDrawCache>();
+const renderInputIdentityByObject = new WeakMap<object, number>();
+let nextRenderInputIdentity = 1;
 /**
  * status footer의 특정 위치 문구를 바꾼다.
  * - 인수 : index : 바꿀 status span 순서
@@ -549,6 +558,92 @@ export function createRenderOptions(
 }
 
 /**
+ * 동적 viewport layer가 현재 화면 범위를 이미 덮고 있는지 확인한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : 같은 renderer 입력과 view 옵션에서 redraw를 생략할 수 있으면 true
+ */
+function canReuseDynamicViewportDraw(dom: AppDom, state: AppState): boolean {
+  const cache = dynamicViewportDrawCacheByScoreArea.get(dom.scoreArea);
+
+  if (cache === undefined || cache.signature !== createDynamicViewportSignature(dom, state)) {
+    return false;
+  }
+
+  const viewportStartX = dom.scoreArea.scrollLeft;
+  const viewportEndX = viewportStartX + dom.scoreArea.clientWidth;
+
+  return viewportStartX >= cache.startX && viewportEndX <= cache.endX;
+}
+
+/**
+ * 방금 그린 동적 layer의 x 범위와 renderer 입력 시그니처를 저장한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : layout : renderer가 계산한 최신 layout
+ * - 반환값 : 없음
+ */
+function rememberDynamicViewportDraw(
+  dom: AppDom,
+  state: AppState,
+  layout: CanvasRenderResult["layout"],
+): void {
+  const viewport = createRenderOptions(dom.zoomInput, state, dom.scoreArea).dynamicViewport;
+
+  if (viewport === undefined) {
+    dynamicViewportDrawCacheByScoreArea.delete(dom.scoreArea);
+    return;
+  }
+
+  dynamicViewportDrawCacheByScoreArea.set(dom.scoreArea, {
+    startX: Math.max(0, viewport.scrollLeft - viewport.overscanPx),
+    endX: Math.min(
+      layout.stageWidth,
+      viewport.scrollLeft + viewport.width + viewport.overscanPx,
+    ),
+    signature: createDynamicViewportSignature(dom, state),
+  });
+}
+
+/**
+ * redraw 생략 판단에 영향을 주는 renderer 입력과 view 옵션을 문자열 key로 만든다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : 동적 layer cache가 같은 그림인지 판단할 key
+ */
+function createDynamicViewportSignature(dom: AppDom, state: AppState): string {
+  return [
+    getRenderInputIdentity(state.renderInput),
+    dom.zoomInput.value,
+    state.speedScale,
+    state.textOff,
+    state.mode.kind === "edit",
+    state.loop.enabled,
+    state.loop.startTick ?? "",
+    state.loop.endTick ?? "",
+    state.reverseRows,
+  ].join("|");
+}
+
+/**
+ * renderer 입력 객체의 참조 identity를 cache key에 사용할 숫자로 변환한다.
+ * - 인수 : input : 현재 AppState의 renderer 입력 객체
+ * - 반환값 : 같은 객체 참조에는 같은 숫자, 새 객체에는 새 숫자
+ */
+function getRenderInputIdentity(input: object): number {
+  const existing = renderInputIdentityByObject.get(input);
+
+  if (existing !== undefined) {
+    return existing;
+  }
+
+  const identity = nextRenderInputIdentity;
+
+  nextRenderInputIdentity += 1;
+  renderInputIdentityByObject.set(input, identity);
+  return identity;
+}
+/**
  * AppState의 runtime loop range를 renderer marker item으로 변환한다.
  * - 인수 : state : 현재 앱 상태
  * - 반환값 : marker layer에 추가할 loop boundary item 목록
@@ -648,6 +743,7 @@ export function renderApp(dom: AppDom, state: AppState): AppState {
     state.renderInput,
     createRenderOptions(dom.zoomInput, state, dom.scoreArea),
   );
+  rememberDynamicViewportDraw(dom, state, result.layout);
 
   // renderer가 계산한 stage 크기를 CSS 변수에 반영하고 label scroll 위치를 맞춘다.
   // 오른쪽 tail 폭은 playback 기준선이 마지막 tick까지 따라갈 수 있도록 scroll extent만 확장한다.
@@ -714,6 +810,7 @@ export function renderAppPartial(
     previousLayout,
     dirtyTickRange,
   );
+  rememberDynamicViewportDraw(dom, state, result.layout);
   const horizontalTailWidth = Math.max(0, dom.scoreArea.clientWidth);
 
   updateStageCssVars(
@@ -748,6 +845,11 @@ export function renderDynamicViewportLayers(dom: AppDom, state: AppState): AppSt
     return state;
   }
 
+  if (canReuseDynamicViewportDraw(dom, state)) {
+    syncGamePitchOverlay(dom, state);
+    return state;
+  }
+
   const result = renderCanvasScorePartial(
     dom.target,
     state.renderInput,
@@ -756,6 +858,7 @@ export function renderDynamicViewportLayers(dom: AppDom, state: AppState): AppSt
     state.layout,
     null,
   );
+  rememberDynamicViewportDraw(dom, state, result.layout);
 
   const nextState = {
     ...state,
