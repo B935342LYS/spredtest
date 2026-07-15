@@ -20,7 +20,7 @@
         <aside class="notice">
             <p>피드백, 버그 제보, 개선 의견 환영합니다. 제작자 이메일: <code>fav_09@naver.com</code></p>
             <p>매뉴얼의 원본은 한글로 작성되었으며, 이외의 언어로 된 매뉴얼은 AI 번역과 최소한의 검수를 거친 번역본임을 밝힙니다. 내용이 부정확하면 제보 부탁드립니다.</p>
-            <p>업데이트에 따라 매뉴얼과 달라지거나 추가된 기능이 있을 수 있습니다. 매뉴얼의 최종 갱신일은 2026-07-03입니다.</p>
+            <p>업데이트에 따라 매뉴얼과 달라지거나 추가된 기능이 있을 수 있습니다. 매뉴얼의 최종 갱신일은 2026-07-15입니다.</p>
             <p>아직 테스트 단계의 웹 앱입니다. 부족한 점이 있을 수 있습니다.</p>
         </aside>
 
@@ -549,6 +549,19 @@
                                     <li>너무 작은 소리나 주변 소음은 pitch detection을 방해할 수 있습니다.</li>
                                     <li>스피커 소리가 마이크에 크게 들어가면 판정이 흔들릴 수 있습니다.</li>
                                 </ul>
+
+                                <h4>7.3.1. 인식 이상 : 배음 문제</h4>
+                                <p>일부 마이크나 노트북 입력 장치는 오타마톤의 기본음보다 배음을 더 강하게 전달할 수 있습니다. 이 경우 Practice Mode가 실제보다 한 옥타브 높거나 다른 배음으로 인식할 수 있으며, 앱 설정만으로 완전히 해결되지 않을 수 있습니다. 아래 설정을 시도하면 개선될 수 있지만, 장치 특성에 따라 효과가 없을 수 있습니다.</p>
+                                <ol>
+                                    <li>Windows의 <code>설정 &gt; 시스템 &gt; 소리 &gt; 입력 &gt; 사용 중인 마이크</code>에서 <code>오디오 향상</code>을 끄세요.</li>
+                                    <li>구형 설정 화면에서는 <code>제어판 &gt; 소리 &gt; 녹음 &gt; 마이크 &gt; 속성</code>을 열고, <code>Enhancements</code> 또는 <code>고급</code> 탭에서 <code>Disable all enhancements</code>나 <code>Enable audio enhancements</code> 옵션을 확인하세요.</li>
+                                    <li><code>마이크 증폭</code>, <code>Microphone Boost</code>, <code>AGC</code>, <code>Auto Gain</code>, <code>Automatic Gain Control</code> 같은 자동 증폭 옵션이 있으면 끄거나 낮춰 보세요.</li>
+                                    <li>입력 볼륨이 너무 높으면 소리가 찌그러지거나 배음이 더 강하게 잡힐 수 있습니다. 처음에는 70~90 정도로 낮춰 테스트하세요.</li>
+                                    <li><code>Noise Suppression</code>, <code>Voice Focus</code>, <code>Voice Isolation</code>, <code>Echo Cancellation</code> 같은 음성 통화용 보정 기능은 악기음을 왜곡할 수 있으므로 꺼 보세요.</li>
+                                    <li>Realtek Audio Console, Waves MaxxAudio, Nahimic, Logitech G Hub, NVIDIA Broadcast, Discord, Steam, Teams 같은 프로그램에 별도 마이크 보정이나 자동 볼륨 조절이 켜져 있는지도 확인하세요.</li>
+                                    <li>마이크를 악기 바로 앞에 너무 가깝게 두지 말고, 조금 떨어뜨리거나 정면에서 살짝 비껴 둔 상태도 비교해 보세요.</li>
+                                </ol>
+                                <p class="notice warning">위 설정은 입력 신호를 덜 가공하게 만드는 권장 점검 항목입니다. 특정 마이크가 배음을 기본음보다 더 선명하게 전달하는 경우에는 설정을 바꿔도 Practice Mode의 오인식이 남을 수 있습니다.</p>
                                 <p class="notice warning">Practice Mode Beta는 엄밀한 판정을 갖춘 게임이 아닌 단순 연습 보조 기능입니다. 결과가 부정확할 수 있습니다.</p>
                             </div>
                         </details>

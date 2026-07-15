@@ -20,7 +20,7 @@
         <aside class="notice">
             <p>Feedback, bug reports, and suggestions are welcome. Contact: <code>fav_09@naver.com</code></p>
             <p>The original manual is written in Korean. Manuals in other languages are AI-assisted translations with minimal review. Please report inaccurate wording if you find any.</p>
-            <p>The app may have features that differ from this manual or were added after it was written. Last manual update: 2026-07-03.</p>
+            <p>The app may have features that differ from this manual or were added after it was written. Last manual update: 2026-07-15.</p>
             <p>This is still a test-stage web app. Some parts may be incomplete.</p>
         </aside>
 
@@ -550,6 +550,18 @@
                                     <li>Very quiet sound or background noise can interfere with pitch detection.</li>
                                     <li>If speaker sound enters the microphone loudly, judging may become unstable.</li>
                                 </ul>
+                                <h4>7.3.1. Detection issue: harmonic overtones</h4>
+                                <p>Some microphones or laptop input devices may transmit harmonic overtones more strongly than the Otamatone's fundamental pitch. In this case, Practice Mode may recognize the sound as one octave higher than the actual pitch, or as another overtone. This may not be fully fixable from the app side. The settings below may improve detection, but they may have no effect depending on the device.</p>
+                                <ol>
+                                    <li>In Windows, open <code>Settings &gt; System &gt; Sound &gt; Input &gt; your microphone</code> and turn <code>Audio enhancements</code> off.</li>
+                                    <li>On older settings screens, open <code>Control Panel &gt; Sound &gt; Recording &gt; Microphone &gt; Properties</code>, then check the <code>Enhancements</code> or <code>Advanced</code> tab for options such as <code>Disable all enhancements</code> or <code>Enable audio enhancements</code>.</li>
+                                    <li>If options such as <code>Microphone Boost</code>, <code>AGC</code>, <code>Auto Gain</code>, or <code>Automatic Gain Control</code> are available, try turning them off or lowering them.</li>
+                                    <li>If the input volume is too high, the sound may distort or overtones may be detected more strongly. Start by testing around 70 to 90 instead of maximum volume.</li>
+                                    <li>Voice-call processing such as <code>Noise Suppression</code>, <code>Voice Focus</code>, <code>Voice Isolation</code>, or <code>Echo Cancellation</code> can distort instrument sounds, so try turning those options off.</li>
+                                    <li>Also check whether apps such as Realtek Audio Console, Waves MaxxAudio, Nahimic, Logitech G Hub, NVIDIA Broadcast, Discord, Steam, or Teams have separate microphone enhancement or automatic volume options enabled.</li>
+                                    <li>Try moving the microphone slightly away from the instrument, or place it a little off-axis instead of directly in front of the sound source.</li>
+                                </ol>
+                                <p class="notice warning">These are recommended checks to reduce extra processing on the input signal. If a specific microphone transmits overtones more clearly than the fundamental pitch, Practice Mode may still misdetect the pitch even after changing these settings.</p>
                                 <p class="notice warning">Practice Mode Beta is a simple practice aid, not a game with strict judging. Results may be inaccurate.</p>
                             </div>
                         </details>
