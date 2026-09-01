@@ -14,6 +14,7 @@ import type {
   ParsedGlobalRamp,
 } from "./types";
 
+const MIN_BPM = 1;
 const MAX_BPM = 999;
 const MAX_BEATS_PER_BAR = 999;
 const MAX_STEPS_PER_BEAT = 999;
@@ -146,12 +147,12 @@ function parseBpmCell(
   }
 
   // 숫자 형식이 맞아도 parser 기준 범위를 벗어나면 timing 기준값으로 사용할 수 없다.
-  if (numberParse.value <= 0 || numberParse.value > MAX_BPM) {
+  if (numberParse.value < MIN_BPM || numberParse.value > MAX_BPM) {
     return invalidGlobalCell(
       rawText,
       "invalid_bpm_range",
       0,
-      `BPM must be greater than 0 and at most ${MAX_BPM}.`,
+      `BPM must be between ${MIN_BPM} and ${MAX_BPM}.`,
     );
   }
 
