@@ -700,14 +700,15 @@ function isSingleCellGlissAnchorNote(
 }
 
 /**
- * note event가 한 source cell의 길이와 같은 단일 셀 note인지 확인한다.
+ * note event가 한 일반 source cell의 길이와 같은 단일 셀 note인지 확인한다.
  * - 인수 : noteEvent : 검사할 note event
- * - 반환값 : source cell 하나만 가진 단일 셀 note 여부
+ * - 반환값 : tuplet slot이 아닌 source cell 하나만 가진 단일 셀 note 여부
  */
 function isSingleSourceCellNoteEvent(noteEvent: NoteEvent): boolean {
   const source = noteEvent.sourceCells[0];
 
-  if (source === undefined || noteEvent.sourceCells.length !== 1) {
+  // tuplet slot은 길이가 우연히 1tick이어도 일반 셀의 시작점 보정 대상으로 보지 않는다.
+  if (source === undefined || source.slotIndex !== undefined || noteEvent.sourceCells.length !== 1) {
     return false;
   }
 
@@ -747,7 +748,7 @@ function isNoteEventGlissBoundaryAnchor(
 }
 
 /**
- * gliss 시작 anchor 앞쪽으로 이어진 long note를 찾는다.
+ * gliss 시작 anchor 앞쪽의 일반 long note 또는 tuplet slot 발음 구간을 찾는다.
  * - 인수 : glissEvent : 시작 anchor를 가진 gliss event
  * - 인수 : noteEvents : 같은 track의 note event 목록
  * - 반환값 : 시작 anchor 앞 constant pitch로 흡수할 note event 또는 null
@@ -763,7 +764,12 @@ function findStartLongNoteExtension(
     return null;
   }
 
-  if (timeFractionToNumber(noteEvent.time.startTick) >= source.col) {
+  // slot anchor는 원본 head의 col 대신 실제 gliss 시작 tick 앞의 발음 구간을 흡수한다.
+  const extensionBoundary = source.slotIndex === undefined
+    ? source.col
+    : timeFractionToNumber(getAudioGlissStartTick(glissEvent, noteEvents));
+
+  if (timeFractionToNumber(noteEvent.time.startTick) >= extensionBoundary) {
     return null;
   }
 
@@ -771,7 +777,7 @@ function findStartLongNoteExtension(
 }
 
 /**
- * gliss 종료 anchor 뒤쪽으로 이어진 long note를 찾는다.
+ * gliss 종료 anchor 뒤쪽의 일반 long note 또는 tuplet slot 발음 구간을 찾는다.
  * - 인수 : glissEvent : 종료 anchor를 가진 gliss event
  * - 인수 : noteEvents : 같은 track의 note event 목록
  * - 반환값 : 종료 anchor 뒤 constant pitch로 흡수할 note event 또는 null
@@ -787,7 +793,12 @@ function findEndLongNoteExtension(
     return null;
   }
 
-  if (timeFractionToNumber(noteEvent.time.endTick) <= source.col + 1) {
+  // slot 내부의 종료 anchor 뒤 유지음도 같은 oscillator의 constant pitch 구간으로 남긴다.
+  const extensionBoundary = source.slotIndex === undefined
+    ? source.col + 1
+    : timeFractionToNumber(glissEvent.endAnchorTick);
+
+  if (timeFractionToNumber(noteEvent.time.endTick) <= extensionBoundary) {
     return null;
   }
 
