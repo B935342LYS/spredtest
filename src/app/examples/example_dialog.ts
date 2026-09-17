@@ -47,11 +47,15 @@ export function bindExampleDialog(
 ): void {
   dom.examplesCloseButton.addEventListener("click", () => {
     dom.examplesDialog.close();
-    handlers.onAction({ kind: "close" });
   });
 
   dom.examplesDialog.addEventListener("close", () => {
+    // close 버튼·Escape·악보 로드의 종료를 한 경로로 알린다. 이미 다시 열린 창은 초기화하지 않는다.
+    if (dom.examplesDialog.open) {
+      return;
+    }
     resetExampleDialog(dom);
+    handlers.onAction({ kind: "close" });
   });
 
   dom.examplesLoadListButton.addEventListener("click", () => {
@@ -107,12 +111,15 @@ export function bindExampleDialog(
 }
 
 /**
- * Examples dialog를 초기 상태로 열 준비를 한다.
+ * Examples dialog의 목록 상태를 초기화하고 검증된 접근 단어를 복원해 연다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : accessWord : 현재 페이지 메모리에 보관한 검증된 접근 단어
  * - 반환값 : 없음
  */
-export function openExampleDialog(dom: AppDom): void {
+export function openExampleDialog(dom: AppDom, accessWord = ""): void {
+  // 목록·검색·선택 상태는 재설정하고 접근 단어만 binding의 메모리 값으로 복원한다.
   resetExampleDialog(dom);
+  dom.examplesAccessWordInput.value = accessWord;
   dom.examplesDialog.showModal();
   dom.examplesAccessWordInput.focus();
 }

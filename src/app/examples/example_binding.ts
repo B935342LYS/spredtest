@@ -29,6 +29,13 @@ export type ExampleBindingSession = {
   loadScoreJsonText(jsonText: string, sourceLabel: string): void;
 };
 
+/** 현재 페이지의 검증된 접근 단어와 최신 목록 요청을 보관하는 임시 상태. */
+type ExampleAccessSession = {
+  rememberedAccessWord: string;
+  requestId: number;
+  loading: boolean;
+};
+
 /**
  * Examples 메뉴, dialog, provider event를 app 상태 변경 흐름에 연결한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
@@ -40,6 +47,12 @@ export function bindExampleControls(
   session: ExampleBindingSession,
 ): void {
   const provider = createSupabaseExampleProvider(readExampleProviderConfig());
+  // 악보 상태와 분리한 메모리 값이므로 dialog 종료·악보 교체에는 유지되고 페이지 재로드에는 사라진다.
+  const accessSession: ExampleAccessSession = {
+    rememberedAccessWord: "",
+    requestId: 0,
+    loading: false,
+  };
 
   dom.examplesButton.addEventListener("click", () => {
     const state = session.getState();
@@ -49,13 +62,19 @@ export function bindExampleControls(
       return;
     }
 
-    openExampleDialog(dom);
-    void loadManifest(dom, session, provider, "");
+    openExampleDialog(dom, accessSession.rememberedAccessWord);
+    void loadManifest(dom, session, provider, accessSession.rememberedAccessWord, accessSession);
   });
 
   bindExampleDialog(dom, {
     onAction(action) {
       if (action.kind === "close") {
+        // 닫힌 창의 응답은 무효화하되 검증된 단어는 다음 재진입을 위해 유지한다.
+        accessSession.requestId += 1;
+        if (accessSession.loading) {
+          accessSession.loading = false;
+          setAppStatus(dom, session, "Example list loading cancelled.", "info");
+        }
         return;
       }
 
@@ -70,7 +89,7 @@ export function bindExampleControls(
           return;
         }
 
-        void loadManifest(dom, session, provider, action.accessWord);
+        void loadManifest(dom, session, provider, action.accessWord, accessSession);
         return;
       }
 
@@ -85,6 +104,7 @@ export function bindExampleControls(
  * - 인수 : session : app 상태 조회/갱신 callback
  * - 인수 : provider : Examples provider
  * - 인수 : accessWord : 사용자가 입력한 임시 암호 단어
+ * - 인수 : accessSession : 페이지 수명의 접근 단어와 요청 순서 상태
  * - 반환값 : 없음
  */
 async function loadManifest(
@@ -92,9 +112,12 @@ async function loadManifest(
   session: ExampleBindingSession,
   provider: ReturnType<typeof createSupabaseExampleProvider>,
   accessWord: string,
+  accessSession: ExampleAccessSession,
 ): Promise<void> {
   const trimmedAccessWord = accessWord.trim();
   const scopeLabel = trimmedAccessWord.length === 0 ? "public examples" : "examples";
+  const requestId = ++accessSession.requestId;
+  accessSession.loading = true;
 
   setExampleDialogBusy(dom, true);
   setExampleDialogNotice(dom, `Loading ${scopeLabel}...`, "info");
@@ -103,16 +126,44 @@ async function loadManifest(
   try {
     const manifest = await provider.loadManifest(trimmedAccessWord);
 
+    // 재개방·새 요청 이후 도착한 이전 응답은 목록과 보관값을 덮어쓰지 않는다.
+    if (requestId !== accessSession.requestId || !dom.examplesDialog.open) {
+      return;
+    }
+    if (trimmedAccessWord.length > 0) {
+      accessSession.rememberedAccessWord = trimmedAccessWord;
+    }
     renderExampleManifest(dom, manifest);
     setExampleDialogNotice(dom, `Loaded ${manifest.examples.length} example(s).`, "info");
     setAppStatus(dom, session, "Example list loaded.", "info");
   } catch (error: unknown) {
+    if (requestId !== accessSession.requestId || !dom.examplesDialog.open) {
+      return;
+    }
+
+    // 보관한 단어 자체가 거부된 경우만 비운다. 다른 단어의 오입력과 통신 실패는 보관값을 유지한다.
+    if (
+      isExampleError(error) && error.code === "INVALID_ACCESS_WORD" &&
+      trimmedAccessWord.length > 0 &&
+      trimmedAccessWord === accessSession.rememberedAccessWord
+    ) {
+      accessSession.rememberedAccessWord = "";
+      dom.examplesAccessWordInput.value = "";
+    }
     const message = formatExampleError(error, trimmedAccessWord.length === 0 ? "public" : "extra");
 
     setExampleDialogNotice(dom, message, "error");
     setAppStatus(dom, session, message, "error");
   } finally {
-    setExampleDialogBusy(dom, false);
+    // 이전 요청의 finally가 새 요청의 입력 잠금을 해제하지 않도록 최신 요청만 정리한다.
+    if (requestId === accessSession.requestId) {
+      accessSession.loading = false;
+      setExampleDialogBusy(dom, false);
+      // close 이벤트보다 응답이 먼저 정리되는 경우에도 앱의 로딩 상태가 남지 않게 한다.
+      if (!dom.examplesDialog.open) {
+        setAppStatus(dom, session, "Example list loading cancelled.", "info");
+      }
+    }
   }
 }
 
