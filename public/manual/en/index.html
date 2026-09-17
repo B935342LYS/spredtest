@@ -518,10 +518,15 @@
                                     <li>Check the track to practice.</li>
                                     <li>Press <code>practice mode (beta)</code>.</li>
                                     <li>Allow microphone permission if the browser asks.</li>
-                                    <li>If needed, adjust input delay with <code>Sync</code>.</li>
+                                    <li>If needed, use <code>Sync</code> to separately compensate for input delay (audio/microphone timing mismatch) and output delay (audio/visual timing mismatch).</li>
                                     <li>Start playback.</li>
                                 </ol>
                                 <img class="menu-image sync-dialog" src="../resources/cellImage_0_16.jpg" alt="Practice Mode Sync dialog">
+                                <ul>
+                                    <li><code>Display offset</code>: Adjusts visual timing when output delay causes the sound you hear and the display to fall out of sync. Press <code>Start</code> to run the test, then adjust until the preview note reaches the red line when you hear the beep. Positive values make notes reach the line later.</li>
+                                    <li><code>Input Sync</code>: Compensates for input delay in judging, such as when the microphone detects your playing late even though you play in time with the sound. Make a sound in time with the beep and adjust until the input marker aligns with the center line.</li>
+                                </ul>
+                                <p>First align the sound and display with Display offset, then adjust Input Sync. Both values can be adjusted with the ±10ms or ±1ms buttons and are saved separately in this browser. Opening Sync pauses the score and YouTube. After adjusting, close the dialog and press Play to resume.</p>
                                 <p>During practice mode, some features such as score loading, editing, and layout changes are locked. This prevents the scoring criteria from changing during practice.</p>
                             </div>
                         </details>

@@ -1,0 +1,383 @@
+.menu-area {
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.55fr) minmax(0, 0.85fr);
+  gap: 12px;
+  align-items: start;
+  min-height: var(--menu-height);
+  max-height: var(--menu-area-max-height);
+  overflow: visible;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  z-index: 80;
+}
+
+.menu-area:has(.menu-dropdown:hover),
+.menu-area:has(.menu-dropdown:focus-within) {
+  z-index: 300;
+  overflow: visible;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area {
+  border-bottom-color: #2f3d46;
+  background: #182229;
+  color: #edf4f7;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .menu-trigger,
+.app-shell[data-menu-theme="dark"] .menu-area .toggle-button,
+.app-shell[data-menu-theme="dark"] .menu-area button,
+.app-shell[data-menu-theme="dark"] .menu-area select,
+.app-shell[data-menu-theme="dark"] .menu-area input {
+  border-color: #465966;
+  background: #25313a;
+  color: #edf4f7;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .menu-panel,
+.app-shell[data-menu-theme="dark"] .menu-area .player-group,
+.app-shell[data-menu-theme="dark"] .menu-area .youtube-player-shell {
+  border-color: #465966;
+  background: #202a32;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 34%);
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .menu-dropdown:hover > .menu-trigger,
+.app-shell[data-menu-theme="dark"] .menu-area .menu-dropdown:focus-within > .menu-trigger,
+.app-shell[data-menu-theme="dark"] .menu-area .toggle-button:hover {
+  border-color: #7f98a8;
+  background: #30414d;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .left-status-line,
+.app-shell[data-menu-theme="dark"] .menu-area .compact-field,
+.app-shell[data-menu-theme="dark"] .menu-area .switch-field,
+.app-shell[data-menu-theme="dark"] .menu-area .inline-field,
+.app-shell[data-menu-theme="dark"] .menu-area .micro-label,
+.app-shell[data-menu-theme="dark"] .menu-area .music-meta {
+  color: #b8c7cf;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .music-meta .title,
+.app-shell[data-menu-theme="dark"] .menu-area .pill-toggle.on {
+  color: #f5fafc;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .status-pill,
+.app-shell[data-menu-theme="dark"] .menu-area .preview-pill,
+.app-shell[data-menu-theme="dark"] .menu-area .pill-toggle.off {
+  border-color: #465966;
+  background: #2b3740;
+  color: #b8c7cf;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .youtube-toggle:checked + .youtube-switch {
+  border-color: #dbe6ec;
+  background: #f8fbfd;
+  color: #111820;
+  box-shadow: inset 0 0 0 1px #dbe6ec, 0 1px 6px rgb(0 0 0 / 32%);
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .player-main {
+  border-color: #465966;
+  background: #1f2931;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .practice-mode-button {
+  border-color: #557b68;
+  background: #20382c;
+  color: #c9f0d8;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .practice-mode-button.on {
+  border-color: #7fa890;
+  background: #294b39;
+  box-shadow: inset 0 0 0 1px #7fa890;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-panel {
+  border-color: #466855;
+  background: #1d2c25;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-panel[data-state="error"] {
+  border-color: #8f5a5a;
+  background: #332525;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-panel[data-judge-mode="pro"] {
+  border-color: #955656;
+  background: #321f22;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-panel[data-judge-mode="easy"] {
+  border-color: #4f6f9a;
+  background: #1c283a;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-rules-button,
+.app-shell[data-menu-theme="dark"] .menu-area .game-sync-button,
+.app-shell[data-menu-theme="dark"] .menu-area .game-mode-control,
+.app-shell[data-menu-theme="dark"] .menu-area .game-mode-button,
+.app-shell[data-menu-theme="dark"] .menu-area .game-notice,
+.app-shell[data-menu-theme="dark"] .menu-area .game-diagnostic-line span,
+.app-shell[data-menu-theme="dark"] .menu-area .game-score-grid span {
+  border-color: #466855;
+  background: #25372f;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-rules-button,
+.app-shell[data-menu-theme="dark"] .menu-area .game-sync-button,
+.app-shell[data-menu-theme="dark"] .menu-area .game-mode-button {
+  color: #d7f3df;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-mode-button[data-judge-mode="easy"].on {
+  border-color: #89b4ff;
+  background: #263d62;
+  color: #dbeafe;
+  box-shadow: inset 0 0 0 1px #89b4ff;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-mode-button[data-judge-mode="standard"].on {
+  border-color: #7fa890;
+  background: #294b39;
+  color: #def7e8;
+  box-shadow: inset 0 0 0 1px #7fa890;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-mode-button[data-judge-mode="pro"].on {
+  border-color: #ef8c8c;
+  background: #4a2428;
+  color: #ffdede;
+  box-shadow: inset 0 0 0 1px #ef8c8c;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-notice,
+.app-shell[data-menu-theme="dark"] .menu-area .game-diagnostic-line,
+.app-shell[data-menu-theme="dark"] .menu-area .game-score-grid {
+  color: #b7c9bf;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-diagnostic-line strong,
+.app-shell[data-menu-theme="dark"] .menu-area .game-score-grid strong {
+  color: #f1f8f4;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-total-grid {
+  border-top-color: #466855;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-panel[data-judge-mode="pro"] .game-total-grid {
+  border-top-color: #8f5a5a;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .game-panel[data-judge-mode="easy"] .game-total-grid {
+  border-top-color: #4f6f9a;
+}
+
+.app-shell[data-menu-theme="dark"] .edit-panel {
+  border-bottom-color: #2f3d46;
+  background: #162028;
+  color: #edf4f7;
+}
+
+.app-shell[data-menu-theme="dark"] .edit-card {
+  border-color: #465966;
+  background: #202a32;
+}
+
+.app-shell[data-menu-theme="dark"] .edit-card-title,
+.app-shell[data-menu-theme="dark"] .edit-help,
+.app-shell[data-menu-theme="dark"] .edit-panel .micro-label,
+.app-shell[data-menu-theme="dark"] .edit-panel .inline-field,
+.app-shell[data-menu-theme="dark"] .edit-panel .stacked-field {
+  color: #b8c7cf;
+}
+
+.app-shell[data-menu-theme="dark"] .edit-panel button,
+.app-shell[data-menu-theme="dark"] .edit-panel select,
+.app-shell[data-menu-theme="dark"] .edit-panel input {
+  border-color: #465966;
+  background: #25313a;
+  color: #edf4f7;
+}
+
+.app-shell[data-menu-theme="dark"] .edit-panel input::placeholder {
+  color: #8da0ab;
+}
+
+.app-shell[data-menu-theme="dark"] .edit-panel .preview-pill,
+.app-shell[data-menu-theme="dark"] .edit-panel .pill-toggle.off {
+  border-color: #465966;
+  background: #2b3740;
+  color: #b8c7cf;
+}
+
+.app-shell[data-menu-theme="dark"] .edit-panel .pill-toggle.on {
+  border-color: #6f8796;
+  background: #344653;
+  color: #f5fafc;
+}
+
+.left-tool-group {
+  display: grid;
+  grid-template-rows: var(--ui-control-height) var(--ui-control-height) minmax(16px, auto);
+  align-items: stretch;
+  gap: var(--ui-compact-gap);
+  min-width: 0;
+}
+
+.left-status-line {
+  min-width: 0;
+  min-height: 16px;
+  overflow: hidden;
+  padding: 0 2px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.left-status-line[data-level="warning"] {
+  color: #8a6f24;
+}
+
+.left-status-line[data-level="error"] {
+  color: var(--danger);
+}
+
+.tool-menu-row,
+.tool-action-row {
+  display: grid;
+  gap: var(--ui-gap);
+  min-width: 0;
+}
+
+.tool-menu-row {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.tool-action-row {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.menu-dropdown {
+  position: relative;
+  min-width: 0;
+  z-index: 40;
+}
+
+.menu-dropdown:hover,
+.menu-dropdown:focus-within {
+  z-index: 120;
+}
+
+.menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: var(--ui-control-height);
+  min-width: 0;
+  padding: 0 clamp(4px, 0.75vw, 12px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--ui-control-radius);
+  background: var(--surface-muted);
+  cursor: pointer;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(var(--ui-small-font-size), 1.05vw, 14px);
+}
+
+.tool-action-row .toggle-button,
+.tool-action-row > .menu-trigger {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(11px, 1.05vw, 14px);
+}
+
+.menu-dropdown:hover > .menu-trigger,
+.menu-dropdown:focus-within > .menu-trigger {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+}
+
+.menu-panel {
+  position: absolute;
+  top: var(--ui-control-height);
+  left: 0;
+  z-index: 400;
+  display: none;
+  min-width: 190px;
+  gap: var(--ui-gap);
+  padding: calc(var(--ui-panel-padding-y) + 6px) var(--ui-panel-padding-x) var(--ui-panel-padding-y);
+  border: 1px solid var(--line);
+  border-radius: var(--ui-panel-radius);
+  background: var(--surface);
+  box-shadow: 0 10px 24px rgb(23 32 38 / 16%);
+}
+
+.menu-dropdown:hover > .menu-panel,
+.menu-dropdown:focus-within > .menu-panel {
+  display: grid;
+}
+
+.loop-panel {
+  width: max-content;
+  min-width: 0;
+}
+
+.loop-panel .inline-field {
+  display: grid;
+  grid-template-columns: 36px 166px max-content;
+  justify-content: start;
+  align-items: center;
+  column-gap: 4px;
+}
+
+.loop-panel select {
+  width: 166px;
+  max-width: none;
+}
+
+.loop-panel .preview-pill {
+  box-sizing: border-box;
+  justify-self: start;
+  min-width: 0;
+  max-width: 86px;
+}
+
+.app-shell[data-practice-range-mode="true"] .loop-panel .preview-pill,
+.pill-toggle.range-practice {
+  border-color: rgba(24, 128, 96, 0.36);
+  background: #e8f5ef;
+  color: #155f49;
+}
+
+.expand-panel,
+.track-panel {
+  min-width: 160px;
+}
+
+.expand-panel input[type="number"] {
+  width: 100%;
+}
+
+.expand-warning {
+  margin: 0;
+  color: #8a6f24;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.track-panel {
+  grid-template-columns: 1fr;
+}
+

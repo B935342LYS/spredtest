@@ -517,10 +517,15 @@
                                     <li>연습할 track을 확인합니다.</li>
                                     <li><code>practice mode (beta)</code>를 누릅니다.</li>
                                     <li>브라우저가 마이크 권한을 요청하면 허용합니다.</li>
-                                    <li>필요하면 <code>Sync</code>로 입력 지연을 조정합니다.</li>
+                                    <li>필요하면 <code>Sync</code>에서 입력 지연(오디오와 마이크 입력의 불일치)과 출력 지연(오디오와 화면의 불일치)을 각각 보정합니다.</li>
                                     <li>재생을 시작합니다.</li>
                                 </ol>
                                 <img class="menu-image sync-dialog" src="./resources/cellImage_0_16.jpg" alt="Practice Mode Sync dialog">
+                                <ul>
+                                    <li><code>Display offset</code>: 출력 지연으로 들리는 소리와 화면이 어긋날 때 화면 시점을 보정합니다. <code>Start</code>로 테스트를 시작하고, beep가 들리는 순간 미리보기 노트가 빨간 선에 닿도록 조절합니다. 양수는 노트가 선에 닿는 시점을 늦춥니다.</li>
+                                    <li><code>Input Sync</code>: 들리는 소리에 맞춰 연주해도 마이크 입력이 늦게 감지되는 등 입력 지연이 있을 때 판정 시점을 보정합니다. beep에 맞춰 소리를 내고 입력 marker가 가운데 기준선에 오도록 조절합니다.</li>
+                                </ul>
+                                <p>먼저 Display offset으로 소리와 화면을 맞춘 뒤 Input Sync를 조절하세요. 두 값은 ±10ms 또는 ±1ms 버튼으로 조절하며 이 브라우저에 각각 저장됩니다. Sync 창을 열면 악보와 YouTube가 일시정지하고, 설정을 마친 뒤에는 창을 닫고 Play로 재개합니다.</p>
                                 <p>Practice mode 중에는 악보 교체, 편집, layout 변경 같은 일부 기능이 잠깁니다. 연습 중 점수 계산 기준이 바뀌는 것을 막기 위한 동작입니다.</p>
                             </div>
                         </details>

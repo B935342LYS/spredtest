@@ -1,0 +1,125 @@
+:root {
+  color-scheme: light;
+  --bg: #f5f7f8;
+  --surface: #ffffff;
+  --surface-muted: #e9eef1;
+  --line: #c8d2d8;
+  --text: #172026;
+  --muted: #63717a;
+  --accent: #4f5961;
+  --accent-weak: #eef1f3;
+  --danger: #b85042;
+  --label-width: 142px;
+  --score-stage-width: 2400px;
+  --score-scroll-width: 2400px;
+  --score-stage-height: 1400px;
+  --score-viewport-height: 1400px;
+  --score-roll-background: #525252;
+  --menu-height: 112px;
+  --menu-area-max-height: none;
+  --edit-panel-max-height: 224px;
+  --ui-control-height: 30px;
+  --ui-small-control-height: 24px;
+  --ui-panel-radius: 8px;
+  --ui-control-radius: 6px;
+  --ui-gap: 8px;
+  --ui-compact-gap: 6px;
+  --ui-panel-padding-y: 8px;
+  --ui-panel-padding-x: 10px;
+  --ui-font-size: 12px;
+  --ui-small-font-size: 11px;
+  --ui-micro-font-size: 10px;
+  --status-height: 28px;
+  font-family: Arial, "Noto Sans KR", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button,
+select,
+input[type="text"],
+input[type="number"] {
+  min-height: var(--ui-control-height);
+  border: 1px solid var(--line);
+  border-radius: var(--ui-control-radius);
+  background: var(--surface);
+  color: var(--text);
+}
+
+button {
+  padding: 0 var(--ui-panel-padding-x);
+  cursor: pointer;
+}
+
+.toggle-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--ui-control-height);
+  padding: 0 var(--ui-panel-padding-x);
+  border: 1px solid var(--line);
+  border-radius: var(--ui-control-radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.mode-toggle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) var(--status-height);
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-shell:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  background: var(--bg);
+}
+

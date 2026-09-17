@@ -9,6 +9,7 @@ import type {
 import { syncLeftStatus, syncUiControls } from "../app_ui_sync";
 import { fitScoreHeight } from "../app_view_binding";
 import { saveGameSyncOffsetMsToLocalStorage } from "../../infra/game_preferences";
+import { createGameSyncPreview, type GameSyncPreview } from "./game_sync_preview";
 import { syncGameModeUi } from "./game_ui";
 import { syncGamePitchOverlay } from "./game_pitch_overlay";
 import { createGamePitchInputRuntime, type GamePitchInputRuntime } from "./game_pitch_input";
@@ -94,8 +95,8 @@ export function bindGameModeControls(
 ): void {
   let microphoneStream: MediaStream | null = null;
   let pitchInputRuntime: GamePitchInputRuntime | null = null;
-  let syncAudioContext: AudioContext | null = null;
-  let syncBeepIntervalId: number | null = null;
+  let syncPreview: GameSyncPreview | null = null;
+  let syncFlashTimeoutId: number | null = null;
   let lastSyncBeatAtMs: number | null = null;
   let requestId = 0;
 
@@ -206,73 +207,54 @@ export function bindGameModeControls(
   };
 
   /**
-   * Sync calibration beep loop를 중지한다.
+   * 테스트 노트와 beep를 함께 중지한다.
    * - 인수 : 없음
    * - 반환값 : 없음
    */
   const stopSyncBeepLoop = (): void => {
-    if (syncBeepIntervalId !== null) {
-      window.clearInterval(syncBeepIntervalId);
-      syncBeepIntervalId = null;
-    }
-
+    syncPreview?.dispose();
+    syncPreview = null;
+    if (syncFlashTimeoutId !== null) window.clearTimeout(syncFlashTimeoutId);
+    syncFlashTimeoutId = null;
+    lastSyncBeatAtMs = null;
+    dom.practiceSyncMarker.classList.remove("visible");
+    dom.practiceSyncBeat.classList.remove("flash");
     dom.practiceSyncStartButton.textContent = "Start";
   };
 
   /**
-   * Sync calibration용 짧은 beep와 기준선 flash를 실행한다.
-   * - 인수 : 없음
-   * - 반환값 : 없음
-   */
-  const playSyncBeep = (): void => {
-    const AudioContextConstructor = window.AudioContext;
-
-    lastSyncBeatAtMs = performance.now();
-    dom.practiceSyncBeat.classList.add("flash");
-    window.setTimeout(() => {
-      dom.practiceSyncBeat.classList.remove("flash");
-    }, 120);
-
-    if (AudioContextConstructor === undefined) {
-      return;
-    }
-
-    syncAudioContext ??= new AudioContextConstructor();
-
-    const audioContext = syncAudioContext;
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    const now = audioContext.currentTime;
-
-    if (audioContext.state === "suspended") {
-      void audioContext.resume();
-    }
-
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(880, now);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.16, now + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
-    oscillator.connect(gain);
-    gain.connect(audioContext.destination);
-    oscillator.start(now);
-    oscillator.stop(now + 0.12);
-  };
-
-  /**
-   * Sync calibration beep loop를 시작하거나 중지한다.
+   * 공통 Start/Stop으로 노트 미리보기와 Input Sync용 beep를 제어한다.
    * - 인수 : 없음
    * - 반환값 : 없음
    */
   const toggleSyncBeepLoop = (): void => {
-    if (syncBeepIntervalId !== null) {
+    if (syncPreview !== null) {
       stopSyncBeepLoop();
       return;
     }
-
-    playSyncBeep();
-    syncBeepIntervalId = window.setInterval(playSyncBeep, 800);
-    dom.practiceSyncStartButton.textContent = "Stop";
+    try {
+      syncPreview = createGameSyncPreview(
+        dom.practiceDisplayPreview,
+        () => session.getState().gameDisplayOffsetMs,
+        (atMs) => {
+          lastSyncBeatAtMs = atMs;
+          if (syncFlashTimeoutId !== null) window.clearTimeout(syncFlashTimeoutId);
+          dom.practiceSyncBeat.classList.add("flash");
+          syncFlashTimeoutId = window.setTimeout(() => {
+            dom.practiceSyncBeat.classList.remove("flash");
+            syncFlashTimeoutId = null;
+          }, 120);
+        },
+        () => {
+          stopSyncBeepLoop();
+          dom.practiceSyncStartButton.textContent = "Retry audio";
+        },
+      );
+      dom.practiceSyncStartButton.textContent = "Stop";
+    } catch {
+      stopSyncBeepLoop();
+      dom.practiceSyncStartButton.textContent = "Retry audio";
+    }
   };
 
   /**
@@ -324,6 +306,10 @@ export function bindGameModeControls(
   dom.practiceSyncPlusButton.addEventListener("click", () => {
     setSyncOffset(session.getState().gameSyncOffsetMs + GAME_SYNC_OFFSET_STEP_MS);
   });
+
+  // 미세 조절도 같은 저장·UI 갱신 경로를 사용한다.
+  dom.practiceSyncFineMinusButton.addEventListener("click", () => setSyncOffset(session.getState().gameSyncOffsetMs - 1));
+  dom.practiceSyncFinePlusButton.addEventListener("click", () => setSyncOffset(session.getState().gameSyncOffsetMs + 1));
 
   dom.practiceSyncResetButton.addEventListener("click", () => {
     setSyncOffset(DEFAULT_GAME_SYNC_OFFSET_MS);

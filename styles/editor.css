@@ -1,0 +1,289 @@
+.edit-panel {
+  grid-row: 2;
+  display: none;
+  max-height: var(--edit-panel-max-height);
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  background: #f0f1f2;
+}
+
+#edit-mode-toggle:checked ~ .edit-panel {
+  display: block;
+}
+
+#edit-mode-toggle:checked ~ .menu-area .toggle-button[for="edit-mode-toggle"] {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+  color: var(--accent);
+}
+
+.edit-row {
+  display: grid;
+  grid-template-columns:
+    minmax(220px, 1.2fr)
+    minmax(180px, 1fr)
+    repeat(3, minmax(118px, 0.68fr))
+    minmax(164px, 0.9fr)
+    minmax(420px, 2.4fr)
+    minmax(190px, 0.95fr);
+  align-items: flex-start;
+  gap: calc(var(--ui-gap) + 2px);
+  max-height: var(--edit-panel-max-height);
+  padding: calc(var(--ui-panel-padding-y) + 2px) 14px;
+  overflow: auto;
+}
+
+.edit-card {
+  display: grid;
+  gap: var(--ui-compact-gap);
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--ui-panel-padding-y);
+  border: 1px solid var(--line);
+  border-radius: var(--ui-panel-radius);
+  background: var(--surface);
+}
+
+.actions-card {
+  position: relative;
+  padding-right: 86px;
+}
+
+.edit-card-title,
+.micro-label,
+.edit-help {
+  color: var(--muted);
+  font-size: var(--ui-small-font-size);
+}
+
+.edit-card-title {
+  font-weight: 700;
+}
+
+.edit-card-title-row,
+.edit-control-row,
+.pill-row,
+.tuplet-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ui-gap);
+  min-width: 0;
+}
+
+.edit-card-title-row {
+  justify-content: space-between;
+}
+
+.edit-control-row > input,
+.edit-control-row > select {
+  min-width: 0;
+}
+
+.edit-panel select,
+.edit-panel input[type="text"],
+.edit-panel input[type="number"] {
+  min-height: calc(var(--ui-control-height) - 4px);
+  padding: 0 6px;
+  font-size: var(--ui-font-size);
+}
+
+.edit-panel input::placeholder {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.default-card input[type="text"] {
+  flex: 0 1 92px;
+  max-width: 112px;
+}
+
+.default-card select,
+.narrow-card select,
+.pitch-card select {
+  flex: 0 1 96px;
+  max-width: 104px;
+}
+
+.narrow-card {
+  min-width: 118px;
+}
+
+.narrow-card .edit-control-row {
+  justify-content: flex-start;
+}
+
+.narrow-card select {
+  width: 96px;
+}
+
+.current-raw-text-preview {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+.compact-stack {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 4px;
+  min-width: 34px;
+  min-height: 26px;
+}
+
+.compact-stack span {
+  font-size: 10px;
+}
+
+.gliss-id-select {
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  text-align: center;
+}
+
+.pitch-card input[type="number"],
+.number-card input[type="number"] {
+  width: 84px;
+}
+
+.pitch-card .absolute-pitch-input,
+.pitch-card .micro-pitch-input {
+  width: 92px;
+}
+
+.pitch-card .absolute-pitch-select {
+  width: 82px;
+}
+
+.tempo-mark-group {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tempo-mark-group .pill-row {
+  gap: 6px;
+}
+
+.pill-toggle {
+  min-height: calc(var(--ui-control-height) - 2px);
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: var(--ui-font-size);
+}
+
+.tempo-mark-group .pill-toggle {
+  min-height: calc(var(--ui-small-control-height) - 2px);
+  padding: 2px 8px;
+  font-size: var(--ui-small-font-size);
+  line-height: 1.1;
+}
+
+.tuplet-toolbar > button:not(.pill-toggle),
+.actions-card button {
+  min-height: var(--ui-small-control-height);
+  padding: 0 8px;
+  font-size: var(--ui-font-size);
+}
+
+.pill-toggle.on {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.pill-toggle.off {
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
+.preview-pill {
+  max-width: 100%;
+  padding: 3px 7px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fafafa;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.pending-pill {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  max-width: 72px;
+}
+
+.inline-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.inline-field select {
+  max-width: 112px;
+}
+
+.stacked-field {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.1;
+}
+
+.stacked-field select,
+.stacked-field input {
+  width: 100%;
+}
+
+.stacked-field.compact-stack {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 4px;
+  min-width: 72px;
+  min-height: 26px;
+}
+
+.stacked-field.compact-stack select.gliss-id-select {
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+}
+
+.tuplet-toolbar button {
+  flex: 0 0 auto;
+}
+
+.tuplet-slots {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(64px, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.tuplet-slots input {
+  width: 100%;
+  min-width: 0;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+.tuplet-slots input.active {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  outline-offset: 1px;
+}
+
+.edit-help {
+  line-height: 1.35;
+}
+

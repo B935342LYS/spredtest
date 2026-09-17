@@ -413,7 +413,7 @@
                 <p>External videos, when used, are played only through the official embedded player. SPRED does not copy, save, cache, extract, or redistribute video or audio content.</p>
                 <p>All musical works, recordings, lyrics, videos, and score materials belong to their lawful rights holders. Users are responsible for securing the rights needed for any score data, metadata, examples, or public distribution they create or share.</p>
                 <p>Do not distribute protected music, lyrics, score data, recordings, or metadata without permission from the rights holder or another lawful basis such as public domain or a compatible open license.</p>
-                <p>Official examples should use original works, public domain works, or openly licensed materials that permit conversion and redistribution. Copyright inquiries or takedown requests may be sent to odogihapmatone@gmail.com.</p>
+                <p>Official examples should use original works, public domain works, or openly licensed materials that permit conversion and redistribution. Copyright inquiries or takedown requests may be sent to fav_09@naver.com.</p>
                 <p>SPRED is an independent practice tool for fretless string instruments. It is not affiliated with, endorsed by, or sponsored by any official company, artist, brand, or rights holder.</p>
             </section>
             <section class="info-section" aria-label="저작권 및 배포 안내 한국어">
@@ -423,7 +423,7 @@
                 <p>외부 영상은 사용하는 경우 공식 임베드 플레이어를 통해서만 재생됩니다. SPRED는 영상 또는 음원의 복제물 생성, 저장, 캐싱, 추출, 재배포를 수행하지 않습니다.</p>
                 <p>음악 저작물, 음원, 가사, 영상, 악보 자료의 권리는 각 정당한 권리자에게 있습니다. 사용자가 작성하거나 공유하는 악보 데이터, 메타데이터, 예제, 공개 배포물에 필요한 권리 확보 책임은 사용자에게 있습니다.</p>
                 <p>권리자의 허락 또는 퍼블릭 도메인, 호환 가능한 공개 라이선스 등 적법한 근거 없이 보호되는 음악, 가사, 악보 데이터, 음원, 메타데이터를 배포하지 마십시오.</p>
-                <p>공식 예제는 직접 제작한 음악, 퍼블릭 도메인 음악, 또는 변환과 재배포가 허용된 공개 라이선스 자료로 제한합니다. 저작권 문의 또는 삭제 요청은 odogihapmatone@gmail.com으로 보낼 수 있습니다.</p>
+                <p>공식 예제는 직접 제작한 음악, 퍼블릭 도메인 음악, 또는 변환과 재배포가 허용된 공개 라이선스 자료로 제한합니다. 저작권 문의 또는 삭제 요청은 fav_09@naver.com으로 보낼 수 있습니다.</p>
                 <p>SPRED는 프렛리스 현악기를 위한 독립적인 연습 도구입니다. SPRED는 어떠한 공식 회사, 아티스트, 브랜드, 권리자와도 제휴, 보증, 후원을 받지 않습니다.</p>
             </section>
             <button type="submit">Close</button>
@@ -542,21 +542,39 @@
         <form method="dialog" class="practice-sync-form">
             <div class="dialog-title-row">
                 <h2>Sync</h2>
-                <button type="button" class="practice-sync-close-button" aria-label="Close">Close</button>
+                <div class="practice-sync-header-controls">
+                    <button type="button" class="practice-sync-start-button">Start</button>
+                    <button type="button" class="practice-sync-apply-button">Apply</button>
+                    <button type="button" class="practice-sync-close-button" aria-label="Close">Close</button>
+                </div>
             </div>
-            <p class="practice-sync-help">Adjust Sync until your input marker lands near the center.</p>
+            <h3>Display offset</h3>
+            <p class="practice-sync-help">Match notes at the red line to the beep you hear. Positive values make notes arrive later.</p>
+            <div class="practice-display-preview practice-sync-meter" aria-label="Test notes approaching the red line">
+                <div class="practice-sync-center"></div>
+            </div>
+            <div class="practice-sync-controls">
+                <button type="button" class="practice-display-minus-button">-10 ms</button>
+                <button type="button" class="practice-display-fine-minus-button">-1 ms</button>
+                <strong class="practice-display-value" aria-live="polite">+0 ms</strong>
+                <button type="button" class="practice-display-fine-plus-button">+1 ms</button>
+                <button type="button" class="practice-display-plus-button">+10 ms</button>
+                <button type="button" class="practice-display-reset-button">Reset display</button>
+            </div>
+            <h3>Input Sync</h3>
+            <p class="practice-sync-help">After matching the display and sound, adjust input timing with Sync. Adjust Sync until your input marker lands near the center.</p>
             <div class="practice-sync-meter" aria-label="Practice sync timing meter">
                 <div class="practice-sync-center"></div>
                 <div class="practice-sync-beat"></div>
                 <div class="practice-sync-marker"></div>
             </div>
             <div class="practice-sync-controls">
-                <button type="button" class="practice-sync-start-button">Start</button>
                 <button type="button" class="practice-sync-minus-button">-10 ms</button>
+                <button type="button" class="practice-sync-fine-minus-button">-1 ms</button>
                 <strong class="practice-sync-value">+90 ms</strong>
+                <button type="button" class="practice-sync-fine-plus-button">+1 ms</button>
                 <button type="button" class="practice-sync-plus-button">+10 ms</button>
-                <button type="button" class="practice-sync-reset-button">Reset</button>
-                <button type="button" class="practice-sync-apply-button">Apply</button>
+                <button type="button" class="practice-sync-reset-button" title="Reset Input Sync">Reset</button>
             </div>
         </form>
     </dialog>

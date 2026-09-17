@@ -1,0 +1,223 @@
+.info-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.info-dialog form {
+  max-height: calc(100vh - 72px);
+  overflow: auto;
+}
+
+.info-dialog::backdrop {
+  background: rgb(23 32 38 / 52%);
+}
+
+.info-dialog h2 {
+  margin: 0 0 12px;
+}
+
+.info-dialog h3 {
+  margin: 14px 0 8px;
+  font-size: 14px;
+}
+
+.info-dialog p {
+  margin: 8px 0;
+  line-height: 1.5;
+}
+
+.info-section {
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.info-section:first-of-type {
+  border-top: 0;
+}
+
+.info-dialog button {
+  margin-top: 12px;
+}
+
+.examples-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.examples-dialog::backdrop {
+  background: rgb(23 32 38 / 52%);
+}
+
+.examples-form {
+  display: grid;
+  gap: 12px;
+  max-height: calc(100vh - 72px);
+  overflow: auto;
+}
+
+.examples-access-field {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.examples-access-word-input {
+  min-width: 0;
+}
+
+.examples-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.examples-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(150px, 0.75fr) minmax(110px, 0.55fr);
+  gap: 10px;
+}
+
+.examples-controls label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.examples-controls input,
+.examples-controls select {
+  min-width: 0;
+  width: 100%;
+}
+
+.examples-notice {
+  margin: 0;
+  min-height: 18px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.examples-notice[data-level="warning"] {
+  color: #9a6500;
+}
+
+.examples-notice[data-level="error"] {
+  color: #b42318;
+}
+
+.examples-list {
+  display: grid;
+  gap: 10px;
+  max-height: min(460px, calc(100vh - 300px));
+  overflow: auto;
+  padding: 2px 4px 2px 0;
+}
+
+.example-row {
+  display: grid;
+  grid-template-rows: auto auto auto auto;
+  gap: 3px;
+  width: 100%;
+  min-width: 0;
+  min-height: 88px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.example-row[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+
+.example-row strong,
+.example-row span {
+  min-width: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.example-row strong {
+  font-size: 14px;
+}
+
+.example-row span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.example-row-title {
+  display: block;
+}
+
+.example-row-meta,
+.example-row-detail,
+.example-row-file-meta {
+  display: block;
+}
+
+@media (max-width: 640px) {
+  .examples-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.examples-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.details-dialog {
+  width: min(680px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.details-dialog::backdrop {
+  background: rgb(23 32 38 / 52%);
+}
+
+.practice-sync-dialog {
+  width: min(640px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.practice-rules-dialog {
+  width: min(1080px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.practice-rules-dialog::backdrop,
+.practice-sync-dialog::backdrop {
+  background: rgb(23 32 38 / 52%);
+}
+
+.practice-result-dialog {
+  width: min(520px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.practice-result-dialog::backdrop {
+  background: rgb(23 32 38 / 52%);
+}
+

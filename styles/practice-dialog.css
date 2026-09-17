@@ -1,0 +1,307 @@
+.practice-result-form {
+  display: grid;
+  gap: 14px;
+}
+
+.practice-result-form h2 {
+  margin: 0;
+}
+
+.practice-result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.practice-result-meta {
+  display: grid;
+  gap: 8px;
+}
+
+.practice-result-meta span {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fafafa;
+  color: var(--muted);
+  font-size: var(--ui-font-size);
+}
+
+.practice-result-grid span {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fafafa;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.practice-result-grid strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.practice-result-meta strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-full-combo {
+  padding: 10px 12px;
+  border: 1px solid #188b3c;
+  border-radius: 6px;
+  background: #edf8f0;
+  color: #188b3c;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-align: center;
+}
+
+.practice-result-grid strong {
+  color: var(--text);
+}
+
+.practice-result-grid .result-judge-perfect,
+.practice-result-grid .result-judge-perfect strong {
+  color: #188b3c;
+}
+
+.practice-result-grid .result-judge-ok,
+.practice-result-grid .result-judge-ok strong,
+.practice-result-grid .result-judge-early,
+.practice-result-grid .result-judge-early strong {
+  color: #1479b8;
+}
+
+.practice-result-grid .result-judge-bad,
+.practice-result-grid .result-judge-bad strong,
+.practice-result-grid .result-judge-timing-bad,
+.practice-result-grid .result-judge-timing-bad strong {
+  color: #b46913;
+}
+
+.practice-result-grid .result-judge-miss,
+.practice-result-grid .result-judge-miss strong,
+.practice-result-grid .result-judge-late,
+.practice-result-grid .result-judge-late strong,
+.practice-result-grid .result-judge-timing-miss,
+.practice-result-grid .result-judge-timing-miss strong {
+  color: #c83333;
+}
+
+.practice-result-grid .result-effect-gliss,
+.practice-result-grid .result-effect-gliss strong,
+.game-total-grid .game-effect-gliss,
+.game-total-grid .game-effect-gliss strong {
+  color: #188b3c;
+}
+
+.practice-result-grid .result-effect-vib,
+.practice-result-grid .result-effect-vib strong,
+.game-total-grid .game-effect-vib,
+.game-total-grid .game-effect-vib strong {
+  color: #1479b8;
+}
+
+.practice-result-grid .result-effect-trem,
+.practice-result-grid .result-effect-trem strong,
+.game-total-grid .game-effect-trem,
+.game-total-grid .game-effect-trem strong,
+.practice-result-grid .result-effect-bonus,
+.practice-result-grid .result-effect-bonus strong {
+  color: #7a4bb3;
+}
+
+.practice-sync-form {
+  display: grid;
+  gap: 14px;
+}
+
+.practice-sync-form h2 {
+  margin: 0;
+}
+
+.practice-sync-header-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.practice-sync-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.practice-sync-meter {
+  position: relative;
+  height: 72px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f8fafc, #ffffff);
+}
+
+/* 테스트 노트는 고정된 붉은 기준선으로 이동하며 입력 marker와 별도로 표시한다. */
+.practice-display-preview .practice-sync-center {
+  background: #dc2626;
+  z-index: 1;
+}
+
+/* 노트 중심의 기준선 접촉 시 작은 붉은 테두리를 표시한다. 감쇠는 노트와 같은 시계로 계산한다. */
+.practice-display-preview .practice-sync-center::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  border: 2px solid #ef4444;
+  border-radius: 50%;
+  background: rgb(254 202 202 / 45%);
+  opacity: var(--practice-contact-strength, 0);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.practice-preview-note {
+  position: absolute;
+  top: 26px;
+  width: 28px;
+  height: 18px;
+  border: 2px solid #1d4ed8;
+  border-radius: 5px;
+  background: #93c5fd;
+  transform: translateX(-50%);
+}
+
+.practice-sync-center {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  background: #111827;
+  transform: translateX(-1px);
+}
+
+.practice-sync-beat {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgb(37 99 235 / 24%);
+  opacity: 0;
+  transform: translateX(-50%) scale(0.75);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.practice-sync-beat.flash {
+  opacity: 1;
+  transform: translateX(-50%) scale(1.15);
+}
+
+.practice-sync-marker {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #16a34a;
+  box-shadow: 0 0 0 3px rgb(22 163 74 / 18%);
+  opacity: 0;
+  transform: translateX(-50%);
+  transition: left 80ms ease, opacity 120ms ease;
+}
+
+.practice-sync-marker.visible {
+  opacity: 1;
+}
+
+.practice-sync-controls {
+  display: grid;
+  grid-template-columns: calc(6ch + 24px) calc(5ch + 24px) minmax(80px, 1fr) calc(5ch + 24px) calc(6ch + 24px) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.practice-sync-controls button {
+  min-width: 0;
+  height: auto;
+  min-height: 34px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.practice-display-value,
+.practice-sync-value {
+  min-width: 64px;
+  text-align: center;
+  color: #2563eb;
+}
+
+.practice-rules-form {
+  display: grid;
+  gap: 14px;
+  overflow-x: auto;
+}
+
+.practice-rules-form h2,
+.practice-rules-form h3 {
+  margin: 0;
+}
+
+.practice-rules-section {
+  display: grid;
+  gap: 8px;
+}
+
+.practice-rules-section h3 {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.practice-rules-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.practice-rules-table th,
+.practice-rules-table td {
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.practice-rules-table th {
+  background: var(--surface-muted);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.practice-score-formula-table th[scope="row"] {
+  width: 132px;
+  min-width: 132px;
+  white-space: nowrap;
+}
+

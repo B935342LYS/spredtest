@@ -4,11 +4,25 @@
 
 import type { AppDom, AppState } from "../app_types";
 import { syncLayoutScroll, syncTrackToggleButtons } from "../app_ui_sync";
-import { isGameModeLocked } from "../game/game_types";
+import { isGameModeLocked, normalizeGameDisplayOffsetMs } from "../game/game_types";
 import { columnToX, xToColumn } from "../../renderer/canvas_coordinate";
 import { numberToTimeFraction } from "../../audio/tick_time_mapper";
 import type { AppPlaybackRuntime } from "./app_playback";
 import { measurePerf } from "../../infra/perf_profiler";
+
+/**
+ * 재생 시간에서 화면 보정만 빼고 악보 시작·끝 범위로 제한한다.
+ * - 인수 : scoreSeconds : 실제 재생 시간
+ * - 인수 : durationSeconds : 악보 전체 시간
+ * - 인수 : offsetMs : 화면 보정값. 양수이면 노트 도착이 늦어진다
+ * - 반환값 : BPM 시간축으로 변환할 화면 기준 시간
+ */
+export function getPracticeDisplaySeconds(scoreSeconds: number, durationSeconds: number, offsetMs: number): number {
+  const duration = Number.isFinite(durationSeconds) ? Math.max(0, durationSeconds) : 0;
+  const current = Number.isFinite(scoreSeconds) ? scoreSeconds : 0;
+  // 픽셀을 직접 밀지 않고 악보 시간에서 보정하여 BPM 변화가 있는 좌표도 기존 mapper로 구한다.
+  return Math.min(duration, Math.max(0, current - normalizeGameDisplayOffsetMs(offsetMs) / 1000));
+}
 
 /**
  * playback 상태 문자열을 status DOM에 반영한다.
@@ -226,7 +240,7 @@ export function syncPlaybackUi(
 }
 
 /**
- * score seconds가 score area 왼쪽 재생 기준선에 오도록 scroll 위치를 맞춘다.
+ * score seconds에 Practice 화면 보정을 적용한 위치가 왼쪽 고정 기준선에 오도록 scroll을 맞춘다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
  * - 인수 : state : 현재 앱 상태
  * - 인수 : playbackRuntime : seconds/tick 변환기를 포함한 playback runtime
@@ -243,8 +257,14 @@ export function scrollToScoreSeconds(
     return;
   }
 
+  // 재생·입력 판정 시간은 유지하고 화면에 표시할 위치만 초 단위로 보정한다.
+  const displaySeconds = getPracticeDisplaySeconds(
+    scoreSeconds,
+    playbackRuntime.timeMapper.getDurationSeconds(),
+    isGameModeLocked(state.gameMode) ? state.gameDisplayOffsetMs : 0,
+  );
   const currentTick = measurePerf("scrollToSeconds.secondsToTick", () =>
-    playbackRuntime.timeMapper.secondsToTick(scoreSeconds)
+    playbackRuntime.timeMapper.secondsToTick(displaySeconds)
   );
   const currentTickNumber = currentTick.numerator / currentTick.denominator;
   const nextScrollLeft = measurePerf("scrollToSeconds.columnToX", () =>

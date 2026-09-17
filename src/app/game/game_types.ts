@@ -10,16 +10,29 @@ export const MAX_GAME_SYNC_OFFSET_MS = 500;
 export const GAME_SYNC_OFFSET_STEP_MS = 10;
 
 /**
+ * 입력 Sync와 독립적인 화면 보정값을 1ms 단위의 -500~+500ms로 제한한다.
+ * - 인수 : value : 화면 보정 ms 값
+ * - 반환값 : 유효한 화면 보정값. 비정상 입력은 기본값 0ms
+ */
+export function normalizeGameDisplayOffsetMs(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.min(500, Math.max(-500, Math.round(value)));
+}
+
+/**
  * Sync 보정값을 허용 범위와 step에 맞춘다.
  * - 인수 : value : 사용자가 조정한 ms 값
- * - 반환값 : -200ms~+200ms 범위의 10ms 단위 값
+ * - 반환값 : -500ms~+500ms 범위의 1ms 단위 값
  */
 export function normalizeGameSyncOffsetMs(value: number): number {
   if (!Number.isFinite(value)) {
     return DEFAULT_GAME_SYNC_OFFSET_MS;
   }
 
-  const stepped = Math.round(value / GAME_SYNC_OFFSET_STEP_MS) * GAME_SYNC_OFFSET_STEP_MS;
+  // 버튼의 10ms 이동 폭과 저장 정밀도를 분리해 1ms 미세 조절값을 보존한다.
+  const stepped = Math.round(value);
 
   return Math.min(Math.max(stepped, MIN_GAME_SYNC_OFFSET_MS), MAX_GAME_SYNC_OFFSET_MS);
 }

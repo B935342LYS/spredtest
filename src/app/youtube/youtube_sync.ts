@@ -5,6 +5,26 @@
 export const YOUTUBE_DRIFT_THRESHOLD_SECONDS = 0.25;
 
 /**
+ * 일시정지 재개 시 영상 위치가 이미 맞아 불필요한 seek를 생략할 수 있는지 확인한다.
+ * - 인수 : resumeFromPause : 기존 일시정지 위치에서 재개하는지 여부
+ * - 인수 : scoreSeconds : 보정되지 않은 controller 재생 시간
+ * - 인수 : youtubeSeconds : 영상이 보고한 현재 시간
+ * - 인수 : offsetMs : 악보에 저장된 YouTube offset
+ * - 반환값 : 영상 시작 이후이며 위치 차이가 50ms 이내인 일시정지 재개이면 true
+ */
+export function canResumeYoutubeWithoutSeek(
+  resumeFromPause: boolean,
+  scoreSeconds: number,
+  youtubeSeconds: number,
+  offsetMs: number,
+): boolean {
+  // Display offset은 이 경계에 전달하지 않는다. 영상 시작 전 구간은 기존 예약 시작 경로를 따른다.
+  return resumeFromPause && Number.isFinite(scoreSeconds) && Number.isFinite(youtubeSeconds) &&
+    Number.isFinite(offsetMs) && !isYoutubeBeforeVideoStart(scoreSeconds, offsetMs) &&
+    Math.abs(scoreSecondsToYoutubeSeconds(scoreSeconds, offsetMs) - youtubeSeconds) <= 0.05;
+}
+
+/**
  * score seconds와 offset ms에서 clamp 전 YouTube seconds를 계산한다.
  * - 인수 : scoreSeconds : playback controller 기준 score seconds
  * - 인수 : offsetMs : score metadata에 저장된 YouTube offset ms

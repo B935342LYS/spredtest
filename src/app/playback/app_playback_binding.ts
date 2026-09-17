@@ -48,6 +48,7 @@ import {
   showGameJudgeOverlay,
 } from "../game/game_judge_overlay";
 import { openPracticeResultDialogForState, syncGameModeUi } from "../game/game_ui";
+import { saveGameDisplayOffsetMsToLocalStorage } from "../../infra/game_preferences";
 import {
   scrollLeftToScoreSeconds,
   scrollToScoreSeconds,
@@ -113,6 +114,7 @@ export function bindPlaybackControls(
   let failedEffectTargetIds = new Set<string>();
   let tremRuntimeByTargetId = new Map<string, GameTremRuntimeState>();
   let countdownAudioContext: AudioContext | null = null;
+  let syncPauseGeneration = 0;
 
   /**
    * practice timing 판정용 runtime 상태를 새 세션 기준으로 비운다.
@@ -601,6 +603,68 @@ export function bindPlaybackControls(
     );
   };
 
+  /**
+   * 화면 보정값을 세션 상태에 저장하고 현재 위치를 즉시 다시 표시한다.
+   * - 인수 : offsetMs : 요청한 화면 보정 ms 값
+   * - 반환값 : 없음
+   */
+  const setDisplayOffset = (offsetMs: number): void => {
+    const state = session.getState();
+    const nextState = { ...state, gameDisplayOffsetMs: saveGameDisplayOffsetMsToLocalStorage(offsetMs) };
+    session.setState(nextState);
+    syncGameModeUi(dom, nextState);
+    // 자동 스크롤의 seek 억제 경로를 사용하여 화면 조절이 실제 재생 위치를 바꾸지 않게 한다.
+    if (isGameModeLocked(nextState.gameMode)) {
+      const runtime = session.getPlaybackRuntime();
+      scrollScoreAreaToSeconds(nextState, runtime, runtime.controller.getCurrentScoreSeconds());
+    }
+  };
+  dom.practiceDisplayMinusButton.addEventListener("click", () => setDisplayOffset(session.getState().gameDisplayOffsetMs - 10));
+  dom.practiceDisplayPlusButton.addEventListener("click", () => setDisplayOffset(session.getState().gameDisplayOffsetMs + 10));
+  // 1ms 버튼도 화면 갱신과 사용자 설정 저장을 함께 수행한다.
+  dom.practiceDisplayFineMinusButton.addEventListener("click", () => setDisplayOffset(session.getState().gameDisplayOffsetMs - 1));
+  dom.practiceDisplayFinePlusButton.addEventListener("click", () => setDisplayOffset(session.getState().gameDisplayOffsetMs + 1));
+  dom.practiceDisplayResetButton.addEventListener("click", () => setDisplayOffset(0));
+  dom.practiceModeButton.addEventListener("click", () => {
+    // game binding이 Practice를 종료한 뒤 일반 재생의 보정 없는 위치로 복귀한다.
+    const state = session.getState();
+    if (state.gameMode.kind === "off") {
+      const runtime = session.getPlaybackRuntime();
+      scrollScoreAreaToSeconds(state, runtime, runtime.controller.getCurrentScoreSeconds());
+    }
+  });
+
+  /**
+   * Sync 진입 시 악보만 일시정지하고 재생 위치와 점수·입력 상태를 보존한다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
+  const pausePlaybackForSync = (): void => {
+    const state = session.getState();
+    const runtime = session.getPlaybackRuntime();
+    runtime.controller.pause();
+    session.youtubeControl?.pause();
+    stopPlaybackAnimation(false);
+    // countdown 대기는 세대 번호로 무효화한다. 닫기 뒤에는 사용자가 Play를 눌러야 한다.
+    if (state.gameMode.kind === "playing" || state.gameMode.kind === "countdown") {
+      session.setState({
+        ...state,
+        gameMode: { ...state.gameMode, kind: state.gameMode.kind === "countdown" ? "ready" : "paused" },
+      });
+    }
+    if (countdownAudioContext !== null) {
+      void countdownAudioContext.close();
+      countdownAudioContext = null;
+    }
+    syncUiControls(dom, session.getState());
+    syncPlaybackUi(dom, session.getState(), runtime);
+  };
+  // capture 단계에서 정지시켜 game binding이 설정창을 열기 전에 악보 소리를 차단한다.
+  dom.gameSyncButton.addEventListener("click", () => {
+    syncPauseGeneration += 1;
+    pausePlaybackForSync();
+  }, { capture: true });
+
   const pausePlaybackForManualSeek = (
     playbackRuntime: AppPlaybackRuntime,
   ): void => {
@@ -688,10 +752,12 @@ export function bindPlaybackControls(
    * - 반환값 : 없음
    */
   const startPracticeCountdown = async (summary: GameScoreSummary): Promise<void> => {
+    const generation = syncPauseGeneration;
     for (const count of [3, 2, 1]) {
       const currentState = session.getState();
 
-      if (currentState.gameMode.kind !== "ready" && currentState.gameMode.kind !== "countdown") {
+      if (generation !== syncPauseGeneration || dom.practiceSyncDialog.open ||
+        (currentState.gameMode.kind !== "ready" && currentState.gameMode.kind !== "countdown")) {
         return;
       }
 
@@ -718,7 +784,7 @@ export function bindPlaybackControls(
 
     const currentState = session.getState();
 
-    if (currentState.gameMode.kind !== "countdown") {
+    if (generation !== syncPauseGeneration || dom.practiceSyncDialog.open || currentState.gameMode.kind !== "countdown") {
       return;
     }
 
@@ -884,6 +950,7 @@ export function bindPlaybackControls(
   });
 
   const togglePlayback = (): void => {
+    if (dom.practiceSyncDialog.open) return;
     const perfSession = beginPerfSession("playback.toggle");
     const state = session.getState();
     const playbackRuntime = session.getPlaybackRuntime();
@@ -968,12 +1035,18 @@ export function bindPlaybackControls(
         });
       }
 
+      const playGeneration = syncPauseGeneration;
       const playRequest = measurePerfAsync("playbackToggle.controllerPlayFromSeconds", () =>
         playbackRuntime.controller.playFromSeconds(playStartSeconds, loopState)
       );
 
       playRequest
         .then(() => {
+          // 비동기 오디오 준비 중 Sync를 열었다 닫아도 이전 play 요청이 뒤늦게 재생되지 않게 한다.
+          if (playGeneration !== syncPauseGeneration || dom.practiceSyncDialog.open) {
+            pausePlaybackForSync();
+            return;
+          }
           const thenPerfSession = beginPerfSession("playback.toggle.afterPlay");
 
           try {
@@ -991,7 +1064,7 @@ export function bindPlaybackControls(
               )
             );
             measurePerf("playbackAfterPlay.youtubePlay", () =>
-              session.youtubeControl?.playAtCurrentScoreTime()
+              session.youtubeControl?.playAtCurrentScoreTime(playbackState.kind === "paused")
             );
             lastPlaybackScoreSeconds = measurePerf("playbackAfterPlay.getCurrentSeconds", () =>
               nextPlaybackRuntime.controller.getCurrentScoreSeconds()

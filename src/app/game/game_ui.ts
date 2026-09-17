@@ -81,6 +81,7 @@ export function syncGameModeUi(dom: AppDom, state: AppState): void {
   dom.gameScore.textContent = String(Math.round(summary.score));
   dom.gameSyncValue.textContent = formatGameSyncOffsetMs(state.gameSyncOffsetMs);
   dom.practiceSyncValue.textContent = formatGameSyncOffsetMs(state.gameSyncOffsetMs);
+  dom.practiceDisplayValue.textContent = `${state.gameDisplayOffsetMs >= 0 ? "+" : ""}${state.gameDisplayOffsetMs} ms`;
   for (const button of modeButtons) {
     const buttonMode = button.dataset.judgeMode;
     const isSelected = buttonMode === state.practiceJudgeMode;

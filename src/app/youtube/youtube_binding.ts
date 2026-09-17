@@ -22,6 +22,7 @@ import {
   scoreSecondsToYoutubeSeconds,
   secondsUntilYoutubeStart,
   shouldResyncYoutubeDrift,
+  canResumeYoutubeWithoutSeek,
 } from "./youtube_sync";
 import type {
   YoutubeModeState,
@@ -48,7 +49,7 @@ export type YoutubeBindingSession = {
 /** playback binding이 호출할 YouTube 동기화 control 객체. */
 export type YoutubePlaybackControl = {
   syncInputsFromScore(): void;
-  playAtCurrentScoreTime(): void;
+  playAtCurrentScoreTime(resumeFromPause?: boolean): void;
   pause(): void;
   stop(): void;
   seekToCurrentScoreTime(): void;
@@ -234,12 +235,27 @@ export function bindYoutubeControls(
 
   return {
     syncInputsFromScore,
-    playAtCurrentScoreTime(): void {
+    /**
+     * controller 시간에 맞춰 영상을 시작하거나 일시정지에서 재개한다.
+     * - 인수 : resumeFromPause : 일시정지 재개이면 위치가 맞는 영상의 seek를 생략한다.
+     * - 반환값 : 없음
+     */
+    playAtCurrentScoreTime(resumeFromPause = false): void {
       if (!dom.youtubeToggle.checked || player === null || modeState.kind !== "ready") {
         return;
       }
 
-      const canPlayVideo = syncPlayerToCurrentScoreTime({ forceSeek: true });
+      const scoreSeconds = session.getPlaybackRuntime().controller.getCurrentScoreSeconds();
+      const offsetMs = session.getState().document.score.musicData.youtube.offsetMs;
+      // controller 시간과 영상 위치를 비교해 같은 위치의 재개에서 불필요한 seek 요청을 생략한다.
+      const canKeepPosition = canResumeYoutubeWithoutSeek(
+        resumeFromPause, scoreSeconds, player.getCurrentTime(), offsetMs,
+      );
+      if (canKeepPosition) {
+        clearVideoStartTimer();
+        isBeforeVideoStart = false;
+      }
+      const canPlayVideo = canKeepPosition || syncPlayerToCurrentScoreTime({ forceSeek: true });
 
       if (canPlayVideo) {
         player.play();

@@ -39,6 +39,7 @@ type DynamicViewportDrawCache = {
 const dynamicViewportDrawCacheByScoreArea = new WeakMap<HTMLElement, DynamicViewportDrawCache>();
 const renderInputIdentityByObject = new WeakMap<object, number>();
 let nextRenderInputIdentity = 1;
+
 /**
  * status footer의 특정 위치 문구를 바꾼다.
  * - 인수 : index : 바꿀 status span 순서
@@ -643,6 +644,7 @@ function getRenderInputIdentity(input: object): number {
   renderInputIdentityByObject.set(input, identity);
   return identity;
 }
+
 /**
  * AppState의 runtime loop range를 renderer marker item으로 변환한다.
  * - 인수 : state : 현재 앱 상태

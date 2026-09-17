@@ -153,6 +153,8 @@ export type AppState = {
   textOff: boolean;
   loop: LoopState;
   gameSyncOffsetMs: number;
+  /** 브라우저 사용자 환경값으로 저장하는 Practice 화면 보정. 입력 판정과 독립적이다. */
+  gameDisplayOffsetMs: number;
   practiceJudgeMode: PracticeJudgeMode;
   gameMode: GameModeState;
   history: UndoHistoryState;
@@ -251,9 +253,18 @@ export type AppDom = {
   practiceSyncStartButton: HTMLButtonElement;
   practiceSyncMinusButton: HTMLButtonElement;
   practiceSyncPlusButton: HTMLButtonElement;
+  practiceSyncFineMinusButton: HTMLButtonElement;
+  practiceSyncFinePlusButton: HTMLButtonElement;
   practiceSyncResetButton: HTMLButtonElement;
   practiceSyncApplyButton: HTMLButtonElement;
   practiceSyncValue: HTMLElement;
+  practiceDisplayMinusButton: HTMLButtonElement;
+  practiceDisplayPlusButton: HTMLButtonElement;
+  practiceDisplayFineMinusButton: HTMLButtonElement;
+  practiceDisplayFinePlusButton: HTMLButtonElement;
+  practiceDisplayResetButton: HTMLButtonElement;
+  practiceDisplayValue: HTMLElement;
+  practiceDisplayPreview: HTMLElement;
   practiceSyncMarker: HTMLElement;
   practiceSyncBeat: HTMLElement;
   practiceRulesDialog: HTMLDialogElement;

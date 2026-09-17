@@ -46,7 +46,7 @@ import { applyLayoutDraftToScore } from "./layout/layout_apply";
 import { createLayoutDraftBundle } from "./layout/layout_draft";
 import type { LayoutDraftBundle } from "./layout/layout_types";
 import { DEFAULT_ACTIVE_TRACK_IDS } from "../track/track_control";
-import { loadGameSyncOffsetMsFromLocalStorage } from "../infra/game_preferences";
+import { loadGameSyncOffsetMsFromLocalStorage, loadGameDisplayOffsetMsFromLocalStorage } from "../infra/game_preferences";
 import { touchScoreUpdatedAt } from "./score_timestamp";
 import {
   clampYoutubeOffsetMs,
@@ -212,6 +212,7 @@ export function createInitialState(
     textOff: false,
     loop: { ...DEFAULT_LOOP_STATE },
     gameSyncOffsetMs: loadGameSyncOffsetMsFromLocalStorage(),
+    gameDisplayOffsetMs: loadGameDisplayOffsetMsFromLocalStorage(),
     practiceJudgeMode: "standard",
     gameMode: { kind: "off" },
     history: createUndoHistoryState(),
