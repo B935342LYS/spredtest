@@ -2,6 +2,7 @@
  * YouTube 패널 DOM과 playback runtime을 연결한다.
  */
 
+import { MAX_YOUTUBE_LOCAL_OFFSET_MS, saveYoutubeLocalOffsetMs } from "../../infra/youtube_preferences";
 import type { AppPlaybackRuntime } from "../playback/app_playback";
 import type {
   AppDom,
@@ -23,6 +24,7 @@ import {
   secondsUntilYoutubeStart,
   shouldResyncYoutubeDrift,
   canResumeYoutubeWithoutSeek,
+  getEffectiveYoutubeOffsetMs,
 } from "./youtube_sync";
 import type {
   YoutubeModeState,
@@ -75,11 +77,56 @@ export function bindYoutubeControls(
 
   syncYoutubeOffsetInputBounds();
 
+  /**
+   * 모든 YouTube 시간 경로에 최신 곡·브라우저 보정 합계를 제공한다.
+   * - 인수 : 없음
+   * - 반환값 : 합산 offset ms
+   */
+  function effectiveOffsetMs(): number {
+    const state = session.getState();
+    return getEffectiveYoutubeOffsetMs(state.document.score.musicData.youtube.offsetMs, state.youtubeLocalOffsetMs);
+  }
+
+  /**
+   * 확정된 Local 값만 저장하고 현재 영상 위치를 재정렬한다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
+  function commitLocalOffset(): void {
+    const state = session.getState();
+    const raw = dom.youtubeLocalOffsetInput.value.trim();
+    const value = Number(raw);
+    // 빈 입력과 숫자가 아닌 편집 중간 상태는 이전 적용값으로 되돌린다.
+    if (raw === "" || !Number.isFinite(value)) {
+      dom.youtubeLocalOffsetInput.value = String(state.youtubeLocalOffsetMs);
+      return;
+    }
+    const normalized = saveYoutubeLocalOffsetMs(value);
+    dom.youtubeLocalOffsetInput.value = String(normalized);
+    if (normalized === state.youtubeLocalOffsetMs) return;
+    // 문서 편집 경로를 거치지 않아 미적용 곡 입력과 undo 이력은 유지한다.
+    session.setState({ ...state, youtubeLocalOffsetMs: normalized });
+    clearVideoStartTimer();
+    if (!dom.youtubeToggle.checked || player === null || modeState.kind !== "ready") return;
+    const isPlaying = session.getPlaybackRuntime().controller.isPlaying();
+    if (!isPlaying) player.pause();
+    const canPlay = syncPlayerToCurrentScoreTime({ forceSeek: true });
+    if (isPlaying && canPlay) player.play();
+  }
+
+  dom.youtubeLocalOffsetInput.addEventListener("change", commitLocalOffset);
+  dom.youtubeLocalOffsetInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    commitLocalOffset();
+  });
+
   const fillInputsFromScore = (): void => {
     const youtube = session.getState().document.score.musicData.youtube;
 
     dom.youtubeVideoInput.value = youtube.videoId;
     dom.youtubeOffsetInput.value = String(youtube.offsetMs);
+    dom.youtubeLocalOffsetInput.value = String(session.getState().youtubeLocalOffsetMs);
   };
 
   const syncInputsFromScore = (): void => {
@@ -129,7 +176,8 @@ export function bindYoutubeControls(
       }
 
       const scoreSeconds = session.getPlaybackRuntime().controller.getCurrentScoreSeconds();
-      const youtubeSeconds = scoreSecondsToYoutubeSeconds(scoreSeconds, youtube.offsetMs);
+      const loadedOffsetMs = effectiveOffsetMs();
+      const youtubeSeconds = scoreSecondsToYoutubeSeconds(scoreSeconds, loadedOffsetMs);
 
       await player.loadVideo(safeVideoId, youtubeSeconds);
       modeState = {
@@ -138,6 +186,11 @@ export function bindYoutubeControls(
         offsetMs: youtube.offsetMs,
       };
       syncYoutubeStatus("Ready", "ready");
+      // 비동기 load 중에 바뀐 Local 값은 준비 완료 후 최신 값으로 정렬한다.
+      if (loadedOffsetMs !== effectiveOffsetMs()) {
+        if (!session.getPlaybackRuntime().controller.isPlaying()) player.pause();
+        syncPlayerToCurrentScoreTime({ forceSeek: true });
+      }
       return true;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Unknown YouTube load error.";
@@ -246,7 +299,7 @@ export function bindYoutubeControls(
       }
 
       const scoreSeconds = session.getPlaybackRuntime().controller.getCurrentScoreSeconds();
-      const offsetMs = session.getState().document.score.musicData.youtube.offsetMs;
+      const offsetMs = effectiveOffsetMs();
       // controller 시간과 영상 위치를 비교해 같은 위치의 재개에서 불필요한 seek 요청을 생략한다.
       const canKeepPosition = canResumeYoutubeWithoutSeek(
         resumeFromPause, scoreSeconds, player.getCurrentTime(), offsetMs,
@@ -329,27 +382,26 @@ export function bindYoutubeControls(
     scoreSeconds: number,
     options: YoutubeSeekOptions = {},
   ): boolean {
-    const youtube = session.getState().document.score.musicData.youtube;
     const shouldForceSeek = options.forceSeek === true;
 
     if (player === null) {
       return false;
     }
 
-    // 음수 offset으로 영상 시작 전이면 0초에 한 번만 정렬하고 score playback만 진행한다.
-    if (isYoutubeBeforeVideoStart(scoreSeconds, youtube.offsetMs)) {
+    // 합산 offset으로 영상 시작 전이면 0초에 한 번만 정렬하고 score playback만 진행한다.
+    if (isYoutubeBeforeVideoStart(scoreSeconds, effectiveOffsetMs())) {
       if (!isBeforeVideoStart || shouldForceSeek) {
         player.seekTo(0);
         lastSeekAtMs = Date.now();
       }
 
       player.pause();
-      scheduleVideoStartAtBoundary(scoreSeconds, youtube.offsetMs);
+      scheduleVideoStartAtBoundary(scoreSeconds, effectiveOffsetMs());
       isBeforeVideoStart = true;
       return false;
     }
 
-    const youtubeSeconds = scoreSecondsToYoutubeSeconds(scoreSeconds, youtube.offsetMs);
+    const youtubeSeconds = scoreSecondsToYoutubeSeconds(scoreSeconds, effectiveOffsetMs());
     const isCrossingStartBoundary = isBeforeVideoStart;
 
     clearVideoStartTimer();
@@ -376,10 +428,9 @@ export function bindYoutubeControls(
         return;
       }
 
-      const youtube = session.getState().document.score.musicData.youtube;
       const scoreSeconds = session.getPlaybackRuntime().controller.getCurrentScoreSeconds();
 
-      if (isYoutubeBeforeVideoStart(scoreSeconds, youtube.offsetMs)) {
+      if (isYoutubeBeforeVideoStart(scoreSeconds, effectiveOffsetMs())) {
         syncPlayerToScoreSeconds(scoreSeconds);
         return;
       }
@@ -398,7 +449,7 @@ export function bindYoutubeControls(
         return;
       }
 
-      if (shouldResyncYoutubeDrift(scoreSeconds, player.getCurrentTime(), youtube.offsetMs)) {
+      if (shouldResyncYoutubeDrift(scoreSeconds, player.getCurrentTime(), effectiveOffsetMs())) {
         syncPlayerToScoreSeconds(scoreSeconds);
       }
     }, DRIFT_CHECK_INTERVAL_MS);
@@ -422,6 +473,9 @@ export function bindYoutubeControls(
     dom.youtubeOffsetInput.min = String(MIN_YOUTUBE_OFFSET_MS);
     dom.youtubeOffsetInput.max = String(MAX_YOUTUBE_OFFSET_MS);
     dom.youtubeOffsetInput.step = String(YOUTUBE_OFFSET_STEP_MS);
+    dom.youtubeLocalOffsetInput.min = String(-MAX_YOUTUBE_LOCAL_OFFSET_MS);
+    dom.youtubeLocalOffsetInput.max = String(MAX_YOUTUBE_LOCAL_OFFSET_MS);
+    dom.youtubeLocalOffsetInput.step = "1";
   }
 
   /**
@@ -437,9 +491,9 @@ export function bindYoutubeControls(
   }
 
   /**
-   * 음수 offset으로 영상 시작 전 구간을 재생 중일 때 영상 0초 재생을 예약한다.
+   * 합산 offset으로 영상 시작 전 구간을 재생 중일 때 영상 0초 재생을 예약한다.
    * - 인수 : scoreSeconds : 예약 기준 score seconds
-   * - 인수 : offsetMs : score metadata에 저장된 YouTube offset ms
+   * - 인수 : offsetMs : 곡 offset과 Local offset을 합산한 ms
    * - 반환값 : 없음
    */
   function scheduleVideoStartAtBoundary(scoreSeconds: number, offsetMs: number): void {
@@ -468,15 +522,14 @@ export function bindYoutubeControls(
         return;
       }
 
-      const youtube = session.getState().document.score.musicData.youtube;
       const currentScoreSeconds = session.getPlaybackRuntime().controller.getCurrentScoreSeconds();
 
-      if (isYoutubeBeforeVideoStart(currentScoreSeconds, youtube.offsetMs)) {
-        scheduleVideoStartAtBoundary(currentScoreSeconds, youtube.offsetMs);
+      if (isYoutubeBeforeVideoStart(currentScoreSeconds, effectiveOffsetMs())) {
+        scheduleVideoStartAtBoundary(currentScoreSeconds, effectiveOffsetMs());
         return;
       }
 
-      // 음수 offset 경계에서는 drift interval에 맡기지 않고 영상 0초부터 직접 시작한다.
+      // 영상 시작 경계에서는 drift interval에 맡기지 않고 영상 0초부터 직접 시작한다.
       player.seekTo(0);
       lastSeekAtMs = Date.now();
       isBeforeVideoStart = false;

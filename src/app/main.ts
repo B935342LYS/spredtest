@@ -437,6 +437,8 @@ async function boot(): Promise<void> {
     dom.editToggle.checked = false;
     state = {
       ...nextLoadResult.state,
+      // 악보를 교체해도 저장소 접근 실패 시의 페이지 내 환경 보정을 보존한다.
+      youtubeLocalOffsetMs: state.youtubeLocalOffsetMs,
       practiceJudgeMode: previousPracticeJudgeMode,
       busy: { kind: "idle" },
     };

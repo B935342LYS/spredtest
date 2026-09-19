@@ -386,10 +386,9 @@
 
 .youtube-group {
   position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: auto;
-  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
   justify-content: flex-end;
   gap: 8px;
   min-width: 0;
@@ -411,34 +410,48 @@
 }
 
 .youtube-switch {
-  min-height: 30px;
+  min-height: var(--ui-control-height);
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: var(--surface-muted);
-  color: var(--muted);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
 }
 
 .youtube-toggle:checked + .youtube-switch {
-  border-color: #526371;
-  background: #ffffff;
-  color: #111820;
-  box-shadow: inset 0 0 0 1px #526371, 0 1px 4px rgb(23 32 38 / 18%);
-  font-weight: 700;
+  border-color: var(--accent);
+  background: var(--accent-weak);
+  color: var(--accent);
 }
 
 .youtube-controls {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-  min-width: 0;
+  /* 버튼 아래의 폭도 다음 줄에서 활용하도록 모든 컨트롤을 같은 flex 흐름에 둔다. */
+  display: contents;
 }
 
-.youtube-controls .compact-field:first-child {
-  flex: 1 1 150px;
-  min-width: 0;
+/* 라벨은 입력 아래에 두고 첫 줄의 버튼·입력 사각형 높이를 통일한다. */
+.youtube-switch,
+.youtube-controls input,
+.youtube-reload-button {
+  height: var(--ui-control-height);
+}
+
+.youtube-controls .youtube-status {
+  margin-top: 5px;
+}
+
+.youtube-controls .compact-field {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.youtube-controls .youtube-video-field {
+  flex: 0 1 110px;
+  min-width: 110px;
+  max-width: 110px;
 }
 
 .youtube-controls input[type="text"] {
@@ -447,7 +460,7 @@
 }
 
 .youtube-controls input[type="number"] {
-  width: 92px;
+  width: 90px;
 }
 
 .youtube-player-shell {

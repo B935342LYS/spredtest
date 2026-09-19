@@ -2,6 +2,7 @@
  * RuntimeDocument에서 app 상태와 renderer 입력을 재생성하는 경계를 담당한다.
  */
 
+import { loadYoutubeLocalOffsetMs } from "../infra/youtube_preferences";
 import { analyzeDocument } from "../core/analyze/analyze_full";
 import type { AnalysisResult } from "../core/analyze/types";
 import { buildParsedDocument } from "../core/parse/build_parsed_document";
@@ -213,6 +214,7 @@ export function createInitialState(
     loop: { ...DEFAULT_LOOP_STATE },
     gameSyncOffsetMs: loadGameSyncOffsetMsFromLocalStorage(),
     gameDisplayOffsetMs: loadGameDisplayOffsetMsFromLocalStorage(),
+    youtubeLocalOffsetMs: loadYoutubeLocalOffsetMs(),
     practiceJudgeMode: "standard",
     gameMode: { kind: "off" },
     history: createUndoHistoryState(),

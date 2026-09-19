@@ -155,6 +155,8 @@ export type AppState = {
   gameSyncOffsetMs: number;
   /** 브라우저 사용자 환경값으로 저장하는 Practice 화면 보정. 입력 판정과 독립적이다. */
   gameDisplayOffsetMs: number;
+  /** ブ라우저에 저장하는 YouTube 환경 보정값. ScoreFile에 포함하지 않는다. */
+  youtubeLocalOffsetMs: number;
   practiceJudgeMode: PracticeJudgeMode;
   gameMode: GameModeState;
   history: UndoHistoryState;
@@ -323,6 +325,7 @@ export type AppDom = {
   youtubeToggle: HTMLInputElement;
   youtubeVideoInput: HTMLInputElement;
   youtubeOffsetInput: HTMLInputElement;
+  youtubeLocalOffsetInput: HTMLInputElement;
   youtubeReloadButton: HTMLButtonElement;
   youtubeStatus: HTMLElement;
   youtubePlayerShell: HTMLElement;

@@ -27,6 +27,7 @@
 
 .app-shell[data-menu-theme="dark"] .menu-area .menu-trigger,
 .app-shell[data-menu-theme="dark"] .menu-area .toggle-button,
+.app-shell[data-menu-theme="dark"] .menu-area .youtube-switch,
 .app-shell[data-menu-theme="dark"] .menu-area button,
 .app-shell[data-menu-theme="dark"] .menu-area select,
 .app-shell[data-menu-theme="dark"] .menu-area input {
@@ -72,11 +73,14 @@
   color: #b8c7cf;
 }
 
+.app-shell[data-menu-theme="dark"] .menu-area .youtube-switch {
+  color: #edf4f7;
+}
+
 .app-shell[data-menu-theme="dark"] .menu-area .youtube-toggle:checked + .youtube-switch {
-  border-color: #dbe6ec;
-  background: #f8fbfd;
-  color: #111820;
-  box-shadow: inset 0 0 0 1px #dbe6ec, 0 1px 6px rgb(0 0 0 / 32%);
+  border-color: var(--accent);
+  background: var(--accent-weak);
+  color: var(--accent);
 }
 
 .app-shell[data-menu-theme="dark"] .menu-area .player-main {

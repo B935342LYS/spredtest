@@ -180,15 +180,20 @@
                 <input class="youtube-toggle" id="youtube-toggle" type="checkbox">
                 <label class="switch-field youtube-switch" for="youtube-toggle">YouTube</label>
                 <div class="youtube-controls">
-                    <label class="compact-field">
-                        Video
+                    <label class="compact-field youtube-video-field">
                         <input class="youtube-video-input" type="text" maxlength="128" placeholder="URL or ID">
+                        <span>Video</span>
                     </label>
-                    <label class="compact-field" title="YouTube sync can vary by device and browser. Adjust the offset on this device.">
-                        Offset (ms)
+                    <label class="compact-field youtube-score-offset-field" title="Score-to-video timing saved in this score.">
                         <input class="youtube-offset-input" type="number" value="0" min="-60000" max="60000" step="100" aria-describedby="youtube-offset-help">
+                        <span>Offset (ms)</span>
                     </label>
-                    <span id="youtube-offset-help" class="visually-hidden">YouTube sync can vary by device and browser. Adjust the offset on this device.</span>
+                    <label class="compact-field youtube-local-offset-field" title="Timing adjustment for this browser. Use a negative value if YouTube sounds late.">
+                        <input class="youtube-local-offset-input" type="number" value="0" min="-5000" max="5000" step="1" aria-describedby="youtube-local-offset-help">
+                        <span>Local offset (ms)</span>
+                    </label>
+                    <span id="youtube-offset-help" class="visually-hidden">Score-to-video timing saved in this score. Use Reload to apply.</span>
+                    <span id="youtube-local-offset-help" class="visually-hidden">Timing adjustment saved in this browser. Use a negative value if YouTube sounds late. Press Enter or leave the field to apply. Enter zero to reset.</span>
                     <button class="youtube-reload-button" type="button">Reload</button>
                     <span class="status-pill youtube-status">No video</span>
                 </div>

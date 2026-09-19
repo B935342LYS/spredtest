@@ -165,6 +165,7 @@ export function collectAppDom(): AppDom {
     youtubeToggle: queryElement(".youtube-toggle", HTMLInputElement),
     youtubeVideoInput: queryElement(".youtube-video-input", HTMLInputElement),
     youtubeOffsetInput: queryElement(".youtube-offset-input", HTMLInputElement),
+    youtubeLocalOffsetInput: queryElement(".youtube-local-offset-input", HTMLInputElement),
     youtubeReloadButton: queryElement(".youtube-reload-button", HTMLButtonElement),
     youtubeStatus: queryElement(".youtube-status", HTMLElement),
     youtubePlayerShell: queryElement(".youtube-player-shell", HTMLElement),
