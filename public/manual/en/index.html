@@ -227,11 +227,11 @@
                                     <summary>YouTube sync</summary>
                                     <div class="detail-body">
                                         <div class="term-list">
-                                            <div class="term"><strong>YouTube</strong><span>Turns YouTube mode on or off.</span></div>
-                                            <div class="term"><strong>URL or ID</strong><span>Enter a YouTube link or video ID in the video address field.</span></div>
-                                            <div class="term"><strong>Offset (ms)</strong><span>Adjusts the video's playback timing against the score. A negative value makes the video play earlier than the score, and a positive value makes it play later. This value is saved in the score file.</span></div>
+                                            <div class="term"><strong>YouTube</strong><span>Opens the video settings when on. Turning it off stops the video and collapses the settings while keeping your settings and score playback. The panel stays open when no link is set or a video error occurs.</span></div>
+                                            <div class="term"><strong>URL or ID</strong><span>Enter a YouTube link or video ID, then press Enter or leave the field to apply. Confirming an empty field removes the video and keeps the panel open. Invalid links are not saved and do not interrupt the current video.</span></div>
+                                            <div class="term"><strong>Offset (ms)</strong><span>Adjusts the video's playback timing against the score. A negative value makes the video play earlier than the score, and a positive value makes it play later. Press Enter or leave the field to apply the position change. This value is saved in the score file.</span></div>
                                             <div class="term"><strong>Local offset (ms)</strong><span>Adjusts timing for this browser. Use a negative value if YouTube sounds late. It is added to the score Offset and saved separately in this browser. Adjust in 1ms steps within ±5000ms; press Enter or leave the field to save and apply. Enter zero to reset.</span></div>
-                                            <div class="term"><strong>Reload</strong><span>Reloads the video using the current link and Offset settings.</span></div>
+                                            <div class="term"><strong>Reload</strong><span>Reloads the video using the confirmed settings. After an error, correct the link or use Reload to retry. The score position and playing or paused state are preserved.</span></div>
                                         </div>
                                         <p>SPRED does not download, store, cache, extract, or redistribute YouTube videos. It uses the official embedded player and follows the score playback position.</p>
                                         <p class="notice warning">If you do not use YouTube Premium or an ad blocker, an ad may play before the video. After the ad finishes, the video works like a normal video.</p>

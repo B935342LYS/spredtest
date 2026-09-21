@@ -323,6 +323,7 @@ export type AppDom = {
   detailsOptionalDifficultyInput: HTMLInputElement;
   detailsExtraDifficultyInput: HTMLInputElement;
   youtubeToggle: HTMLInputElement;
+  youtubeControls: HTMLDivElement;
   youtubeVideoInput: HTMLInputElement;
   youtubeOffsetInput: HTMLInputElement;
   youtubeLocalOffsetInput: HTMLInputElement;

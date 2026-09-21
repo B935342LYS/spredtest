@@ -177,11 +177,11 @@
             </section>
 
             <section class="youtube-group" aria-label="YouTube mode">
-                <input class="youtube-toggle" id="youtube-toggle" type="checkbox">
+                <input class="youtube-toggle" id="youtube-toggle" type="checkbox" aria-label="YouTube" aria-controls="youtube-controls youtube-player-shell" aria-expanded="false">
                 <label class="switch-field youtube-switch" for="youtube-toggle">YouTube</label>
-                <div class="youtube-controls">
+                <div class="youtube-controls" id="youtube-controls" hidden>
                     <label class="compact-field youtube-video-field">
-                        <input class="youtube-video-input" type="text" maxlength="128" placeholder="URL or ID">
+                        <input class="youtube-video-input" type="text" maxlength="128" placeholder="URL or ID" aria-describedby="youtube-video-help youtube-status">
                         <span>Video</span>
                     </label>
                     <label class="compact-field youtube-score-offset-field" title="Score-to-video timing saved in this score.">
@@ -192,12 +192,13 @@
                         <input class="youtube-local-offset-input" type="number" value="0" min="-5000" max="5000" step="1" aria-describedby="youtube-local-offset-help">
                         <span>Local offset (ms)</span>
                     </label>
-                    <span id="youtube-offset-help" class="visually-hidden">Score-to-video timing saved in this score. Use Reload to apply.</span>
+                    <span id="youtube-video-help" class="visually-hidden">Press Enter or leave the field to apply the video link. Reload retries the saved video.</span>
+                    <span id="youtube-offset-help" class="visually-hidden">Score-to-video timing saved in this score. Press Enter or leave the field to apply.</span>
                     <span id="youtube-local-offset-help" class="visually-hidden">Timing adjustment saved in this browser. Use a negative value if YouTube sounds late. Press Enter or leave the field to apply. Enter zero to reset.</span>
                     <button class="youtube-reload-button" type="button">Reload</button>
-                    <span class="status-pill youtube-status">No video</span>
+                    <span class="status-pill youtube-status" id="youtube-status" role="status">No video</span>
                 </div>
-                <div class="youtube-player-shell" aria-label="YouTube player">
+                <div class="youtube-player-shell" id="youtube-player-shell" aria-label="YouTube player" hidden>
                     <div class="youtube-player"></div>
                 </div>
             </section>

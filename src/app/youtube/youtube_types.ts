@@ -2,14 +2,14 @@
  * YouTube sync UI와 player wrapper에서 공유하는 타입을 정의한다.
  */
 
-/** YouTube iframe mode의 현재 상태. */
+/** 활성 여부와 별개인 YouTube 영상 준비 상태. idle은 링크 없는 열린 패널에서도 사용한다. */
 export type YoutubeModeState =
-  | { kind: "off" }
-  | { kind: "loading"; videoId: string; offsetMs: number }
-  | { kind: "ready"; videoId: string; offsetMs: number }
+  | { kind: "idle" }
+  | { kind: "loading"; videoId: string }
+  | { kind: "ready"; videoId: string }
   | { kind: "error"; message: string };
 
-/** YouTube reload 입력을 정규화한 값. */
+/** ScoreFile에 반영할 정규화된 YouTube 메타데이터. */
 export type YoutubeSyncInput = {
   videoId: string;
   offsetMs: number;
@@ -24,4 +24,3 @@ export type YoutubePlayerHandle = {
   getCurrentTime(): number;
   dispose(): void;
 };
-

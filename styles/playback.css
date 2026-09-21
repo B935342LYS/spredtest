@@ -396,8 +396,8 @@
   padding-bottom: 0;
 }
 
-.youtube-group:has(.youtube-player-shell[data-state="loading"]),
-.youtube-group:has(.youtube-player-shell[data-state="ready"]) {
+.youtube-group:has(.youtube-toggle:checked):has(.youtube-player-shell[data-state="loading"]),
+.youtube-group:has(.youtube-toggle:checked):has(.youtube-player-shell[data-state="ready"]) {
   padding-bottom: 62px;
 }
 
@@ -428,6 +428,17 @@
 .youtube-controls {
   /* 버튼 아래의 폭도 다음 줄에서 활용하도록 모든 컨트롤을 같은 flex 흐름에 둔다. */
   display: contents;
+}
+
+/* display: contents와 영상 표시 규칙보다 hidden을 우선하여 탭 접근도 제거한다. */
+.youtube-controls[hidden],
+.youtube-player-shell[hidden] {
+  display: none;
+}
+
+.youtube-toggle:focus-visible + .youtube-switch {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* 라벨은 입력 아래에 두고 첫 줄의 버튼·입력 사각형 높이를 통일한다. */

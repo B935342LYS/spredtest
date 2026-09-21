@@ -163,6 +163,7 @@ export function collectAppDom(): AppDom {
     detailsOptionalDifficultyInput: queryElement(".details-optional-difficulty-input", HTMLInputElement),
     detailsExtraDifficultyInput: queryElement(".details-extra-difficulty-input", HTMLInputElement),
     youtubeToggle: queryElement(".youtube-toggle", HTMLInputElement),
+    youtubeControls: queryElement(".youtube-controls", HTMLDivElement),
     youtubeVideoInput: queryElement(".youtube-video-input", HTMLInputElement),
     youtubeOffsetInput: queryElement(".youtube-offset-input", HTMLInputElement),
     youtubeLocalOffsetInput: queryElement(".youtube-local-offset-input", HTMLInputElement),

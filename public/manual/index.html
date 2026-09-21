@@ -227,11 +227,11 @@
                             <summary>YouTube sync</summary>
                             <div class="detail-body">
                         <div class="term-list">
-                            <div class="term"><strong>YouTube</strong><span>YouTube mode를 켜거나 끕니다.</span></div>
-                            <div class="term"><strong>URL or ID</strong><span>Video 주소 입력창에 유튜브 링크 또는 영상 ID를 입력합니다.</span></div>
-                            <div class="term"><strong>Offset (ms)</strong><span>영상의 재생 시점을 악보에 맞춰 조절합니다. 음수 값이면 영상이 악보보다 빠르게, 양수 값이면 영상이 악보보다 느리게 재생되도록 맞춥니다. 이 값은 악보 파일에 저장됩니다.</span></div>
+                            <div class="term"><strong>YouTube</strong><span>켜면 영상 설정창이 열립니다. 끄면 영상 재생을 중지하고 설정창을 접습니다. 설정값과 악보 재생은 유지됩니다. 링크가 없거나 영상 오류가 나도 켜진 설정창은 유지됩니다.</span></div>
+                            <div class="term"><strong>URL or ID</strong><span>유튜브 링크 또는 영상 ID를 입력하고 Enter를 누르거나 입력란을 벗어나면 적용됩니다. 빈 값으로 확정하면 영상을 해제하고 설정창은 유지합니다. 잘못된 링크는 저장하지 않으며 기존 영상을 유지합니다.</span></div>
+                            <div class="term"><strong>Offset (ms)</strong><span>영상의 재생 시점을 악보에 맞춰 조절합니다. 음수 값이면 영상이 악보보다 빠르게, 양수 값이면 영상이 악보보다 느리게 재생되도록 맞춥니다. Enter 또는 입력란을 벗어날 때 영상 위치에 적용되며, 이 값은 악보 파일에 저장됩니다.</span></div>
                             <div class="term"><strong>Local offset (ms)</strong><span>이 브라우저의 재생 환경을 보정합니다. YouTube가 늦게 들리면 음수로 조절하세요. 곡의 Offset에 합산되며 악보 파일에는 저장되지 않습니다. ±5000ms 범위에서 1ms 단위로 조절하고, Enter 또는 입력란을 벗어날 때 저장·적용합니다. 0을 입력하면 초기화됩니다.</span></div>
-                            <div class="term"><strong>Reload</strong><span>링크나 Offset 수정 후 설정값에 따라 새로고침합니다.</span></div>
+                            <div class="term"><strong>Reload</strong><span>확정된 영상 설정으로 영상을 다시 읽습니다. 오류가 나면 링크를 수정하거나 Reload로 재시도하세요. 악보 위치와 재생·일시정지 상태는 유지합니다.</span></div>
                         </div>
                         <p>SPRED는 YouTube 영상을 다운로드, 저장, 캐시, 추출, 재배포하지 않습니다. 공식 embedded player를 사용해 악보 재생 위치를 따라오게 합니다.</p>
                         <p class="notice warning">YouTube Premium 또는 광고 차단 기능을 사용하지 않는 환경에서는 영상 재생 전에 광고가 나올 수 있습니다. 광고가 끝난 뒤에는 일반 영상과 동일하게 동작합니다.</p>

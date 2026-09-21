@@ -1,54 +1,26 @@
-/**
- * YouTube 패널 DOM과 playback runtime을 연결한다.
- */
-
+/** YouTube 입력 확정·패널 상태·영상 요청 수명을 playback과 연결한다. */
 import { MAX_YOUTUBE_LOCAL_OFFSET_MS, saveYoutubeLocalOffsetMs } from "../../infra/youtube_preferences";
 import type { AppPlaybackRuntime } from "../playback/app_playback";
-import type {
-  AppDom,
-  AppState,
-} from "../app_types";
+import type { AppDom, AppState } from "../app_types";
 import { syncLeftStatus } from "../app_ui_sync";
 import { applyYoutubeSyncEditToState } from "../app_runtime";
-import { readIntegerInput } from "../app_view_actions";
-import {
-  clampYoutubeOffsetMs,
-  MAX_YOUTUBE_OFFSET_MS,
-  MIN_YOUTUBE_OFFSET_MS,
-  YOUTUBE_OFFSET_STEP_MS,
-} from "../../core/score/score_limits";
+import { clampYoutubeOffsetMs, MAX_YOUTUBE_OFFSET_MS, MIN_YOUTUBE_OFFSET_MS, YOUTUBE_OFFSET_STEP_MS } from "../../core/score/score_limits";
 import { createYoutubePlayer } from "./youtube_player";
-import {
-  isYoutubeBeforeVideoStart,
-  scoreSecondsToYoutubeSeconds,
-  secondsUntilYoutubeStart,
-  shouldResyncYoutubeDrift,
-  canResumeYoutubeWithoutSeek,
-  getEffectiveYoutubeOffsetMs,
-} from "./youtube_sync";
-import type {
-  YoutubeModeState,
-  YoutubePlayerHandle,
-  YoutubeSyncInput,
-} from "./youtube_types";
+import { isYoutubeBeforeVideoStart, scoreSecondsToYoutubeSeconds, secondsUntilYoutubeStart,
+  shouldResyncYoutubeDrift, canResumeYoutubeWithoutSeek, getEffectiveYoutubeOffsetMs } from "./youtube_sync";
+import type { YoutubeModeState, YoutubePlayerHandle } from "./youtube_types";
 import { parseYoutubeVideoId } from "./youtube_url";
 
 const DRIFT_CHECK_INTERVAL_MS = 1000;
 const SEEK_COOLDOWN_MS = 500;
-
-type YoutubeSeekOptions = {
-  forceSeek?: boolean;
-};
-
-/** YouTube binding이 app 상태와 playback runtime을 조회하기 위한 session 입력. */
+type YoutubeSeekOptions = { forceSeek?: boolean };
+/** YouTube binding이 참조하는 현재 앱 상태와 재생 runtime. */
 export type YoutubeBindingSession = {
   getState(): AppState;
   setState(nextState: AppState): void;
-  render(): void;
   getPlaybackRuntime(): AppPlaybackRuntime;
 };
-
-/** playback binding이 호출할 YouTube 동기화 control 객체. */
+/** 기존 playback binding에 제공하는 YouTube follower 제어 계약. */
 export type YoutubePlaybackControl = {
   syncInputsFromScore(): void;
   playAtCurrentScoreTime(resumeFromPause?: boolean): void;
@@ -59,44 +31,209 @@ export type YoutubePlaybackControl = {
 };
 
 /**
- * YouTube 패널 입력과 playback follower 동작을 연결한다.
- * - 인수 : dom : 앱에서 제어하는 DOM 요소
- * - 인수 : session : app 상태와 playback runtime callback 묶음
- * - 반환값 : playback binding에서 호출할 YouTube 동기화 control
+ * YouTube 패널과 현재 악보 시계를 연결한다.
+ * - 인수 : dom : 패널과 앱 상태 표시 요소
+ * - 인수 : session : 현재 상태·재생 runtime 접근자
+ * - 인수 : createPlayer : 기본 player 생성기; 테스트에서는 지연 가능한 대역 사용
+ * - 반환값 : 기존 playback에서 사용할 follower 제어 객체
  */
 export function bindYoutubeControls(
   dom: AppDom,
   session: YoutubeBindingSession,
+  createPlayer: typeof createYoutubePlayer = createYoutubePlayer,
 ): YoutubePlaybackControl {
-  let modeState: YoutubeModeState = { kind: "off" };
+  let enabled = false;
+  let disposed = false;
+  let modeState: YoutubeModeState = { kind: "idle" };
+  let inputError = "";
   let player: YoutubePlayerHandle | null = null;
+  let requestGeneration = 0;
+  let requestAbort: AbortController | null = null;
+  let loadTimer: ReturnType<typeof setTimeout> | null = null;
   let driftIntervalId: ReturnType<typeof setInterval> | null = null;
   let videoStartTimeoutId: ReturnType<typeof setTimeout> | null = null;
   let isBeforeVideoStart = false;
   let lastSeekAtMs = 0;
-
+  const listeners = new AbortController();
+  const eventOptions = { signal: listeners.signal };
   syncYoutubeOffsetInputBounds();
 
-  /**
-   * 모든 YouTube 시간 경로에 최신 곡·브라우저 보정 합계를 제공한다.
-   * - 인수 : 없음
-   * - 반환값 : 합산 offset ms
-   */
+  /** 합산 보정값을 조회한다. - 인수 : 없음 - 반환값 : 최신 곡·Local 합계 ms */
   function effectiveOffsetMs(): number {
     const state = session.getState();
     return getEffectiveYoutubeOffsetMs(state.document.score.musicData.youtube.offsetMs, state.youtubeLocalOffsetMs);
   }
 
   /**
-   * 확정된 Local 값만 저장하고 현재 영상 위치를 재정렬한다.
+   * 활성 여부·영상 상태·입력 오류를 독립적으로 표시한다.
    * - 인수 : 없음
    * - 반환값 : 없음
    */
+  function syncYoutubePanel(): void {
+    dom.youtubeToggle.checked = enabled;
+    dom.youtubeToggle.setAttribute("aria-expanded", String(enabled));
+    if (!enabled && (dom.youtubeControls.contains(document.activeElement) || dom.youtubePlayerShell.contains(document.activeElement))) {
+      dom.youtubeToggle.focus();
+    }
+    dom.youtubeControls.hidden = !enabled;
+    const showVideo = enabled && (modeState.kind === "loading" || modeState.kind === "ready");
+    dom.youtubePlayerShell.hidden = !showVideo;
+    dom.youtubePlayerShell.dataset.state = enabled ? modeState.kind : "off";
+    dom.youtubeVideoInput.setAttribute("aria-invalid", String(inputError !== ""));
+    const text = inputError || (!enabled ? "Off" : modeState.kind === "error" ? modeState.message
+      : modeState.kind === "loading" ? "Loading" : modeState.kind === "ready" ? "Ready" : "No video");
+    dom.youtubeStatus.textContent = text;
+    dom.youtubeStatus.title = text;
+    dom.youtubeStatus.dataset.level = inputError ? "error" : enabled ? modeState.kind : "off";
+  }
+
+  /**
+   * 이전 요청의 예약·준비·player를 무효화한다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
+  function cancelVideoRequest(): void {
+    requestGeneration += 1;
+    if (loadTimer !== null) clearTimeout(loadTimer);
+    loadTimer = null;
+    stopDriftCheck();
+    clearVideoStartTimer();
+    requestAbort?.abort();
+    requestAbort = null;
+    player?.dispose();
+    player = null;
+    isBeforeVideoStart = false;
+    lastSeekAtMs = 0;
+  }
+
+  /**
+   * 영상 오류에서 패널을 유지하고 현재 요청만 정리한다.
+   * - 인수 : message : 표시할 오류
+   * - 반환값 : 없음
+   */
+  function failVideo(message: string): void {
+    cancelVideoRequest();
+    modeState = { kind: "error", message };
+    syncYoutubePanel();
+    setAppStatus(message, "error");
+  }
+
+  /**
+   * 준비된 영상을 최신 score 위치로 맞추고 현재 재생 상태를 따른다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
+  function alignReadyVideo(): void {
+    if (!enabled || player === null || modeState.kind !== "ready") return;
+    const playing = session.getPlaybackRuntime().controller.isPlaying();
+    if (!playing) player.pause();
+    const canPlay = syncPlayerToCurrentScoreTime({ forceSeek: true });
+    if (playing && canPlay) player?.play();
+    if (playing) startDriftCheck();
+  }
+
+  /**
+   * 저장된 ID를 새 player에 로드한다. 이전 요청은 현재 상태를 수정할 수 없다.
+   * - 인수 : 없음
+   * - 반환값 : 요청 처리 완료
+   */
+  async function loadSavedVideo(): Promise<void> {
+    if (!enabled || disposed) return;
+    cancelVideoRequest();
+    const videoId = session.getState().document.score.musicData.youtube.videoId;
+    if (videoId === "") { modeState = { kind: "idle" }; syncYoutubePanel(); return; }
+    if (parseYoutubeVideoId(videoId) === null) { failVideo("Invalid saved YouTube ID."); return; }
+    const generation = requestGeneration;
+    const abort = new AbortController();
+    requestAbort = abort;
+    modeState = { kind: "loading", videoId };
+    syncYoutubePanel();
+    /** 현재 요청의 소유권을 확인한다. - 인수 : 없음 - 반환값 : 아직 유효한지 여부 */
+    const isCurrent = (): boolean => enabled && !disposed && generation === requestGeneration && !abort.signal.aborted;
+    try {
+      const created = await createPlayer(dom.youtubePlayer, videoId, (message) => {
+        if (isCurrent()) failVideo(message);
+      }, abort.signal);
+      if (!isCurrent()) { created.dispose(); return; }
+      player = created;
+      const seconds = session.getPlaybackRuntime().controller.getCurrentScoreSeconds();
+      await created.loadVideo(videoId, scoreSecondsToYoutubeSeconds(seconds, effectiveOffsetMs()));
+      if (!isCurrent()) return;
+      modeState = { kind: "ready", videoId };
+      syncYoutubePanel();
+      // 로딩 중 offset·재생 위치·pause 변경은 최신 상태를 다시 읽어 적용한다.
+      alignReadyVideo();
+    } catch (error: unknown) {
+      if (isCurrent()) failVideo(error instanceof Error ? error.message : "YouTube load failed.");
+    }
+  }
+
+  /**
+   * 같은 입력 확정/Reload 이벤트 안의 요청을 한 번으로 합친다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
+  function queueVideoLoad(): void {
+    if (!enabled || disposed) return;
+    cancelVideoRequest();
+    loadTimer = setTimeout(() => { loadTimer = null; void loadSavedVideo(); }, 0);
+  }
+
+  /**
+   * 곡 메타데이터만 갱신하고 상태 문구를 표시한다.
+   * - 인수 : videoId : 정규화된 영상 ID
+   * - 인수 : offsetMs : 곡 보정값
+   * - 반환값 : 실제 변경 여부
+   */
+  function saveMetadata(videoId: string, offsetMs: number): boolean {
+    const state = session.getState();
+    const next = applyYoutubeSyncEditToState(state, videoId, offsetMs);
+    if (next === state) return false;
+    session.setState(next);
+    syncLeftStatus(dom, next);
+    return true;
+  }
+
+  /** Video만 확정한다. - 인수 : 없음 - 반환값 : 없음 */
+  function commitVideoInput(): void {
+    if (!enabled || disposed) return;
+    const raw = dom.youtubeVideoInput.value.trim();
+    const videoId = raw === "" ? "" : parseYoutubeVideoId(raw);
+    if (videoId === null) {
+      inputError = "Invalid YouTube URL or ID.";
+      syncYoutubePanel();
+      setAppStatus(inputError, "error");
+      return;
+    }
+    inputError = "";
+    dom.youtubeVideoInput.value = videoId;
+    const changed = saveMetadata(videoId, session.getState().document.score.musicData.youtube.offsetMs);
+    if (videoId === "") {
+      cancelVideoRequest();
+      modeState = { kind: "idle" };
+    } else if (changed) queueVideoLoad();
+    syncYoutubePanel();
+  }
+
+  /** 곡 offset만 확정한다. - 인수 : 없음 - 반환값 : 없음 */
+  function commitScoreOffset(): void {
+    if (!enabled || disposed) return;
+    const youtube = session.getState().document.score.musicData.youtube;
+    const raw = dom.youtubeOffsetInput.value.trim();
+    const value = Number(raw);
+    const normalized = raw !== "" && Number.isFinite(value) ? clampYoutubeOffsetMs(value) : youtube.offsetMs;
+    dom.youtubeOffsetInput.value = String(normalized);
+    if (!saveMetadata(youtube.videoId, normalized)) return;
+    clearVideoStartTimer();
+    alignReadyVideo();
+  }
+
+  /** Local만 저장하고 재정렬한다. - 인수 : 없음 - 반환값 : 없음 */
   function commitLocalOffset(): void {
+    if (!enabled || disposed) return;
     const state = session.getState();
     const raw = dom.youtubeLocalOffsetInput.value.trim();
     const value = Number(raw);
-    // 빈 입력과 숫자가 아닌 편집 중간 상태는 이전 적용값으로 되돌린다.
     if (raw === "" || !Number.isFinite(value)) {
       dom.youtubeLocalOffsetInput.value = String(state.youtubeLocalOffsetMs);
       return;
@@ -104,262 +241,86 @@ export function bindYoutubeControls(
     const normalized = saveYoutubeLocalOffsetMs(value);
     dom.youtubeLocalOffsetInput.value = String(normalized);
     if (normalized === state.youtubeLocalOffsetMs) return;
-    // 문서 편집 경로를 거치지 않아 미적용 곡 입력과 undo 이력은 유지한다.
     session.setState({ ...state, youtubeLocalOffsetMs: normalized });
     clearVideoStartTimer();
-    if (!dom.youtubeToggle.checked || player === null || modeState.kind !== "ready") return;
-    const isPlaying = session.getPlaybackRuntime().controller.isPlaying();
-    if (!isPlaying) player.pause();
-    const canPlay = syncPlayerToCurrentScoreTime({ forceSeek: true });
-    if (isPlaying && canPlay) player.play();
+    alignReadyVideo();
   }
 
-  dom.youtubeLocalOffsetInput.addEventListener("change", commitLocalOffset);
-  dom.youtubeLocalOffsetInput.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter") return;
-    event.preventDefault();
-    commitLocalOffset();
-  });
+  /**
+   * 초기화·악보 교체 때만 입력 전체와 활성 상태를 재설정한다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
+  function syncInputsFromScore(): void {
+    enabled = false;
+    cancelVideoRequest();
+    modeState = { kind: "idle" };
+    inputError = "";
+    const state = session.getState();
+    dom.youtubeVideoInput.value = state.document.score.musicData.youtube.videoId;
+    dom.youtubeOffsetInput.value = String(state.document.score.musicData.youtube.offsetMs);
+    dom.youtubeLocalOffsetInput.value = String(state.youtubeLocalOffsetMs);
+    syncYoutubePanel();
+  }
 
-  const fillInputsFromScore = (): void => {
-    const youtube = session.getState().document.score.musicData.youtube;
-
-    dom.youtubeVideoInput.value = youtube.videoId;
-    dom.youtubeOffsetInput.value = String(youtube.offsetMs);
-    dom.youtubeLocalOffsetInput.value = String(session.getState().youtubeLocalOffsetMs);
-  };
-
-  const syncInputsFromScore = (): void => {
-    stopDriftCheck();
-    clearVideoStartTimer();
-    player?.dispose();
-    player = null;
-    isBeforeVideoStart = false;
-    lastSeekAtMs = 0;
-    dom.youtubeToggle.checked = false;
-    fillInputsFromScore();
-    syncYoutubeStatus("No video", "off");
-    modeState = { kind: "off" };
-  };
-
-  const setYoutubeModeOff = (message: string, level: "off" | "error" = "off"): void => {
-    stopDriftCheck();
-    clearVideoStartTimer();
-    player?.pause();
-    isBeforeVideoStart = false;
-    dom.youtubeToggle.checked = false;
-    modeState = level === "error" ? { kind: "error", message } : { kind: "off" };
-    syncYoutubeStatus(message, level);
-  };
-
-  const loadSavedVideo = async (): Promise<boolean> => {
-    const youtube = session.getState().document.score.musicData.youtube;
-    const safeVideoId = parseYoutubeVideoId(youtube.videoId);
-
-    if (youtube.videoId.trim().length === 0 || safeVideoId === null) {
-      setYoutubeModeOff("No video", "error");
-      return false;
-    }
-
-    modeState = {
-      kind: "loading",
-      videoId: safeVideoId,
-      offsetMs: youtube.offsetMs,
-    };
-    syncYoutubeStatus("Loading", "loading");
-
-    try {
-      if (player === null) {
-        player = await createYoutubePlayer(dom.youtubePlayer, (message) => {
-          setYoutubeModeOff(message, "error");
-        });
-      }
-
-      const scoreSeconds = session.getPlaybackRuntime().controller.getCurrentScoreSeconds();
-      const loadedOffsetMs = effectiveOffsetMs();
-      const youtubeSeconds = scoreSecondsToYoutubeSeconds(scoreSeconds, loadedOffsetMs);
-
-      await player.loadVideo(safeVideoId, youtubeSeconds);
-      modeState = {
-        kind: "ready",
-        videoId: safeVideoId,
-        offsetMs: youtube.offsetMs,
-      };
-      syncYoutubeStatus("Ready", "ready");
-      // 비동기 load 중에 바뀐 Local 값은 준비 완료 후 최신 값으로 정렬한다.
-      if (loadedOffsetMs !== effectiveOffsetMs()) {
-        if (!session.getPlaybackRuntime().controller.isPlaying()) player.pause();
-        syncPlayerToCurrentScoreTime({ forceSeek: true });
-      }
-      return true;
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Unknown YouTube load error.";
-
-      setYoutubeModeOff(message, "error");
-      return false;
-    }
-  };
-
-  const reloadFromInputs = async (): Promise<void> => {
-    const parsedInput = readYoutubeInputs(dom, session.getState());
-
-    if (parsedInput === null) {
-      setAppStatus("Invalid YouTube URL or ID.", "error");
-      syncYoutubeStatus("Invalid video", "error");
-      return;
-    }
-
-    session.setState(applyYoutubeSyncEditToState(
-      session.getState(),
-      parsedInput.videoId,
-      parsedInput.offsetMs,
-    ));
-    syncLeftStatus(dom, session.getState());
-    session.render();
-
-    if (parsedInput.videoId.length === 0) {
-      setYoutubeModeOff("No video");
-      return;
-    }
-
-    dom.youtubeToggle.checked = true;
-    const loaded = await loadSavedVideo();
-
-    if (!loaded) {
-      return;
-    }
-
-    if (session.getPlaybackRuntime().controller.isPlaying()) {
-      const canPlayVideo = syncPlayerToCurrentScoreTime({ forceSeek: true });
-
-      if (canPlayVideo) {
-        player?.play();
-      }
-
-      startDriftCheck();
-      return;
-    }
-
-    player?.pause();
-  };
-
+  // 모든 입력은 change/Enter에서만 확정하며 IME 조합 중 Enter는 무시한다.
+  const commits = [
+    [dom.youtubeVideoInput, commitVideoInput], [dom.youtubeOffsetInput, commitScoreOffset],
+    [dom.youtubeLocalOffsetInput, commitLocalOffset],
+  ] as const;
+  for (const [input, commit] of commits) {
+    input.addEventListener("change", commit, eventOptions);
+    input.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || event.isComposing) return;
+      event.preventDefault();
+      commit();
+    }, eventOptions);
+  }
   dom.youtubeToggle.addEventListener("change", () => {
-    if (!dom.youtubeToggle.checked) {
-      setYoutubeModeOff("Off");
-      return;
-    }
-
-    fillInputsFromScore();
-    loadSavedVideo()
-      .then((loaded) => {
-        if (!loaded) {
-          return;
-        }
-
-        if (session.getPlaybackRuntime().controller.isPlaying()) {
-          const canPlayVideo = syncPlayerToCurrentScoreTime({ forceSeek: true });
-
-          if (canPlayVideo) {
-            player?.play();
-          }
-
-          startDriftCheck();
-          return;
-        }
-
-        player?.pause();
-      })
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : "Unknown YouTube error.";
-
-        setYoutubeModeOff(message, "error");
-      });
-  });
-
+    enabled = dom.youtubeToggle.checked;
+    if (enabled) queueVideoLoad();
+    else { cancelVideoRequest(); modeState = { kind: "idle" }; }
+    syncYoutubePanel();
+  }, eventOptions);
+  // 클릭 시 blur 확정과 Reload를 같은 이벤트 안에서 처리하여 이중 로드를 막는다.
+  dom.youtubeReloadButton.addEventListener("pointerdown", (event) => {
+    if (commits.some(([input]) => input === document.activeElement)) event.preventDefault();
+  }, eventOptions);
   dom.youtubeReloadButton.addEventListener("click", () => {
-    reloadFromInputs().catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : "Unknown YouTube reload error.";
-
-      setYoutubeModeOff(message, "error");
-    });
-  });
-
+    if (!enabled) return;
+    for (const [input, commit] of commits) if (input === document.activeElement) commit();
+    dom.youtubeReloadButton.focus();
+    queueVideoLoad();
+  }, eventOptions);
   syncInputsFromScore();
 
   return {
     syncInputsFromScore,
-    /**
-     * controller 시간에 맞춰 영상을 시작하거나 일시정지에서 재개한다.
-     * - 인수 : resumeFromPause : 일시정지 재개이면 위치가 맞는 영상의 seek를 생략한다.
-     * - 반환값 : 없음
-     */
+    /** score 위치에서 시작/재개한다. - 인수 : resumeFromPause : 일시정지 재개 - 반환값 : 없음 */
     playAtCurrentScoreTime(resumeFromPause = false): void {
-      if (!dom.youtubeToggle.checked || player === null || modeState.kind !== "ready") {
-        return;
-      }
-
-      const scoreSeconds = session.getPlaybackRuntime().controller.getCurrentScoreSeconds();
-      const offsetMs = effectiveOffsetMs();
-      // controller 시간과 영상 위치를 비교해 같은 위치의 재개에서 불필요한 seek 요청을 생략한다.
-      const canKeepPosition = canResumeYoutubeWithoutSeek(
-        resumeFromPause, scoreSeconds, player.getCurrentTime(), offsetMs,
-      );
-      if (canKeepPosition) {
-        clearVideoStartTimer();
-        isBeforeVideoStart = false;
-      }
-      const canPlayVideo = canKeepPosition || syncPlayerToCurrentScoreTime({ forceSeek: true });
-
-      if (canPlayVideo) {
-        player.play();
-      }
-
+      if (!enabled || player === null || modeState.kind !== "ready") return;
+      const seconds = session.getPlaybackRuntime().controller.getCurrentScoreSeconds();
+      const canKeep = canResumeYoutubeWithoutSeek(resumeFromPause, seconds, player.getCurrentTime(), effectiveOffsetMs());
+      if (canKeep) { clearVideoStartTimer(); isBeforeVideoStart = false; }
+      const canPlay = canKeep || syncPlayerToScoreSeconds(seconds, { forceSeek: true });
+      if (canPlay) player?.play();
       startDriftCheck();
     },
-    pause(): void {
-      stopDriftCheck();
-      clearVideoStartTimer();
-      player?.pause();
-    },
+    /** 영상만 일시정지한다. - 인수 : 없음 - 반환값 : 없음 */
+    pause(): void { stopDriftCheck(); clearVideoStartTimer(); player?.pause(); },
+    /** 영상만 악보 0초로 정렬한다. - 인수 : 없음 - 반환값 : 없음 */
     stop(): void {
-      stopDriftCheck();
-      clearVideoStartTimer();
-      syncPlayerToScoreSeconds(0, { forceSeek: true });
-      player?.pause();
+      stopDriftCheck(); clearVideoStartTimer();
+      syncPlayerToScoreSeconds(0, { forceSeek: true }); player?.pause();
     },
-    seekToCurrentScoreTime(): void {
-      if (!dom.youtubeToggle.checked || player === null || modeState.kind !== "ready") {
-        return;
-      }
-
-      syncPlayerToCurrentScoreTime({ forceSeek: true });
-    },
+    /** 현재 score 위치로 정렬한다. - 인수 : 없음 - 반환값 : 없음 */
+    seekToCurrentScoreTime(): void { syncPlayerToCurrentScoreTime({ forceSeek: true }); },
+    /** binding 이벤트와 player를 해제한다. - 인수 : 없음 - 반환값 : 없음 */
     dispose(): void {
-      stopDriftCheck();
-      clearVideoStartTimer();
-      player?.dispose();
-      player = null;
-      dom.youtubeToggle.checked = false;
-      modeState = { kind: "off" };
-      syncYoutubeStatus("Off", "off");
+      disposed = true; enabled = false;
+      listeners.abort(); cancelVideoRequest(); modeState = { kind: "idle" }; syncYoutubePanel();
     },
   };
-
-  /**
-   * YouTube 상태 문구와 player shell 표시를 갱신한다.
-   * - 인수 : text : 사용자에게 보여줄 짧은 상태 문구
-   * - 인수 : level : 상태 종류
-   * - 반환값 : 없음
-   */
-  function syncYoutubeStatus(
-    text: string,
-    level: "off" | "loading" | "ready" | "error",
-  ): void {
-    dom.youtubeStatus.textContent = text;
-    dom.youtubeStatus.title = text;
-    dom.youtubeStatus.dataset.level = level;
-    dom.youtubePlayerShell.dataset.state = level;
-  }
 
   /**
    * 현재 score time 기준으로 YouTube player를 seek한다.
@@ -384,7 +345,7 @@ export function bindYoutubeControls(
   ): boolean {
     const shouldForceSeek = options.forceSeek === true;
 
-    if (player === null) {
+    if (!enabled || player === null || modeState.kind !== "ready") {
       return false;
     }
 
@@ -423,7 +384,7 @@ export function bindYoutubeControls(
   function startDriftCheck(): void {
     stopDriftCheck();
     driftIntervalId = setInterval(() => {
-      if (player === null || !session.getPlaybackRuntime().controller.isPlaying()) {
+      if (!enabled || player === null || modeState.kind !== "ready" || !session.getPlaybackRuntime().controller.isPlaying()) {
         stopDriftCheck();
         return;
       }
@@ -501,7 +462,7 @@ export function bindYoutubeControls(
 
     if (
       player === null ||
-      !dom.youtubeToggle.checked ||
+      !enabled ||
       modeState.kind !== "ready" ||
       !session.getPlaybackRuntime().controller.isPlaying()
     ) {
@@ -515,7 +476,7 @@ export function bindYoutubeControls(
 
       if (
         player === null ||
-        !dom.youtubeToggle.checked ||
+        !enabled ||
         modeState.kind !== "ready" ||
         !session.getPlaybackRuntime().controller.isPlaying()
       ) {
@@ -567,39 +528,4 @@ export function bindYoutubeControls(
     });
     syncLeftStatus(dom, session.getState());
   }
-}
-
-/**
- * YouTube 패널 입력값을 저장 가능한 값으로 읽는다.
- * - 인수 : dom : 앱에서 제어하는 DOM 요소
- * - 인수 : state : fallback을 제공할 현재 app 상태
- * - 반환값 : 저장 가능한 YouTube 입력. 잘못된 URL이면 null
- */
-function readYoutubeInputs(dom: AppDom, state: AppState): YoutubeSyncInput | null {
-  const rawVideoInput = dom.youtubeVideoInput.value.trim();
-  const offsetMs = readIntegerInput(
-    dom.youtubeOffsetInput,
-    state.document.score.musicData.youtube.offsetMs,
-  );
-  const boundedOffsetMs = clampYoutubeOffsetMs(offsetMs);
-
-  dom.youtubeOffsetInput.value = String(boundedOffsetMs);
-
-  if (rawVideoInput.length === 0) {
-    return {
-      videoId: "",
-      offsetMs: boundedOffsetMs,
-    };
-  }
-
-  const videoId = parseYoutubeVideoId(rawVideoInput);
-
-  if (videoId === null) {
-    return null;
-  }
-
-  return {
-    videoId,
-    offsetMs: boundedOffsetMs,
-  };
 }

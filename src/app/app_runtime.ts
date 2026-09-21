@@ -588,6 +588,9 @@ export function applyYoutubeSyncEditToState(
   offsetMs: number,
 ): AppState {
   const boundedOffsetMs = clampYoutubeOffsetMs(offsetMs);
+  const current = state.document.score.musicData.youtube;
+  // 동일 영상 URL 재입력이나 중복 change는 문서 시각과 산출물을 갱신하지 않는다.
+  if (current.videoId === videoId && current.offsetMs === boundedOffsetMs) return state;
   const nextScore = touchScoreUpdatedAt({
     ...state.document.score,
     musicData: {
@@ -598,11 +601,10 @@ export function applyYoutubeSyncEditToState(
       },
     },
   });
-  const nextDocument = createRuntimeDocument(nextScore);
-
   return {
     ...state,
-    document: nextDocument,
+    // YouTube 메타데이터는 셀·행 인덱스의 원본 참조를 바꾸지 않는다.
+    document: { ...state.document, score: nextScore },
     statusMessage: {
       level: "info",
       text: "YouTube sync updated.",
