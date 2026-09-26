@@ -24,7 +24,6 @@ import type {
   CanvasMarkerItem,
   CanvasMuteRenderItem,
   CanvasNoteRenderItem,
-  CanvasRenderInput,
 } from "../../renderer/canvas_types";
 import type { AppState } from "../../app/app_types";
 import type { ScoreTextEdit } from "../../app/edit/edit_apply";
@@ -36,7 +35,6 @@ export type BuildScoreTextEditPartialArtifactsInput = {
   state: AppState;
   nextDocument: RuntimeDocument;
   edits: readonly ScoreTextEdit[];
-  renderBaseInput: CanvasRenderInput;
 };
 
 /** partial artifact builder 결과. */
@@ -48,7 +46,7 @@ export type ScoreTextEditPartialArtifacts = {
 
 /**
  * score text edit 종류에 맞는 partial runtime artifact를 만든다.
- * - 인수 : input : edit 전 state, edit 후 document, edit batch, renderer base input
+ * - 인수 : input : edit 전 state, edit 후 document, edit batch
  * - 반환값 : partial artifact 또는 full rebuild fallback이 필요하면 null
  */
 export function buildScoreTextEditPartialArtifacts(
@@ -57,7 +55,7 @@ export function buildScoreTextEditPartialArtifacts(
   const invalidationKind = getScoreTextEditInvalidationKind(input.edits);
 
   if (invalidationKind === "globalCell") {
-    return buildGlobalEditRuntimeArtifacts(input.state, input.nextDocument, input.renderBaseInput);
+    return buildGlobalEditRuntimeArtifacts(input.state, input.nextDocument);
   }
 
   if (invalidationKind === "noteCell") {
@@ -65,7 +63,6 @@ export function buildScoreTextEditPartialArtifacts(
       input.state,
       input.nextDocument,
       input.edits,
-      input.renderBaseInput,
     );
   }
 
@@ -77,14 +74,12 @@ export function buildScoreTextEditPartialArtifacts(
  * - 인수 : state : 편집 전 앱 상태
  * - 인수 : nextDocument : note cell edit이 적용된 런타임 문서
  * - 인수 : edits : 적용한 score text edit batch
- * - 인수 : renderBaseInput : 다음 문서 기준 renderer base 입력
  * - 반환값 : edited track만 갱신한 산출물
  */
 function buildNoteEditRuntimeArtifacts(
   state: AppState,
   nextDocument: RuntimeDocument,
   edits: readonly ScoreTextEdit[],
-  renderBaseInput: CanvasRenderInput,
 ): ScoreTextEditPartialArtifacts | null {
   const editedTrackIds = collectEditedNoteTrackIds(edits);
 
@@ -147,7 +142,8 @@ function buildNoteEditRuntimeArtifacts(
     parsed,
     analysis,
     renderInput: {
-      ...renderBaseInput,
+      // 셀 텍스트 편집은 행 순서와 열 구조를 바꾸지 않으므로 기존 base 입력을 재사용한다.
+      ...state.renderInput,
       noteItems,
       muteItems,
       globalTextItems: state.renderInput.globalTextItems,
@@ -165,13 +161,11 @@ function buildNoteEditRuntimeArtifacts(
  * global cell 편집에 필요한 parser/analyzer/renderer 산출물만 재생성한다.
  * - 인수 : state : 편집 전 앱 상태
  * - 인수 : nextDocument : global cell edit이 적용된 런타임 문서
- * - 인수 : renderBaseInput : 다음 문서 기준 renderer base 입력
  * - 반환값 : global timeline과 global renderer group만 갱신한 산출물
  */
 function buildGlobalEditRuntimeArtifacts(
   state: AppState,
   nextDocument: RuntimeDocument,
-  renderBaseInput: CanvasRenderInput,
 ): ScoreTextEditPartialArtifacts {
   const parsed = buildGlobalEditParsedDocument(state.parsed, nextDocument);
   const context = {
@@ -192,7 +186,8 @@ function buildGlobalEditRuntimeArtifacts(
     parsed,
     analysis,
     renderInput: {
-      ...renderBaseInput,
+      // 전역 셀 값은 좌표 구조를 바꾸지 않으므로 현재 표시 방향까지 반영된 base 입력을 유지한다.
+      ...state.renderInput,
       noteItems: state.renderInput.noteItems,
       muteItems: state.renderInput.muteItems,
       globalTextItems,

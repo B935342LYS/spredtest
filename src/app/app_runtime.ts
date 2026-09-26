@@ -745,19 +745,11 @@ export function applyRawTextBatchToScore(
   const nextDocument = measurePerf("runtime.createRuntimeDocument", () =>
     createRuntimeDocument(applyResult.score)
   );
-  const renderBaseInput = measurePerf(
-    "runtime.createCanvasRenderInput",
-    () => applyReverseRowsOption(
-      createCanvasRenderInput(nextDocument),
-      state.reverseRows,
-    ),
-  );
   const partialArtifacts = measurePerf("runtime.buildScoreTextEditPartialArtifacts", () =>
     buildScoreTextEditPartialArtifacts({
       state,
       nextDocument,
       edits,
-      renderBaseInput,
     })
   );
   const artifacts = partialArtifacts ?? measurePerf("runtime.buildRuntimeArtifactsFallback", () =>
