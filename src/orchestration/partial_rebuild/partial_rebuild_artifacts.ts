@@ -2,6 +2,8 @@
  * score text edit에 필요한 partial runtime artifact를 생성한다.
  */
 
+import { sortCanvasMarkerItems, sortCanvasTrackItems } from "../../renderer/canvas_item_order";
+
 import { analyzeDynamicsTimeline } from "../../core/analyze/analyze_dynamics";
 import { analyzeTimingTimeline } from "../../core/analyze/analyze_timing";
 import { analyzeTrackEvents } from "../../core/analyze/analyze_track";
@@ -149,10 +151,10 @@ function buildNoteEditRuntimeArtifacts(
       globalTextItems: state.renderInput.globalTextItems,
       globalMarkerItems: state.renderInput.globalMarkerItems,
       noteMarkerItems,
-      markerItems: [
+      markerItems: sortCanvasMarkerItems([
         ...state.renderInput.globalMarkerItems,
         ...noteMarkerItems,
-      ],
+      ]),
     },
   };
 }
@@ -193,10 +195,10 @@ function buildGlobalEditRuntimeArtifacts(
       globalTextItems,
       globalMarkerItems,
       noteMarkerItems: state.renderInput.noteMarkerItems,
-      markerItems: [
+      markerItems: sortCanvasMarkerItems([
         ...globalMarkerItems,
         ...state.renderInput.noteMarkerItems,
-      ],
+      ]),
     },
   };
 }
@@ -274,12 +276,13 @@ function replaceTrackScopedItems<TItem extends CanvasNoteRenderItem | CanvasMute
   nextItems: readonly TItem[],
   editedTrackIds: ReadonlySet<string>,
 ): TItem[] {
-  return [
+  // 새 병합 배열만 정렬하여 이전 상태의 배열과 item 참조를 보존한다.
+  return sortCanvasTrackItems([
     ...previousItems.filter((item) =>
       item.trackId === undefined || !editedTrackIds.has(item.trackId)
     ),
     ...nextItems,
-  ];
+  ]);
 }
 
 /**
@@ -294,12 +297,13 @@ function replaceTrackScopedMarkers(
   nextItems: readonly CanvasMarkerItem[],
   editedTrackIds: ReadonlySet<string>,
 ): CanvasMarkerItem[] {
-  return [
+  // 새 병합 배열만 정렬하여 이전 상태의 배열과 item 참조를 보존한다.
+  return sortCanvasMarkerItems([
     ...previousItems.filter((item) =>
       !("trackId" in item) || item.trackId === undefined || !editedTrackIds.has(item.trackId)
     ),
     ...nextItems,
-  ];
+  ]);
 }
 
 /**

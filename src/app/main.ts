@@ -20,12 +20,7 @@ import {
   popUndoHistoryEntry,
   pushUndoHistoryEntry,
 } from "./edit/edit_history";
-import {
-  createScoreTextEditPartialPlan,
-  getScoreTextEditRedrawScope,
-} from "../orchestration/partial_rebuild/partial_rebuild_app_plan";
-import { applyPartialRenderInputPatch } from "../orchestration/partial_rebuild/partial_rebuild_render_patch";
-import type { PartialRebuildPlan } from "../orchestration/partial_rebuild/partial_rebuild_types";
+import { getScoreTextEditInvalidationKind } from "./edit/edit_apply";
 import { bindEditPanelControls } from "./edit/edit_panel_binding";
 import { bindScorePointerControls } from "./edit/edit_pointer_binding";
 import { syncLayoutToolbarPresetSelectForCurrentScore } from "./layout/layout_dialog_binding";
@@ -123,12 +118,17 @@ async function boot(): Promise<void> {
     }
   };
 
-  const renderAfterScoreTextEdit = (edits: ScoreTextEdit[], plan: PartialRebuildPlan | null): void => {
-    const redrawScope = plan?.renderer.redrawScope ?? getScoreTextEditRedrawScope(edits);
+  /**
+   * 완성된 artifact 입력을 편집 종류에 맞는 레이어에 렌더하고 UI를 동기화한다.
+   * - 인수 : edits : 적용한 cell 편집 batch
+   * - 반환값 : 없음
+   */
+  const renderAfterScoreTextEdit = (edits: ScoreTextEdit[]): void => {
+    const redrawScope = getScoreTextEditRedrawScope(edits);
 
     if (redrawScope === "note") {
       state = measurePerf("app.editRender.renderAppPartial.note", () =>
-        renderAppPartial(dom, state, "note", plan?.renderer.dirtyTickRange ?? null)
+        renderAppPartial(dom, state, "note")
       );
     } else if (redrawScope === "global") {
       state = measurePerf("app.editRender.renderAppPartial.global", () =>
@@ -269,29 +269,8 @@ async function boot(): Promise<void> {
         };
       }
 
-      const partialPlan = measurePerf("app.edit.createScoreTextEditPartialPlan", () =>
-        createScoreTextEditPartialPlan({
-          previousState,
-          nextState: state,
-          edits,
-        })
-      );
-
-      if (partialPlan !== null) {
-        state = {
-          ...state,
-          renderInput: measurePerf("app.edit.applyPartialRenderInputPatch", () =>
-            applyPartialRenderInputPatch(
-              previousState.renderInput,
-              state.renderInput,
-              partialPlan,
-            )
-          ),
-        };
-      }
-
       measurePerf("app.edit.renderAfterScoreTextEdit", () =>
-        renderAfterScoreTextEdit(edits, partialPlan)
+        renderAfterScoreTextEdit(edits)
       );
       measurePerf("app.edit.resetPlaybackPreservingPosition", () =>
         resetPlaybackForCurrentStatePreservingPosition()
@@ -576,3 +555,22 @@ window.addEventListener("DOMContentLoaded", () => {
     setStatus(1, message);
   });
 });
+
+/**
+ * score text edit batch의 renderer redraw scope를 계산한다.
+ * - 인수 : edits : 적용한 score text edit batch
+ * - 반환값 : note/global/all redraw scope
+ */
+function getScoreTextEditRedrawScope(edits: ScoreTextEdit[]): "note" | "global" | "all" {
+  const invalidationKind = getScoreTextEditInvalidationKind(edits);
+
+  if (invalidationKind === "noteCell") {
+    return "note";
+  }
+
+  if (invalidationKind === "globalCell") {
+    return "global";
+  }
+
+  return "all";
+}
