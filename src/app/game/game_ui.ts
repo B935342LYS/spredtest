@@ -92,7 +92,7 @@ export function syncGameModeUi(dom: AppDom, state: AppState): void {
     button.classList.toggle("off", !isSelected);
   }
   syncGameDiagnostics(dom, getVisiblePitchFrame(state));
-  dom.practiceModeButton.disabled = state.busy.kind !== "idle" && !isLocked;
+  dom.practiceModeButton.disabled = state.outputSyncError !== undefined || (state.busy.kind !== "idle" && !isLocked);
   dom.practiceModeButton.textContent = isOpen ? "exit practice" : "practice mode (beta)";
   dom.practiceModeButton.setAttribute("aria-pressed", String(isOpen));
   dom.practiceModeButton.classList.toggle("on", isOpen);

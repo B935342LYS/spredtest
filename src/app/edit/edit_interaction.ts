@@ -15,7 +15,7 @@ import {
   setActiveTupletSlotText,
 } from "./edit_controller";
 import { resolveAutoPitchInputs } from "../pitch_label";
-import type { ScoreTextEdit } from "./edit_apply";
+import type { ScoreTextEdit } from "../../core/score/score_text_edit";
 import { composeEditRawText } from "./edit_core";
 import { composeNumberRawTextForHit } from "./edit_number";
 import {

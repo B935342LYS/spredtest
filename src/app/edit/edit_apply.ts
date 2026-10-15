@@ -6,38 +6,23 @@
 import type {
   RowId,
   ScoreFile,
+  ScoreCell,
   TrackId,
 } from "../../core/score/types";
+import { getScoreTextEditInvalidationKind, type EditRowKind, type ScoreEditSelection, type ScoreTextEdit } from "../../core/score/score_text_edit";
 import { MAX_CELL_RAW_TEXT_LENGTH } from "../../core/score/score_limits";
-
-/** edit 적용 대상 row 종류. */
-export type EditRowKind = "global" | "note" | "gap";
-
-/** score text edit batch가 무효화하는 런타임 산출물 종류. */
-export type EditInvalidationKind = "noteCell" | "globalCell" | "mixedCell";
-
-/**
- * score edit 적용 대상 좌표.
- * - 인수 : 없음
- * - 반환값 : track, row, column, row kind를 포함한 좌표
- */
-export type ScoreEditSelection = {
-  trackId: TrackId;
-  rowId: RowId;
-  col: number;
-  rowKind: EditRowKind;
-};
 
 /**
  * ScoreFile edit 적용 결과.
  * - 인수 : 없음
- * - 반환값 : 변경된 ScoreFile 또는 적용 실패 메시지
+ * - 반환값 : 변경된 ScoreFile 또는 적용 실패 메시지. 성공 시 score가 원본 참조이면 무변경이다.
  */
 export type ScoreEditApplyResult =
   | {
       ok: true;
       score: ScoreFile;
       isDelete: boolean;
+      /** 실제 변경 수가 아닌 입력 요청 수. 변경 여부는 score의 원본 참조 유지로 판정한다. */
       updated: number;
     }
   | {
@@ -45,47 +30,6 @@ export type ScoreEditApplyResult =
       level: "warning" | "error";
       message: string;
     };
-
-/**
- * 하나의 score cell에 적용할 rawText 편집 명령.
- * - 인수 : 없음
- * - 반환값 : 편집 좌표와 rawText를 포함한 명령
- */
-export type ScoreTextEdit = {
-  selection: ScoreEditSelection;
-  rawText: string;
-};
-
-/**
- * edit batch가 note/global 중 어느 영역을 바꾸는지 분류한다.
- * - 인수 : edits : 적용할 score cell 편집 목록
- * - 반환값 : note/global/mixed invalidation 종류
- */
-export function getScoreTextEditInvalidationKind(
-  edits: readonly ScoreTextEdit[],
-): EditInvalidationKind {
-  let hasNote = false;
-  let hasGlobal = false;
-
-  // edit 목록을 순회하며 note/global rowKind가 함께 들어왔는지 확인한다.
-  for (const edit of edits) {
-    if (edit.selection.rowKind === "note") {
-      hasNote = true;
-    } else if (edit.selection.rowKind === "global") {
-      hasGlobal = true;
-    }
-
-    if (hasNote && hasGlobal) {
-      return "mixedCell";
-    }
-  }
-
-  if (hasGlobal) {
-    return "globalCell";
-  }
-
-  return "noteCell";
-}
 
 /**
  * ScoreFile JSON 구조를 편집용으로 깊은 복사한다.
@@ -101,7 +45,7 @@ export function cloneScoreFile(score: ScoreFile): ScoreFile {
  * - 인수 : score : 현재 score JSON
  * - 인수 : selection : 사용자가 click한 score 좌표와 track
  * - 인수 : rawText : parser가 읽을 note cell rawText
- * - 반환값 : 변경된 score 또는 적용 실패 결과
+ * - 반환값 : 변경된 score 또는 적용 실패 결과. 무변경 시 원본 score 참조를 유지한다.
  */
 export function applyNoteCellRawText(
   score: ScoreFile,
@@ -116,7 +60,7 @@ export function applyNoteCellRawText(
  * - 인수 : score : 현재 score JSON
  * - 인수 : selection : 사용자가 조작한 score 좌표와 track
  * - 인수 : rawText : parser가 읽을 cell rawText
- * - 반환값 : 변경된 score 또는 적용 실패 결과
+ * - 반환값 : 변경된 score 또는 적용 실패 결과. 무변경 시 원본 score 참조를 유지한다.
  */
 export function applyScoreCellRawText(
   score: ScoreFile,
@@ -135,7 +79,7 @@ export function applyScoreCellRawText(
  * 여러 note/global cell rawText 편집을 하나의 ScoreFile clone에 모아 적용한다.
  * - 인수 : score : 현재 score JSON
  * - 인수 : edits : 적용할 score cell 편집 목록
- * - 반환값 : 변경된 score 또는 적용 실패 결과
+ * - 반환값 : 변경된 score 또는 적용 실패 결과. 무변경 시 원본 score 참조를 유지한다.
  */
 export function applyScoreCellRawTextBatch(
   score: ScoreFile,
@@ -170,7 +114,8 @@ export function applyScoreCellRawTextBatch(
 
   const nextScore = cloneScoreFileForTextEdits(score, edits);
   const groupedEdits = groupScoreTextEdits(edits);
-  let deletedCount = groupedEdits.deleteCount;
+  const deletedCount = groupedEdits.deleteCount;
+  let changed = false;
 
   for (const rowKind of groupedEdits.rowKinds) {
     if (rowKind === "gap") {
@@ -188,15 +133,18 @@ export function applyScoreCellRawTextBatch(
     if (!result.ok) {
       return result;
     }
+    changed ||= result.changed;
   }
 
   if (groupedEdits.globalEdits.length > 0) {
-    applyGlobalCellRawTextBatchToClonedScore(nextScore, groupedEdits.globalEdits);
+    const globalChanged = applyGlobalCellRawTextBatchToClonedScore(nextScore, groupedEdits.globalEdits);
+    changed ||= globalChanged;
   }
 
   return {
     ok: true,
-    score: nextScore,
+    // 최종 셀 값이 같으면 원본 참조로 무변경 계약을 전달한다.
+    score: changed ? nextScore : score,
     isDelete: deletedCount === edits.length,
     updated: edits.length,
   };
@@ -304,7 +252,7 @@ function cloneScoreFileForTextEdits(
  * - 인수 : score : 이미 clone된 ScoreFile
  * - 인수 : trackId : 적용 대상 track id
  * - 인수 : edits : 같은 track에 적용할 note cell edit 목록
- * - 반환값 : 적용 성공 여부
+ * - 반환값 : 적용 성공 여부와 최종 셀 값의 변경 여부
  */
 function applyTrackCellRawTextBatchToClonedScore(
   score: ScoreFile,
@@ -313,6 +261,7 @@ function applyTrackCellRawTextBatchToClonedScore(
 ):
   | {
       ok: true;
+      changed: boolean;
     }
   | {
       ok: false;
@@ -331,73 +280,53 @@ function applyTrackCellRawTextBatchToClonedScore(
     };
   }
 
-  const cellsByCoord = new Map(track.cells.map((cell) => [
-    createCellCoordKey(cell.rowId, cell.col),
-    cell,
-  ]));
-
-  // batch 안의 upsert/delete를 Map에 모은 뒤 track별로 한 번만 정렬한다.
-  for (const edit of edits) {
-    const key = createCellCoordKey(edit.selection.rowId, edit.selection.col);
-
-    if (edit.rawText.trim().length === 0) {
-      cellsByCoord.delete(key);
-      continue;
-    }
-
-    cellsByCoord.set(key, {
-      rowId: edit.selection.rowId,
-      col: edit.selection.col,
-      rawText: edit.rawText,
-    });
-  }
-
-  // parser/analyzer 순회와 JSON 확인이 안정적이도록 track cell을 col, rowId 순서로 정렬한다.
-  track.cells = [...cellsByCoord.values()].sort(
-    (left, right) =>
-      left.col - right.col || left.rowId.localeCompare(right.rowId),
-  );
-
-  return {
-    ok: true,
-  };
+  const previousCells = track.cells;
+  track.cells = applyCellEdits(previousCells, edits);
+  return { ok: true, changed: track.cells !== previousCells };
 }
 
 /**
- * clone된 ScoreFile의 global cell batch를 upsert/delete한다.
+ * clone된 ScoreFile의 global cell batch를 적용하고 실제 변경을 반환한다.
  * - 인수 : score : 이미 clone된 ScoreFile
- * - 인수 : edits : 전역 셀에 적용할 edit 목록
- * - 반환값 : 없음
+ * - 인수 : edits : 전역 셀 편집 목록
+ * - 반환값 : 최종 셀 값의 변경 여부
  */
 function applyGlobalCellRawTextBatchToClonedScore(
   score: ScoreFile,
   edits: readonly ScoreTextEdit[],
-): void {
-  const cellsByCoord = new Map(score.globalLines.cells.map((cell) => [
-    createCellCoordKey(cell.rowId, cell.col),
-    cell,
-  ]));
+): boolean {
+  const previousCells = score.globalLines.cells;
+  score.globalLines.cells = applyCellEdits(previousCells, edits);
+  return score.globalLines.cells !== previousCells;
+}
 
-  // 전역 edit도 좌표 Map에 모아 한 번만 정렬한다.
+/**
+ * 기존 좌표 Map에 최종 요청을 적용하며 실제 변경이 없으면 입력 배열을 유지한다.
+ * - 인수 : cells : 편집 전 셀 배열
+ * - 인수 : edits : 검증을 통과한 동일 저장 영역의 편집 요청
+ * - 반환값 : 변경 시 정렬한 새 배열, 무변경 시 입력 배열
+ */
+function applyCellEdits(cells: ScoreCell[], edits: readonly ScoreTextEdit[]): ScoreCell[] {
+  const cellsByCoord = new Map(cells.map((cell) => [createCellCoordKey(cell.rowId, cell.col), cell]));
+  const finalEdits = new Map<string, ScoreTextEdit>();
+  // 입력 검증 후에만 중복 좌표를 합쳐 원래 값으로 돌아온 batch도 판정한다.
   for (const edit of edits) {
-    const key = createCellCoordKey(edit.selection.rowId, edit.selection.col);
-
-    if (edit.rawText.trim().length === 0) {
-      cellsByCoord.delete(key);
-      continue;
-    }
-
-    cellsByCoord.set(key, {
-      rowId: edit.selection.rowId,
-      col: edit.selection.col,
-      rawText: edit.rawText,
-    });
+    finalEdits.set(createCellCoordKey(edit.selection.rowId, edit.selection.col), edit);
   }
-
-  score.globalLines.cells = [...cellsByCoord.values()].sort(
-    (left, right) =>
-      left.col - right.col || left.rowId.localeCompare(right.rowId),
-  );
+  let changed = false;
+  for (const [key, edit] of finalEdits) {
+    const previous = cellsByCoord.get(key);
+    if (edit.rawText.trim().length === 0) {
+      changed = cellsByCoord.delete(key) || changed;
+    } else if (previous?.rawText !== edit.rawText) {
+      changed = true;
+      cellsByCoord.set(key, { rowId: edit.selection.rowId, col: edit.selection.col, rawText: edit.rawText });
+    }
+  }
+  if (!changed) return cells;
+  // 기존과 같은 col/rowId 순서를 유지하며 실제 변경이 있을 때만 배열을 만든다.
+  return [...cellsByCoord.values()].sort((left, right) =>
+    left.col - right.col || left.rowId.localeCompare(right.rowId));
 }
 
 /**

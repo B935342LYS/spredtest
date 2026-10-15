@@ -14,7 +14,7 @@ import type {
   ScoreRangeSelection,
   ScoreSelection,
 } from "../app_types";
-import type { ScoreTextEdit } from "./edit_apply";
+import type { ScoreTextEdit } from "../../core/score/score_text_edit";
 
 /** range delete helper 결과. */
 export type RangeDeleteEditResult = {

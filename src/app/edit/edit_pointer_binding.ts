@@ -18,7 +18,7 @@ import {
 import type { AppNotePreviewRuntime } from "../playback/app_note_preview";
 import { hitTestScoreCell } from "../score_hit_test";
 import { xToColumn } from "../../renderer/canvas_coordinate";
-import type { ScoreTextEdit } from "./edit_apply";
+import type { ScoreTextEdit } from "../../core/score/score_text_edit";
 import {
   composeDragRawTextForHit,
   composeSingleEditForHit,
@@ -47,7 +47,7 @@ export type PointerBindingSession = {
   setState(nextState: AppState): void;
   render(): void;
   getNotePreviewRuntime(): AppNotePreviewRuntime;
-  applyScoreTextEdits(edits: ScoreTextEdit[], options?: { label?: string }): void;
+  applyScoreTextEdits(edits: ScoreTextEdit[], options?: { label?: string; statusText?: string; uiAfter?: Pick<AppState, "rangeSelection" | "rangeClipboard" | "pastePreview"> }): void;
   beginScoreEditHistoryTransaction(label: string): void;
   endScoreEditHistoryTransaction(): void;
   cancelScoreEditHistoryTransaction(): void;
@@ -359,24 +359,9 @@ export function bindScorePointerControls(
       return;
     }
 
-    session.setState({
-      ...state,
-      rangeSelection: null,
-      rangeClipboard: null,
-      pastePreview: {
-        anchorCol: null,
-      },
-      statusMessage: {
-        level: "info",
-        text: result.protectedGlobalStartCellCount > 0
-          ? `Deleting ${result.edits.length} cell(s). Protected ${result.protectedGlobalStartCellCount} required start cell(s).`
-          : `Deleting ${result.edits.length} selected cell(s).`,
-      },
-    });
-    syncRangeSelectionOverlay(dom, session.getState());
-    syncPastePreviewOverlay(dom, session.getState());
     session.applyScoreTextEdits(result.edits, {
       label: `Delete ${result.edits.length} cells`,
+      uiAfter: { rangeSelection: null, rangeClipboard: null, pastePreview: { anchorCol: null } },
     });
   };
 
@@ -437,25 +422,10 @@ export function bindScorePointerControls(
 
     const anchorCol = lastPointerColumn ?? state.rangeSelection.startCol;
 
-    session.setState({
-      ...state,
-      rangeSelection: null,
-      rangeClipboard,
-      pastePreview: {
-        anchorCol,
-      },
-      statusMessage: {
-        level: "info",
-        text: result.protectedGlobalStartCellCount > 0
-          ? `Cut ${rangeClipboard.cells.length} cell(s). Protected ${result.protectedGlobalStartCellCount} required start cell(s). Move mouse and press Ctrl+V to paste.`
-          : `Cut ${rangeClipboard.cells.length} cell(s). Move mouse and press Ctrl+V to paste.`,
-      },
-    });
-    syncLeftStatus(dom, session.getState());
-    syncRangeSelectionOverlay(dom, session.getState());
-    syncPastePreviewOverlay(dom, session.getState());
     session.applyScoreTextEdits(result.edits, {
       label: `Cut ${result.edits.length} cells`,
+      uiAfter: { rangeSelection: null, rangeClipboard, pastePreview: { anchorCol } },
+      statusText: `Cut ${rangeClipboard.cells.length} cell(s). Move mouse and press Ctrl+V to paste.`,
     });
   };
 
@@ -488,22 +458,9 @@ export function bindScorePointerControls(
       return;
     }
 
-    session.setState({
-      ...state,
-      rangeSelection: null,
-      rangeClipboard: null,
-      pastePreview: {
-        anchorCol: null,
-      },
-      statusMessage: {
-        level: "info",
-        text: `Pasting ${result.edits.length} cell(s).`,
-      },
-    });
-    syncRangeSelectionOverlay(dom, session.getState());
-    syncPastePreviewOverlay(dom, session.getState());
     session.applyScoreTextEdits(result.edits, {
       label: `Paste ${result.edits.length} cells`,
+      uiAfter: { rangeSelection: null, rangeClipboard: null, pastePreview: { anchorCol: null } },
     });
   };
 

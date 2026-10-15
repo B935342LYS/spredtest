@@ -182,7 +182,7 @@ export function bindGameModeControls(
     const state = session.getState();
 
     if (
-      state.busy.kind !== "idle" ||
+      state.busy.kind !== "idle" || state.outputSyncError !== undefined ||
       (
         state.gameMode.kind !== "off" &&
         state.gameMode.kind !== "ready"
@@ -331,7 +331,7 @@ export function bindGameModeControls(
 
     const currentRequestId = requestId + 1;
 
-    if (state.busy.kind !== "idle") {
+    if (state.busy.kind !== "idle" || state.outputSyncError !== undefined) {
       return;
     }
 

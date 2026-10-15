@@ -23,11 +23,11 @@ export function createSupabaseExampleProvider(config: ExampleProviderConfig): Ex
   return {
     providerId: "supabase",
     displayName: "Supabase Examples",
-    loadManifest(accessWord: string): Promise<ExampleScoreManifest> {
-      return loadManifestFromSupabase(config, accessWord);
+    loadManifest(accessWord: string, signal?: AbortSignal): Promise<ExampleScoreManifest> {
+      return loadManifestFromSupabase(config, accessWord, signal);
     },
-    loadScoreText(item: ExampleScoreManifestItem): Promise<string> {
-      return loadScoreTextFromUrl(item);
+    loadScoreText(item: ExampleScoreManifestItem, signal?: AbortSignal): Promise<string> {
+      return loadScoreTextFromUrl(item, signal);
     },
   };
 }
@@ -36,11 +36,13 @@ export function createSupabaseExampleProvider(config: ExampleProviderConfig): Ex
  * Edge Function에서 example manifest를 읽고 앱 manifest 타입으로 검증한다.
  * - 인수 : config : provider 공개 설정
  * - 인수 : accessWord : 사용자가 dialog에 입력한 임시 암호 단어
+ * - 인수 : signal : 창 종료·새 요청 시 통신 취소 신호
  * - 반환값 : 검증된 example manifest
  */
 async function loadManifestFromSupabase(
   config: ExampleProviderConfig,
   accessWord: string,
+  signal?: AbortSignal,
 ): Promise<ExampleScoreManifest> {
   if (config.manifestFunctionUrl.length === 0) {
     throw createExampleError("CONFIG_MISSING", "Examples endpoint is not configured.");
@@ -48,6 +50,7 @@ async function loadManifestFromSupabase(
 
   const response = await fetch(config.manifestFunctionUrl, {
     method: "POST",
+    signal,
     headers: createFunctionHeaders(config),
     body: JSON.stringify({ accessWord }),
   });
@@ -72,11 +75,13 @@ async function loadManifestFromSupabase(
 /**
  * 선택한 manifest item의 Score JSON text를 fetch한다.
  * - 인수 : item : 사용자가 선택한 example manifest item
+ * - 인수 : signal : 창 종료·새 요청 시 통신 취소 신호
  * - 반환값 : Score JSON 문자열
  */
-async function loadScoreTextFromUrl(item: ExampleScoreManifestItem): Promise<string> {
+async function loadScoreTextFromUrl(item: ExampleScoreManifestItem, signal?: AbortSignal): Promise<string> {
   const response = await fetch(item.scoreUrl, {
     method: "GET",
+    signal,
   });
 
   if (!response.ok) {

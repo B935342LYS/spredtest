@@ -45,6 +45,10 @@ export function bindExampleDialog(
   dom: AppDom,
   handlers: ExampleDialogHandlers,
 ): void {
+  dom.examplesDialog.addEventListener("cancel", () => {
+    // Escape의 기본 close 처리 전에 요청을 무효화하여 늦은 응답과 busy를 정리한다.
+    handlers.onAction({ kind: "close" });
+  });
   dom.examplesCloseButton.addEventListener("click", () => {
     dom.examplesDialog.close();
   });

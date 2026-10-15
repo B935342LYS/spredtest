@@ -1,4 +1,4 @@
-import type { UserLayoutPresetData } from "../../app/layout/layout_types";
+import type { UserLayoutPresetData } from "../../core/score/layout_preset";
 
 /**
  * 기본 제공 Normal Score 레이아웃 프리셋이다.

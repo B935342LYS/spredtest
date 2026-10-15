@@ -27,14 +27,14 @@ import type {
   CanvasMuteRenderItem,
   CanvasNoteRenderItem,
 } from "../../renderer/canvas_types";
-import type { AppState } from "../../app/app_types";
-import type { ScoreTextEdit } from "../../app/edit/edit_apply";
-import { getScoreTextEditInvalidationKind } from "../../app/edit/edit_apply";
+import type { ScoreTextEdit } from "../../core/score/score_text_edit";
+import { getScoreTextEditInvalidationKind } from "../../core/score/score_text_edit";
 import { DEFAULT_ACTIVE_TRACK_IDS } from "../../track/track_control";
 
-/** partial artifact builder 입력. */
+/** UI 상태 없이 이전 산출물과 편집 조건만 전달하는 partial artifact 입력. */
 export type BuildScoreTextEditPartialArtifactsInput = {
-  state: AppState;
+  previousArtifacts: Readonly<ScoreTextEditPartialArtifacts>;
+  activeTrackIds: readonly TrackId[];
   nextDocument: RuntimeDocument;
   edits: readonly ScoreTextEdit[];
 };
@@ -48,7 +48,7 @@ export type ScoreTextEditPartialArtifacts = {
 
 /**
  * score text edit 종류에 맞는 partial runtime artifact를 만든다.
- * - 인수 : input : edit 전 state, edit 후 document, edit batch
+ * - 인수 : input : 이전 산출물, 활성 트랙, 편집 후 문서와 편집 batch
  * - 반환값 : partial artifact 또는 full rebuild fallback이 필요하면 null
  */
 export function buildScoreTextEditPartialArtifacts(
@@ -57,12 +57,13 @@ export function buildScoreTextEditPartialArtifacts(
   const invalidationKind = getScoreTextEditInvalidationKind(input.edits);
 
   if (invalidationKind === "globalCell") {
-    return buildGlobalEditRuntimeArtifacts(input.state, input.nextDocument);
+    return buildGlobalEditRuntimeArtifacts(input.previousArtifacts, input.nextDocument);
   }
 
   if (invalidationKind === "noteCell") {
     return buildNoteEditRuntimeArtifacts(
-      input.state,
+      input.previousArtifacts,
+      input.activeTrackIds,
       input.nextDocument,
       input.edits,
     );
@@ -73,13 +74,15 @@ export function buildScoreTextEditPartialArtifacts(
 
 /**
  * note cell 편집에 필요한 track analyzer와 note-derived renderer group만 재생성한다.
- * - 인수 : state : 편집 전 앱 상태
+ * - 인수 : previousArtifacts : 편집 전 parsed/analysis/renderInput
+ * - 인수 : activeTrackIds : 현재 활성 트랙 목록
  * - 인수 : nextDocument : note cell edit이 적용된 런타임 문서
  * - 인수 : edits : 적용한 score text edit batch
  * - 반환값 : edited track만 갱신한 산출물
  */
 function buildNoteEditRuntimeArtifacts(
-  state: AppState,
+  previousArtifacts: Readonly<ScoreTextEditPartialArtifacts>,
+  activeTrackIds: readonly TrackId[],
   nextDocument: RuntimeDocument,
   edits: readonly ScoreTextEdit[],
 ): ScoreTextEditPartialArtifacts | null {
@@ -90,13 +93,13 @@ function buildNoteEditRuntimeArtifacts(
   }
 
   const editedTrackIdSet = new Set<TrackId>(editedTrackIds);
-  const parsed = buildNoteEditParsedDocument(state.parsed, nextDocument, editedTrackIdSet);
+  const parsed = buildNoteEditParsedDocument(previousArtifacts.parsed, nextDocument, editedTrackIdSet);
   const context = {
     score: nextDocument.score,
     indexes: nextDocument.indexes,
     parsed,
   };
-  const nextTrackResults = state.analysis.trackResults.map((trackResult) =>
+  const nextTrackResults = previousArtifacts.analysis.trackResults.map((trackResult) =>
     editedTrackIdSet.has(trackResult.trackId)
       ? analyzeTrackEvents(trackResult.trackId, context)
       : trackResult
@@ -105,13 +108,13 @@ function buildNoteEditRuntimeArtifacts(
     .filter((trackId) => !nextTrackResults.some((trackResult) => trackResult.trackId === trackId))
     .map((trackId) => analyzeTrackEvents(trackId, context));
   const analysis: AnalysisResult = {
-    timingTimeline: state.analysis.timingTimeline,
-    dynamicsTimeline: state.analysis.dynamicsTimeline,
+    timingTimeline: previousArtifacts.analysis.timingTimeline,
+    dynamicsTimeline: previousArtifacts.analysis.dynamicsTimeline,
     trackResults: [
       ...nextTrackResults,
       ...missingEditedTrackResults,
     ],
-    analysisIssues: state.analysis.analysisIssues,
+    analysisIssues: previousArtifacts.analysis.analysisIssues,
   };
   const editedAnalysis: AnalysisResult = {
     timingTimeline: analysis.timingTimeline,
@@ -121,21 +124,21 @@ function buildNoteEditRuntimeArtifacts(
     ),
     analysisIssues: analysis.analysisIssues,
   };
-  const editedNoteItems = buildCanvasNoteRenderItems(editedAnalysis, state.activeTrackIds);
-  const editedMuteItems = buildCanvasMuteRenderItems(editedAnalysis, state.activeTrackIds);
-  const editedNoteMarkerItems = buildCanvasNoteMarkerItems(editedAnalysis, state.activeTrackIds);
+  const editedNoteItems = buildCanvasNoteRenderItems(editedAnalysis, activeTrackIds);
+  const editedMuteItems = buildCanvasMuteRenderItems(editedAnalysis, activeTrackIds);
+  const editedNoteMarkerItems = buildCanvasNoteMarkerItems(editedAnalysis, activeTrackIds);
   const noteItems = replaceTrackScopedItems(
-    state.renderInput.noteItems,
+    previousArtifacts.renderInput.noteItems,
     editedNoteItems,
     editedTrackIdSet,
   );
   const muteItems = replaceTrackScopedItems(
-    state.renderInput.muteItems,
+    previousArtifacts.renderInput.muteItems,
     editedMuteItems,
     editedTrackIdSet,
   );
   const noteMarkerItems = replaceTrackScopedMarkers(
-    state.renderInput.noteMarkerItems,
+    previousArtifacts.renderInput.noteMarkerItems,
     editedNoteMarkerItems,
     editedTrackIdSet,
   );
@@ -145,14 +148,14 @@ function buildNoteEditRuntimeArtifacts(
     analysis,
     renderInput: {
       // 셀 텍스트 편집은 행 순서와 열 구조를 바꾸지 않으므로 기존 base 입력을 재사용한다.
-      ...state.renderInput,
+      ...previousArtifacts.renderInput,
       noteItems,
       muteItems,
-      globalTextItems: state.renderInput.globalTextItems,
-      globalMarkerItems: state.renderInput.globalMarkerItems,
+      globalTextItems: previousArtifacts.renderInput.globalTextItems,
+      globalMarkerItems: previousArtifacts.renderInput.globalMarkerItems,
       noteMarkerItems,
       markerItems: sortCanvasMarkerItems([
-        ...state.renderInput.globalMarkerItems,
+        ...previousArtifacts.renderInput.globalMarkerItems,
         ...noteMarkerItems,
       ]),
     },
@@ -161,15 +164,15 @@ function buildNoteEditRuntimeArtifacts(
 
 /**
  * global cell 편집에 필요한 parser/analyzer/renderer 산출물만 재생성한다.
- * - 인수 : state : 편집 전 앱 상태
+ * - 인수 : previousArtifacts : 편집 전 parsed/analysis/renderInput
  * - 인수 : nextDocument : global cell edit이 적용된 런타임 문서
  * - 반환값 : global timeline과 global renderer group만 갱신한 산출물
  */
 function buildGlobalEditRuntimeArtifacts(
-  state: AppState,
+  previousArtifacts: Readonly<ScoreTextEditPartialArtifacts>,
   nextDocument: RuntimeDocument,
 ): ScoreTextEditPartialArtifacts {
-  const parsed = buildGlobalEditParsedDocument(state.parsed, nextDocument);
+  const parsed = buildGlobalEditParsedDocument(previousArtifacts.parsed, nextDocument);
   const context = {
     score: nextDocument.score,
     indexes: nextDocument.indexes,
@@ -178,8 +181,8 @@ function buildGlobalEditRuntimeArtifacts(
   const analysis: AnalysisResult = {
     timingTimeline: analyzeTimingTimeline(context),
     dynamicsTimeline: analyzeDynamicsTimeline(context),
-    trackResults: state.analysis.trackResults,
-    analysisIssues: state.analysis.analysisIssues,
+    trackResults: previousArtifacts.analysis.trackResults,
+    analysisIssues: previousArtifacts.analysis.analysisIssues,
   };
   const globalMarkerItems = buildCanvasGlobalMarkerItems(analysis);
   const globalTextItems = buildCanvasGlobalTextRenderItems(nextDocument.score);
@@ -189,15 +192,15 @@ function buildGlobalEditRuntimeArtifacts(
     analysis,
     renderInput: {
       // 전역 셀 값은 좌표 구조를 바꾸지 않으므로 현재 표시 방향까지 반영된 base 입력을 유지한다.
-      ...state.renderInput,
-      noteItems: state.renderInput.noteItems,
-      muteItems: state.renderInput.muteItems,
+      ...previousArtifacts.renderInput,
+      noteItems: previousArtifacts.renderInput.noteItems,
+      muteItems: previousArtifacts.renderInput.muteItems,
       globalTextItems,
       globalMarkerItems,
-      noteMarkerItems: state.renderInput.noteMarkerItems,
+      noteMarkerItems: previousArtifacts.renderInput.noteMarkerItems,
       markerItems: sortCanvasMarkerItems([
         ...globalMarkerItems,
-        ...state.renderInput.noteMarkerItems,
+        ...previousArtifacts.renderInput.noteMarkerItems,
       ]),
     },
   };

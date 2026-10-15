@@ -1,0 +1,162 @@
+{
+    "format": {
+        "formatName": "spred-sheet",
+        "version": "0.0.1"
+    },
+
+    "musicData" : {
+        "musicTitle" : "testScore",
+        "musicArtist" : "testArtist",
+        "musicGenre" : "testGenre",
+
+        "scoreWriter" : "testSheetWriter",
+        "comment" : "This is a test score for Otamatone DX Basic.",
+        "scoreDifficulty" : {
+            "basic" : 1,
+            "optional" : 5,
+            "extra" : 10
+        },
+        "createdAt": "2000-09-09T10:00:00+09:00",
+        "updatedAt": "2000-09-09T10:00:00+09:00",
+
+        "youtube": {
+            "videoId": "",
+            "offsetMs": 0
+        }
+    },
+
+    "instData" : {
+        "presetId" : "otamatone-basic",
+        "family" : "otamatone",
+        "instName"  : "Otamatone DX Basic",
+        "supportsOpen": false,
+        "strings": [
+            {
+                "stringId": "s1",
+                "stringName": "1st String",
+                "minMidi": 52,
+                "maxMidi": 85
+            }
+        ]
+    },
+
+    "layout" : {
+        "baseColumnWidthPx": 21,
+        "rowDefinitions" : [
+            { "rowId": "global-bpm", "type": "global", "kind": "bpm", "height": 21 },
+            { "rowId": "global-bpb", "type": "global", "kind": "beatsPerBar", "height": 21 },
+            { "rowId": "global-spb", "type": "global", "kind": "stepsPerBeat", "height": 21 },
+            { "rowId": "global-dyn", "type": "global", "kind": "dynamics", "height": 21 },
+
+            { "rowId": "s1-gap-85-86", "type": "gap", "stringId": "s1", "fromMidi": 85, "toMidi": 86, "height": 7 },
+            { "rowId": "s1-note-85", "type": "note", "stringId": "s1", "midi": 85, "height": 7, "displayLabel": "C#6" },
+            { "rowId": "s1-gap-84-85", "type": "gap", "stringId": "s1", "fromMidi": 84, "toMidi": 85, "height": 6 },
+            { "rowId": "s1-note-84", "type": "note", "stringId": "s1", "midi": 84, "height": 7, "displayLabel": "C6" },
+            { "rowId": "s1-gap-83-84", "type": "gap", "stringId": "s1", "fromMidi": 83, "toMidi": 84, "height": 2 },
+            { "rowId": "s1-note-83", "type": "note", "stringId": "s1", "midi": 83, "height": 7, "displayLabel": "B5" },
+            { "rowId": "s1-gap-82-83", "type": "gap", "stringId": "s1", "fromMidi": 82, "toMidi": 83, "height": 8 },
+            { "rowId": "s1-note-82", "type": "note", "stringId": "s1", "midi": 82, "height": 7, "displayLabel": "A#5" },
+            { "rowId": "s1-gap-81-82", "type": "gap", "stringId": "s1", "fromMidi": 81, "toMidi": 82, "height": 6 },
+            { "rowId": "s1-note-81", "type": "note", "stringId": "s1", "midi": 81, "height": 7, "displayLabel": "A5" },
+            { "rowId": "s1-gap-80-81", "type": "gap", "stringId": "s1", "fromMidi": 80, "toMidi": 81, "height": 4 },            
+            { "rowId": "s1-note-80", "type": "note", "stringId": "s1", "midi": 80, "height": 7, "displayLabel": "G#5" },
+            { "rowId": "s1-gap-79-80", "type": "gap", "stringId": "s1", "fromMidi": 79, "toMidi": 80, "height": 8 },
+            { "rowId": "s1-note-79", "type": "note", "stringId": "s1", "midi": 79, "height": 7, "displayLabel": "G5" },
+            { "rowId": "s1-gap-78-79", "type": "gap", "stringId": "s1", "fromMidi": 78, "toMidi": 79, "height": 8 },
+            { "rowId": "s1-note-78", "type": "note", "stringId": "s1", "midi": 78, "height": 7, "displayLabel": "F#5" },
+            { "rowId": "s1-gap-77-78", "type": "gap", "stringId": "s1", "fromMidi": 77, "toMidi": 78, "height": 6 },   
+            { "rowId": "s1-note-77", "type": "note", "stringId": "s1", "midi": 77, "height": 7, "displayLabel": "F5" },
+            { "rowId": "s1-gap-76-77", "type": "gap", "stringId": "s1", "fromMidi": 76, "toMidi": 77, "height": 8 },
+            { "rowId": "s1-note-76", "type": "note", "stringId": "s1", "midi": 76, "height": 7, "displayLabel": "E5" },
+            { "rowId": "s1-gap-75-76", "type": "gap", "stringId": "s1", "fromMidi": 75, "toMidi": 76, "height": 6 },
+            { "rowId": "s1-note-75", "type": "note", "stringId": "s1", "midi": 75, "height": 7, "displayLabel": "D#5" },
+            { "rowId": "s1-gap-74-75", "type": "gap", "stringId": "s1", "fromMidi": 74, "toMidi": 75, "height": 10 },
+            { "rowId": "s1-note-74", "type": "note", "stringId": "s1", "midi": 74, "height": 7, "displayLabel": "D5" },
+            { "rowId": "s1-gap-73-74", "type": "gap", "stringId": "s1", "fromMidi": 73, "toMidi": 74, "height": 14 },
+            { "rowId": "s1-note-73", "type": "note", "stringId": "s1", "midi": 73, "height": 7, "displayLabel": "C#5" },
+            { "rowId": "s1-gap-72-73", "type": "gap", "stringId": "s1", "fromMidi": 72, "toMidi": 73, "height": 14 },
+            { "rowId": "s1-note-72", "type": "note", "stringId": "s1", "midi": 72, "height": 7, "displayLabel": "C5" },
+            { "rowId": "s1-gap-71-72", "type": "gap", "stringId": "s1", "fromMidi": 71, "toMidi": 72, "height": 12 },
+            { "rowId": "s1-note-71", "type": "note", "stringId": "s1", "midi": 71, "height": 7, "displayLabel": "B4" },
+            { "rowId": "s1-gap-70-71", "type": "gap", "stringId": "s1", "fromMidi": 70, "toMidi": 71, "height": 14 },
+            { "rowId": "s1-note-70", "type": "note", "stringId": "s1", "midi": 70, "height": 7, "displayLabel": "A#4" },
+            { "rowId": "s1-gap-69-70", "type": "gap", "stringId": "s1", "fromMidi": 69, "toMidi": 70, "height": 14 },
+            { "rowId": "s1-note-69", "type": "note", "stringId": "s1", "midi": 69, "height": 7, "displayLabel": "A4" },
+            { "rowId": "s1-gap-68-69", "type": "gap", "stringId": "s1", "fromMidi": 68, "toMidi": 69, "height": 14 },
+            { "rowId": "s1-note-68", "type": "note", "stringId": "s1", "midi": 68, "height": 7, "displayLabel": "G#4" },
+            { "rowId": "s1-gap-67-68", "type": "gap", "stringId": "s1", "fromMidi": 67, "toMidi": 68, "height": 18 },
+            { "rowId": "s1-note-67", "type": "note", "stringId": "s1", "midi": 67, "height": 7, "displayLabel": "G4" },
+            { "rowId": "s1-gap-66-67", "type": "gap", "stringId": "s1", "fromMidi": 66, "toMidi": 67, "height": 20 },
+            { "rowId": "s1-note-66", "type": "note", "stringId": "s1", "midi": 66, "height": 7, "displayLabel": "F#4" },
+            { "rowId": "s1-gap-65-66", "type": "gap", "stringId": "s1", "fromMidi": 65, "toMidi": 66, "height": 22 },
+            { "rowId": "s1-note-65", "type": "note", "stringId": "s1", "midi": 65, "height": 7, "displayLabel": "F4" },
+            { "rowId": "s1-gap-64-65", "type": "gap", "stringId": "s1", "fromMidi": 64, "toMidi": 65, "height": 22 },
+            { "rowId": "s1-note-64", "type": "note", "stringId": "s1", "midi": 64, "height": 7, "displayLabel": "E4" },
+            { "rowId": "s1-gap-63-64", "type": "gap", "stringId": "s1", "fromMidi": 63, "toMidi": 64, "height": 24 },
+            { "rowId": "s1-note-63", "type": "note", "stringId": "s1", "midi": 63, "height": 7, "displayLabel": "D#4" },
+            { "rowId": "s1-gap-62-63", "type": "gap", "stringId": "s1", "fromMidi": 62, "toMidi": 63, "height": 30 },
+            { "rowId": "s1-note-62", "type": "note", "stringId": "s1", "midi": 62, "height": 7, "displayLabel": "D4" },
+            { "rowId": "s1-gap-61-62", "type": "gap", "stringId": "s1", "fromMidi": 61, "toMidi": 62, "height": 30 },
+            { "rowId": "s1-note-61", "type": "note", "stringId": "s1", "midi": 61, "height": 7, "displayLabel": "C#4" },
+            { "rowId": "s1-gap-60-61", "type": "gap", "stringId": "s1", "fromMidi": 60, "toMidi": 61, "height": 32 },
+            { "rowId": "s1-note-60", "type": "note", "stringId": "s1", "midi": 60, "height": 7, "displayLabel": "C4" },
+            { "rowId": "s1-gap-59-60", "type": "gap", "stringId": "s1", "fromMidi": 59, "toMidi": 60, "height": 28 },
+            { "rowId": "s1-note-59", "type": "note", "stringId": "s1", "midi": 59, "height": 7, "displayLabel": "B3" },
+            { "rowId": "s1-gap-58-59", "type": "gap", "stringId": "s1", "fromMidi": 58, "toMidi": 59, "height": 34 },
+            { "rowId": "s1-note-58", "type": "note", "stringId": "s1", "midi": 58, "height": 7, "displayLabel": "A#3" },
+            { "rowId": "s1-gap-57-58", "type": "gap", "stringId": "s1", "fromMidi": 57, "toMidi": 58, "height": 42 },
+            { "rowId": "s1-note-57", "type": "note", "stringId": "s1", "midi": 57, "height": 7, "displayLabel": "A3" },
+            { "rowId": "s1-gap-56-57", "type": "gap", "stringId": "s1", "fromMidi": 56, "toMidi": 57, "height": 42 },
+            { "rowId": "s1-note-56", "type": "note", "stringId": "s1", "midi": 56, "height": 7, "displayLabel": "G#3" },
+            { "rowId": "s1-gap-55-56", "type": "gap", "stringId": "s1", "fromMidi": 55, "toMidi": 56, "height": 42 },
+            { "rowId": "s1-note-55", "type": "note", "stringId": "s1", "midi": 55, "height": 7, "displayLabel": "G3" },
+            { "rowId": "s1-gap-54-55", "type": "gap", "stringId": "s1", "fromMidi": 54, "toMidi": 55, "height": 54 },
+            { "rowId": "s1-note-54", "type": "note", "stringId": "s1", "midi": 54, "height": 7, "displayLabel": "F#3" },
+            { "rowId": "s1-gap-53-54", "type": "gap", "stringId": "s1", "fromMidi": 53, "toMidi": 54, "height": 54 },
+            { "rowId": "s1-note-53", "type": "note", "stringId": "s1", "midi": 53, "height": 7, "displayLabel": "F3" },
+            { "rowId": "s1-gap-52-53", "type": "gap", "stringId": "s1", "fromMidi": 52, "toMidi": 53, "height": 42 },
+            { "rowId": "s1-note-52", "type": "note", "stringId": "s1", "midi": 52, "height": 7, "displayLabel": "E3" },
+            { "rowId": "s1-gap-51-52", "type": "gap", "stringId": "s1", "fromMidi": 51, "toMidi": 52, "height": 14 }     
+        ]
+    },
+
+    "globalLines": {
+        "columnCount": 1000,
+        "cells": [
+            { "rowId": "global-bpm", "col": 0, "rawText": "120" },
+            { "rowId": "global-bpb", "col": 0, "rawText": "4" },
+            { "rowId": "global-spb", "col": 0, "rawText": "4" },
+            { "rowId": "global-dyn", "col": 0, "rawText": "100" }
+        ]
+    },
+
+    "tracks": [
+        {
+            "trackId": "basic",
+            "trackName": "basic",
+            "cells": [
+                { "rowId": "s1-note-52", "col": 0, "rawText": "E3" },
+                { "rowId": "s1-note-52", "col": 1, "rawText": "-" },
+                { "rowId": "s1-note-52", "col": 2, "rawText": "-" },
+                { "rowId": "s1-note-52", "col": 3, "rawText": "-" },                             
+                { "rowId": "s1-note-53", "col": 4, "rawText": "F3" },
+                { "rowId": "s1-note-53", "col": 5, "rawText": "-" },
+                { "rowId": "s1-note-53", "col": 6, "rawText": "F3" },
+                { "rowId": "s1-note-53", "col": 7, "rawText": "-" },
+                { "rowId": "s1-note-54", "col": 8, "rawText": "F#3" },
+                { "rowId": "s1-note-54", "col": 9, "rawText": "F#3" },
+                { "rowId": "s1-note-54", "col": 10, "rawText": "F#3" }
+            ]
+        },
+        {
+            "trackId": "optional",
+            "trackName": "optional",
+            "cells": []
+        },
+        {
+            "trackId": "extra",
+            "trackName": "extra",
+            "cells": []
+        }
+    ]
+}

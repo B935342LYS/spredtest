@@ -340,7 +340,9 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
   dom.layoutPresetToolbarSelect.disabled = isBusy || isGameLocked;
   dom.layoutModifyButton.disabled = isBusy || isGameLocked;
   dom.detailsButton.disabled = isBusy || isGameLocked;
-  dom.seekInput.disabled = isBusy || isGameLocked;
+  dom.seekInput.disabled = isBusy || isGameLocked || state.outputSyncError !== undefined;
+  dom.playButton.disabled = isBusy || state.outputSyncError !== undefined || state.activeTrackIds.length === 0;
+  dom.stopButton.disabled = isBusy;
   syncGameModeUi(dom, state);
   syncGamePitchOverlay(dom, state);
   syncTrackToggleButtons(dom, state);

@@ -2,12 +2,12 @@
  * 레이아웃 프리셋을 브라우저 localStorage의 고정 슬롯에 저장하고 불러온다.
  */
 
-import type { UserLayoutPresetData } from "../app/layout/layout_types";
+import type { UserLayoutPresetData } from "../core/score/layout_preset";
 import { NORMAL_SCORE_LAYOUT_PRESET } from "../assets/templates/normal-score-layout-preset";
 import {
   parseUserLayoutPresetJson,
   serializeUserLayoutPresetData,
-} from "../app/layout/layout_preset";
+} from "../core/score/layout_preset";
 
 /** 악기 프리셋별 로컬 레이아웃 프리셋 슬롯 수. */
 export const LOCAL_LAYOUT_PRESET_SLOT_COUNT = 3;

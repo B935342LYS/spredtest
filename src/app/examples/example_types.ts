@@ -38,8 +38,8 @@ export type ExampleScoreManifest = {
 export type ExampleProvider = {
   providerId: "supabase";
   displayName: string;
-  loadManifest(accessWord: string): Promise<ExampleScoreManifest>;
-  loadScoreText(item: ExampleScoreManifestItem): Promise<string>;
+  loadManifest(accessWord: string, signal?: AbortSignal): Promise<ExampleScoreManifest>;
+  loadScoreText(item: ExampleScoreManifestItem, signal?: AbortSignal): Promise<string>;
 };
 
 /** Examples 처리 중 사용자에게 표시할 수 있는 오류. */

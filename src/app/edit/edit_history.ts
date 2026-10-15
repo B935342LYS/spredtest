@@ -2,30 +2,42 @@
  * score cell rawText edit을 undo/redo 가능한 patch history로 변환한다.
  */
 
-import type { ScoreFile } from "../../core/score/types";
+import type { ScoreIndexes, ScoreCell, GlobalCell, TrackId, CellCoordKey, GlobalCellCoordKey } from "../../core/score/types";
 import type {
   CellHistoryPatch,
   UndoHistoryEntry,
   UndoHistoryState,
 } from "../app_types";
-import type {
-  ScoreEditSelection,
-  ScoreTextEdit,
-} from "./edit_apply";
+import type { ScoreEditSelection, ScoreTextEdit } from "../../core/score/score_text_edit";
+
+/** 이력 생성에 필요한 기존 좌표 인덱스. 함수는 Map과 셀을 변경하지 않는다. */
+export type HistoryCellLookup = {
+  readonly cellMapByTrackId: ReadonlyMap<TrackId, ReadonlyMap<CellCoordKey, Readonly<ScoreCell>>>;
+  readonly globalCellMapByCoord: ReadonlyMap<GlobalCellCoordKey, Readonly<GlobalCell>>;
+};
+
+/**
+ * 드래그 시작 상태에서 필요한 두 Map만 보관하는 조회 snapshot을 만든다.
+ * - 인수 : indexes : 시작 시점의 runtime 인덱스
+ * - 반환값 : 복제 없이 기존 두 Map을 참조하는 작은 객체
+ */
+export function captureHistoryCellLookup(indexes: ScoreIndexes): HistoryCellLookup {
+  return { cellMapByTrackId: indexes.cellMapByTrackId, globalCellMapByCoord: indexes.globalCellMapByCoord };
+}
 
 /** undo history stack에 보관할 기본 entry 수. */
 export const DEFAULT_UNDO_HISTORY_MAX_ENTRIES = 50;
 
 /**
  * score edit batch의 적용 전후 rawText 차이를 history patch로 만든다.
- * - 인수 : beforeScore : edit 적용 전 score JSON
- * - 인수 : afterScore : edit 적용 후 score JSON
+ * - 인수 : before : edit 적용 전 좌표 인덱스
+ * - 인수 : after : edit 적용 후 좌표 인덱스
  * - 인수 : edits : 적용을 시도한 score cell edit 목록
  * - 반환값 : 실제 rawText가 바뀐 cell patch 목록
  */
 export function buildCellHistoryPatches(
-  beforeScore: ScoreFile,
-  afterScore: ScoreFile,
+  before: HistoryCellLookup,
+  after: HistoryCellLookup,
   edits: readonly ScoreTextEdit[],
 ): CellHistoryPatch[] {
   const targets = new Map<string, ScoreEditSelection>();
@@ -38,8 +50,8 @@ export function buildCellHistoryPatches(
   const patches: CellHistoryPatch[] = [];
 
   for (const selection of targets.values()) {
-    const beforeRawText = readCellRawText(beforeScore, selection);
-    const afterRawText = readCellRawText(afterScore, selection);
+    const beforeRawText = readCellRawText(before, selection);
+    const afterRawText = readCellRawText(after, selection);
 
     if (beforeRawText === afterRawText) {
       continue;
@@ -174,30 +186,17 @@ export function createUndoHistoryEntryId(prefix = "edit"): string {
 }
 
 /**
- * score에서 edit selection에 해당하는 cell rawText를 찾는다.
- * - 인수 : score : 조회할 score JSON
- * - 인수 : selection : 조회할 score cell 좌표
- * - 반환값 : 존재하는 rawText 또는 cell 없음
+ * 기존 좌표 인덱스에서 셀 문자열을 읽는다.
+ * - 인수 : lookup : 동일 시점 악보의 note/global 조회 Map
+ * - 인수 : selection : 조회할 편집 좌표
+ * - 반환값 : rawText 또는 셀 부재를 나타내는 null
  */
-function readCellRawText(
-  score: ScoreFile,
-  selection: ScoreEditSelection,
-): string | null {
-  if (selection.rowKind === "global") {
-    return score.globalLines.cells.find((cell) =>
-      cell.rowId === selection.rowId && cell.col === selection.col
-    )?.rawText ?? null;
-  }
-
-  if (selection.rowKind !== "note") {
-    return null;
-  }
-
-  return score.tracks
-    .find((track) => track.trackId === selection.trackId)
-    ?.cells.find((cell) =>
-      cell.rowId === selection.rowId && cell.col === selection.col
-    )?.rawText ?? null;
+function readCellRawText(lookup: HistoryCellLookup, selection: ScoreEditSelection): string | null {
+  const key = `${selection.rowId}|${selection.col}` as const;
+  // global 좌표는 track과 무관하며 gap은 이력 대상 셀이 아니다.
+  if (selection.rowKind === "global") return lookup.globalCellMapByCoord.get(key)?.rawText ?? null;
+  if (selection.rowKind !== "note") return null;
+  return lookup.cellMapByTrackId.get(selection.trackId)?.get(key)?.rawText ?? null;
 }
 
 /**

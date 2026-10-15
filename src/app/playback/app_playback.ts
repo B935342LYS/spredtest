@@ -129,26 +129,32 @@ export function createAppPlaybackRuntime(
       masterVolume: Number(dom.volumeInput.value) / 100,
     })
   );
-  const scheduler = measurePerf("playbackRuntime.createAudioLookaheadScheduler", () =>
-    createAudioLookaheadScheduler({
-      queue,
-      backend,
-      lookaheadSeconds: PLAYBACK_LOOKAHEAD_SECONDS,
-    })
-  );
-
-  return {
-    controller: measurePerf("playbackRuntime.createPlaybackController", () =>
-      createPlaybackController({
-        schedule,
-        scheduler,
+  try {
+    const scheduler = measurePerf("playbackRuntime.createAudioLookaheadScheduler", () =>
+      createAudioLookaheadScheduler({
+        queue,
         backend,
-        schedulerIntervalMs: PLAYBACK_SCHEDULER_INTERVAL_MS,
+        lookaheadSeconds: PLAYBACK_LOOKAHEAD_SECONDS,
       })
-    ),
-    timeMapper: measurePerf("playbackRuntime.createTickTimeMapper", () =>
-      createTickTimeMapper(state.analysis.timingTimeline)
-    ),
-    backend,
-  };
+    );
+
+    return {
+      controller: measurePerf("playbackRuntime.createPlaybackController", () =>
+        createPlaybackController({
+          schedule,
+          scheduler,
+          backend,
+          schedulerIntervalMs: PLAYBACK_SCHEDULER_INTERVAL_MS,
+        })
+      ),
+      timeMapper: measurePerf("playbackRuntime.createTickTimeMapper", () =>
+        createTickTimeMapper(state.analysis.timingTimeline)
+      ),
+      backend,
+    };
+  } catch (error: unknown) {
+    // backend 생성 이후 나머지 runtime 준비가 실패하면 후보의 오디오 자원을 회수한다.
+    backend.dispose();
+    throw error;
+  }
 }

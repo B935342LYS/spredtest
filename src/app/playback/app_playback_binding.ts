@@ -2,6 +2,7 @@
  * playback 버튼, seek input, audio option event를 app playback runtime에 연결한다.
  */
 
+import { createGameInputHistory } from "../game/game_input_history";
 import type {
   AppDom,
   AppState,
@@ -20,7 +21,6 @@ import {
   type GameEffectBonusResult,
   type GamePitchFrame,
   type GameScoreSummary,
-  type GameTimingOnsetCandidate,
 } from "../game/game_types";
 import {
   applyGameEffectBonus,
@@ -38,7 +38,6 @@ import {
   judgeTremAttackBonus,
   judgeVibWindowBonus,
   shouldLockFailedGlissBonusTarget,
-  type GameEffectFrame,
   type GameEffectBonusTarget,
   type GameTremRuntimeState,
 } from "../game/game_effect_judge";
@@ -64,10 +63,6 @@ import {
   measurePerfAsync,
 } from "../../infra/perf_profiler";
 
-const TIMING_ONSET_MIN_INTERVAL_SECONDS = 0.06;
-const TIMING_ONSET_KEEP_SECONDS = 0.75;
-const TIMING_PITCH_CHANGE_THRESHOLD_CENT = 80;
-const EFFECT_FRAME_KEEP_SECONDS = 1.2;
 /** playback binding이 app 상태와 runtime을 조회하기 위한 session 입력. */
 export type PlaybackBindingSession = {
   getState(): AppState;
@@ -100,21 +95,17 @@ export function bindPlaybackControls(
   let suppressScrollSeek = false;
   let lastPlaybackScoreSeconds: number | null = null;
   let lastGameScoringSeconds: number | null = null;
-  let lastTimingFrame: GamePitchFrame | null = null;
-  let lastProcessedTimingFrameAtMs: number | null = null;
-  let timingOnsetCandidates: GameTimingOnsetCandidate[] = [];
+  const inputHistory = createGameInputHistory();
   let consumedTimingOnsetIds = new Set<number>();
   let judgedTimingEventIds = new Set<string>();
   let attackSatisfiedEventIds = new Set<string>();
-  let nextTimingOnsetId = 1;
   let effectBonusTargets: GameEffectBonusTarget[] = [];
-  let effectFrames: GameEffectFrame[] = [];
-  let lastProcessedEffectFrameAtMs: number | null = null;
   let judgedEffectIntervalIds = new Set<string>();
   let failedEffectTargetIds = new Set<string>();
   let tremRuntimeByTargetId = new Map<string, GameTremRuntimeState>();
   let countdownAudioContext: AudioContext | null = null;
   let syncPauseGeneration = 0;
+  let countdownGeneration = 0;
 
   /**
    * practice timing 판정용 runtime 상태를 새 세션 기준으로 비운다.
@@ -122,16 +113,11 @@ export function bindPlaybackControls(
    * - 반환값 : 없음
    */
   const resetPracticeTimingState = (): void => {
-    lastTimingFrame = null;
-    lastProcessedTimingFrameAtMs = null;
-    timingOnsetCandidates = [];
+    inputHistory.reset();
     consumedTimingOnsetIds = new Set<number>();
     judgedTimingEventIds = new Set<string>();
     attackSatisfiedEventIds = new Set<string>();
-    nextTimingOnsetId = 1;
     effectBonusTargets = [];
-    effectFrames = [];
-    lastProcessedEffectFrameAtMs = null;
     judgedEffectIntervalIds = new Set<string>();
     failedEffectTargetIds = new Set<string>();
     tremRuntimeByTargetId = new Map<string, GameTremRuntimeState>();
@@ -149,38 +135,10 @@ export function bindPlaybackControls(
       return;
     }
 
-    const frame = state.gameMode.pitchFrame;
-
-    if (
-      frame === null ||
-      lastProcessedTimingFrameAtMs === frame.capturedAtMs
-    ) {
-      return;
-    }
-
-    lastProcessedTimingFrameAtMs = frame.capturedAtMs;
-
-    const judgeScoreSeconds = applyGameSyncOffsetSeconds(scoreSeconds, state.gameSyncOffsetMs);
-
-    appendPracticeEffectFrame(frame, judgeScoreSeconds);
-
-    if (frame.isVoiced && frame.midi !== null && frame.centOffset !== null) {
-      const shouldCreateOnset = isTimingOnsetFrame(lastTimingFrame, frame) &&
-        canAppendTimingOnset(judgeScoreSeconds, timingOnsetCandidates);
-
-      if (shouldCreateOnset) {
-        timingOnsetCandidates.push({
-          id: nextTimingOnsetId,
-          scoreSeconds: judgeScoreSeconds,
-          midi: frame.midi,
-          centOffset: frame.centOffset,
-        });
-        nextTimingOnsetId += 1;
-      }
-    }
-
-    lastTimingFrame = frame;
-    timingOnsetCandidates = pruneTimingOnsets(judgeScoreSeconds, timingOnsetCandidates);
+    inputHistory.recordFrame(
+      state.gameMode.pitchFrame,
+      applyGameSyncOffsetSeconds(scoreSeconds, state.gameSyncOffsetMs),
+    );
   };
 
   /**
@@ -207,7 +165,7 @@ export function bindPlaybackControls(
       if (target.kind === "trem") {
         const bonus = judgeTremAttackBonus(
           target,
-          timingOnsetCandidates,
+          inputHistory.getOnsets(),
           getTremRuntimeState(target.targetId),
           judgeScoreSeconds,
           trackDifficulty,
@@ -255,7 +213,7 @@ export function bindPlaybackControls(
             state.gameMode.pitchFrame,
             judgeScoreSeconds,
             intervalIndex,
-            effectFrames,
+            inputHistory.getEffectFrames(),
           )
         ) {
           failedEffectTargetIds.add(target.targetId);
@@ -270,11 +228,11 @@ export function bindPlaybackControls(
           judgeScoreSeconds,
           getGlissIntervalIndexAtSeconds(target, judgeScoreSeconds) ?? -1,
           trackDifficulty,
-          effectFrames,
+          inputHistory.getEffectFrames(),
         )
         : judgeVibWindowBonus(
           target,
-          effectFrames,
+          inputHistory.getEffectFrames(),
           judgeScoreSeconds,
           trackDifficulty,
         );
@@ -334,29 +292,7 @@ export function bindPlaybackControls(
     return created;
   };
 
-  /**
-   * practice effect 판정용 최근 pitch frame 창을 갱신한다.
-   * - 인수 : frame : 현재 game mode pitch frame
-   * - 인수 : judgeScoreSeconds : Sync 보정이 적용된 현재 score time
-   * - 반환값 : 없음
-   */
-  const appendPracticeEffectFrame = (
-    frame: GamePitchFrame | null,
-    judgeScoreSeconds: number,
-  ): void => {
-    if (frame === null || lastProcessedEffectFrameAtMs === frame.capturedAtMs) {
-      return;
-    }
 
-    lastProcessedEffectFrameAtMs = frame.capturedAtMs;
-    effectFrames.push({
-      scoreSeconds: judgeScoreSeconds,
-      frame,
-    });
-    effectFrames = effectFrames.filter((entry) =>
-      judgeScoreSeconds - entry.scoreSeconds <= EFFECT_FRAME_KEEP_SECONDS
-    );
-  };
 
   /**
    * effect target의 중복 판정 방지 id를 만든다.
@@ -462,7 +398,7 @@ export function bindPlaybackControls(
         judgeScoreSeconds,
         normalizeGameTrackDifficulty(state.document.score.musicData.scoreDifficulty),
         {
-          onsetCandidates: timingOnsetCandidates,
+          onsetCandidates: inputHistory.getOnsets(),
           judgedEventIds: judgedTimingEventIds,
           consumedOnsetIds: consumedTimingOnsetIds,
           attackSatisfiedEventIds,
@@ -572,6 +508,19 @@ export function bindPlaybackControls(
     return finishPracticePlayback(state);
   };
 
+  /**
+   * 이전 카운트다운의 대기와 비프음을 무효화한다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
+  const invalidatePracticeCountdown = (): void => {
+    countdownGeneration += 1;
+    if (countdownAudioContext !== null) {
+      void countdownAudioContext.close();
+      countdownAudioContext = null;
+    }
+  };
+
   const stopPlaybackAnimation = (resetPracticeState = true): void => {
     if (playbackRafId !== null) {
       cancelAnimationFrame(playbackRafId);
@@ -580,6 +529,7 @@ export function bindPlaybackControls(
     lastPlaybackScoreSeconds = null;
     lastGameScoringSeconds = null;
     if (resetPracticeState) {
+      invalidatePracticeCountdown();
       resetPracticeTimingState();
     }
     clearGameJudgeOverlay(dom);
@@ -629,6 +579,7 @@ export function bindPlaybackControls(
     // game binding이 Practice를 종료한 뒤 일반 재생의 보정 없는 위치로 복귀한다.
     const state = session.getState();
     if (state.gameMode.kind === "off") {
+      invalidatePracticeCountdown();
       const runtime = session.getPlaybackRuntime();
       scrollScoreAreaToSeconds(state, runtime, runtime.controller.getCurrentScoreSeconds());
     }
@@ -652,10 +603,7 @@ export function bindPlaybackControls(
         gameMode: { ...state.gameMode, kind: state.gameMode.kind === "countdown" ? "ready" : "paused" },
       });
     }
-    if (countdownAudioContext !== null) {
-      void countdownAudioContext.close();
-      countdownAudioContext = null;
-    }
+    invalidatePracticeCountdown();
     syncUiControls(dom, session.getState());
     syncPlaybackUi(dom, session.getState(), runtime);
   };
@@ -682,7 +630,7 @@ export function bindPlaybackControls(
     const state = session.getState();
     const playbackRuntime = session.getPlaybackRuntime();
 
-    if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode)) {
+    if (state.busy.kind !== "idle" || state.outputSyncError !== undefined || isGameModeLocked(state.gameMode)) {
       return;
     }
 
@@ -752,11 +700,16 @@ export function bindPlaybackControls(
    * - 반환값 : 없음
    */
   const startPracticeCountdown = async (summary: GameScoreSummary): Promise<void> => {
+    invalidatePracticeCountdown();
+    const countdownRequest = countdownGeneration;
+    const runtime = session.getPlaybackRuntime();
     const generation = syncPauseGeneration;
     for (const count of [3, 2, 1]) {
       const currentState = session.getState();
 
-      if (generation !== syncPauseGeneration || dom.practiceSyncDialog.open ||
+      // ready/countdown으로 돌아와도 종료·재시작 이전의 실행은 다시 진행하지 않는다.
+      if (countdownRequest !== countdownGeneration || session.getPlaybackRuntime() !== runtime ||
+        generation !== syncPauseGeneration || dom.practiceSyncDialog.open ||
         (currentState.gameMode.kind !== "ready" && currentState.gameMode.kind !== "countdown")) {
         return;
       }
@@ -784,7 +737,8 @@ export function bindPlaybackControls(
 
     const currentState = session.getState();
 
-    if (generation !== syncPauseGeneration || dom.practiceSyncDialog.open || currentState.gameMode.kind !== "countdown") {
+    if (countdownRequest !== countdownGeneration || session.getPlaybackRuntime() !== runtime ||
+      generation !== syncPauseGeneration || dom.practiceSyncDialog.open || currentState.gameMode.kind !== "countdown") {
       return;
     }
 
@@ -825,7 +779,7 @@ export function bindPlaybackControls(
 
     if (
       suppressScrollSeek ||
-      state.busy.kind !== "idle" ||
+      state.busy.kind !== "idle" || state.outputSyncError !== undefined ||
       isGameModeLocked(state.gameMode) ||
       state.layout === null
     ) {
@@ -844,7 +798,7 @@ export function bindPlaybackControls(
 
       if (
         suppressScrollSeek ||
-        nextState.busy.kind !== "idle" ||
+        nextState.busy.kind !== "idle" || nextState.outputSyncError !== undefined ||
         isGameModeLocked(nextState.gameMode) ||
         nextState.layout === null
       ) {
@@ -956,7 +910,7 @@ export function bindPlaybackControls(
     const playbackRuntime = session.getPlaybackRuntime();
 
     try {
-      if (state.busy.kind !== "idle") {
+      if (state.busy.kind !== "idle" || state.outputSyncError !== undefined) {
         return;
       }
 
@@ -1043,10 +997,16 @@ export function bindPlaybackControls(
       playRequest
         .then(() => {
           // 비동기 오디오 준비 중 Sync를 열었다 닫아도 이전 play 요청이 뒤늦게 재생되지 않게 한다.
-          if (playGeneration !== syncPauseGeneration || dom.practiceSyncDialog.open) {
+          if (session.getPlaybackRuntime() !== playbackRuntime) {
+            playbackRuntime.controller.stop();
+            return;
+          }
+          if (playGeneration !== syncPauseGeneration || dom.practiceSyncDialog.open ||
+              session.getState().outputSyncError !== undefined) {
             pausePlaybackForSync();
             return;
           }
+          if (!playbackRuntime.controller.isPlaying()) return;
           const thenPerfSession = beginPerfSession("playback.toggle.afterPlay");
 
           try {
@@ -1079,6 +1039,8 @@ export function bindPlaybackControls(
         })
         .catch((error: unknown) => {
         const currentState = session.getState();
+        // 이전 runtime 또는 Sync 진입 이전의 요청은 현재 화면에 오류를 표시하지 않는다.
+        if (session.getPlaybackRuntime() !== playbackRuntime || playGeneration !== syncPauseGeneration) return;
         const message = error instanceof Error ? error.message : "Unknown playback error.";
 
         session.setState({
@@ -1114,6 +1076,7 @@ export function bindPlaybackControls(
 
   dom.stopButton.addEventListener("click", () => {
     const state = session.getState();
+    if (state.busy.kind !== "idle") return;
     const playbackRuntime = session.getPlaybackRuntime();
 
     stopPlaybackAnimation();
@@ -1141,6 +1104,7 @@ export function bindPlaybackControls(
 
   dom.seekInput.addEventListener("input", () => {
     const state = session.getState();
+    if (state.busy.kind !== "idle" || state.outputSyncError !== undefined) return;
     const playbackRuntime = session.getPlaybackRuntime();
     const scoreSeconds = Number(dom.seekInput.value);
 
@@ -1156,6 +1120,8 @@ export function bindPlaybackControls(
   });
 
   dom.seekInput.addEventListener("change", () => {
+    if (session.getState().busy.kind !== "idle") return;
+    if (session.getState().outputSyncError !== undefined) return;
     if (isGameModeLocked(session.getState().gameMode)) {
       syncPlaybackUi(dom, session.getState(), session.getPlaybackRuntime());
       return;
@@ -1210,85 +1176,6 @@ export function bindPlaybackControls(
   return {
     stopPlaybackAnimation,
   };
-}
-
-/**
- * pitch frame이 timing onset 후보로 볼 수 있는 변화인지 확인한다.
- * - 인수 : previousFrame : 직전에 처리한 pitch frame
- * - 인수 : currentFrame : 새로 처리할 pitch frame
- * - 반환값 : 무음에서 유음으로 바뀌었거나 pitch class가 충분히 바뀌었으면 true
- */
-function isTimingOnsetFrame(
-  previousFrame: GamePitchFrame | null,
-  currentFrame: GamePitchFrame,
-): boolean {
-  if (
-    !currentFrame.isVoiced ||
-    currentFrame.midi === null ||
-    currentFrame.centOffset === null
-  ) {
-    return false;
-  }
-
-  if (
-    previousFrame === null ||
-    !previousFrame.isVoiced ||
-    previousFrame.midi === null ||
-    previousFrame.centOffset === null
-  ) {
-    return true;
-  }
-
-  const previousCent = previousFrame.midi * 100 + previousFrame.centOffset;
-  const currentCent = currentFrame.midi * 100 + currentFrame.centOffset;
-
-  return calculatePitchClassErrorCent(previousCent, currentCent) >= TIMING_PITCH_CHANGE_THRESHOLD_CENT;
-}
-
-/**
- * 마지막 onset 후보와 충분히 떨어져 새 onset 후보를 추가할 수 있는지 확인한다.
- * - 인수 : onsetScoreSeconds : 새 onset 후보의 score time
- * - 인수 : candidates : 현재 저장된 onset 후보 목록
- * - 반환값 : 후보가 없거나 최소 간격 이상 떨어져 있으면 true
- */
-function canAppendTimingOnset(
-  onsetScoreSeconds: number,
-  candidates: readonly GameTimingOnsetCandidate[],
-): boolean {
-  const lastCandidate = candidates[candidates.length - 1];
-
-  if (lastCandidate === undefined) {
-    return true;
-  }
-
-  return onsetScoreSeconds - lastCandidate.scoreSeconds >= TIMING_ONSET_MIN_INTERVAL_SECONDS;
-}
-
-/**
- * 현재 score time에서 더 이상 매칭하지 않을 오래된 onset 후보를 제거한다.
- * - 인수 : currentScoreSeconds : 현재 판정용 score time
- * - 인수 : candidates : 현재 onset 후보 목록
- * - 반환값 : 유지할 onset 후보 목록
- */
-function pruneTimingOnsets(
-  currentScoreSeconds: number,
-  candidates: readonly GameTimingOnsetCandidate[],
-): GameTimingOnsetCandidate[] {
-  return candidates.filter((candidate) =>
-    Math.abs(currentScoreSeconds - candidate.scoreSeconds) <= TIMING_ONSET_KEEP_SECONDS
-  );
-}
-
-/**
- * 두 cent pitch 사이의 pitch class 기준 최소 오차를 계산한다.
- * - 인수 : inputCent : 입력 pitch의 절대 cent 값
- * - 인수 : targetCent : 비교할 pitch의 절대 cent 값
- * - 반환값 : 0 이상 600 이하의 pitch class 오차 cent
- */
-function calculatePitchClassErrorCent(inputCent: number, targetCent: number): number {
-  const wrapped = Math.abs(inputCent - targetCent) % 1200;
-
-  return Math.min(wrapped, 1200 - wrapped);
 }
 
 /**

@@ -1,12 +1,11 @@
 /**
- * 레이아웃 편집 UI가 사용하는 draft, preset, apply 결과 타입을 정의한다.
+ * 레이아웃 편집 UI가 사용하는 draft, apply 결과 타입을 정의한다.
  */
 
 import type {
   InstrumentData,
   NoteRowDefinition,
   GapRowDefinition,
-  RowDefinition,
   RowId,
   ScoreFile,
   StringId,
@@ -28,22 +27,6 @@ export type LayoutDraftBundle = {
   rowDefinitions: LayoutEditableRowDefinition[];
   selectedStringId: StringId | null;
   selectedRowId: RowId | null;
-};
-
-/**
- * localStorage와 JSON 파일에 저장되는 사용자 레이아웃 프리셋 데이터.
- * - 인수 : 없음
- * - 반환값 : layout draft를 복원하는 데 필요한 악기 정보와 비전역 rowDefinitions
- */
-export type UserLayoutPresetData = {
-  formatVersion: "1";
-  layoutPresetId: string;
-  layoutPresetDisplayName: string;
-  instrumentPresetId: string;
-  createdAt: string;
-  updatedAt: string;
-  instData: InstrumentData;
-  rowDefinitions: RowDefinition[];
 };
 
 /**

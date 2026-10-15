@@ -21,11 +21,11 @@ import type {
 import {
   buildCanvasGlobalTextRenderItems,
   buildCanvasGlobalMarkerItems,
-  buildCanvasMarkerItems,
   buildCanvasMuteRenderItems,
   buildCanvasNoteMarkerItems,
   buildCanvasNoteRenderItems,
 } from "../renderer/canvas_item_builder";
+import { sortCanvasMarkerItems } from "../renderer/canvas_item_order";
 import type { CanvasAnalyzedRenderInput } from "../renderer/canvas_types";
 import type { CanvasRenderInput } from "../renderer/canvas_types";
 import { buildScoreTextEditPartialArtifacts } from "../orchestration/partial_rebuild/partial_rebuild_artifacts";
@@ -34,7 +34,7 @@ import {
   applyNoteCellRawText,
   applyScoreCellRawTextBatch,
 } from "./edit/edit_apply";
-import type { ScoreTextEdit } from "./edit/edit_apply";
+import type { ScoreTextEdit } from "../core/score/score_text_edit";
 import { createUndoHistoryState } from "./edit/edit_history";
 import { measurePerf } from "../infra/perf_profiler";
 import type {
@@ -161,7 +161,8 @@ export function buildAnalyzedCanvasRenderInput(
     muteItems: buildCanvasMuteRenderItems(analysis, activeTrackIds),
     globalMarkerItems,
     noteMarkerItems,
-    markerItems: buildCanvasMarkerItems(analysis, activeTrackIds),
+    // 분리 목록의 객체를 재사용하되 새 배열만 정렬하여 각 그룹의 순서를 보존한다.
+    markerItems: sortCanvasMarkerItems([...globalMarkerItems, ...noteMarkerItems]),
   };
 }
 
@@ -563,11 +564,11 @@ export function applyMusicDataEditToState(
     ...state.document.score,
     musicData,
   };
-  const nextDocument = createRuntimeDocument(nextScore);
 
   return {
     ...state,
-    document: nextDocument,
+    // metadata만 교체하므로 행·트랙·셀 참조를 조회하는 기존 인덱스는 유효하다.
+    document: { ...state.document, score: nextScore },
     statusMessage: {
       level: "info",
       text: "Score details updated.",
@@ -712,18 +713,24 @@ export function applyRawTextToScore(
   };
 }
 
+/** 변경·무변경 후보와 거절 사유를 구분하여 상위 계층의 상태 확정을 제어한다. */
+export type ScoreTextEditResult =
+  | { kind: "applied"; state: AppState }
+  | { kind: "unchanged"; state: AppState }
+  | { kind: "rejected"; message: AppState["statusMessage"] };
+
 /**
- * 여러 score cell rawText 편집을 한 번의 full rebuild로 적용한다.
+ * 여러 score cell rawText 편집의 부분 산출물 또는 전체 fallback 후보를 만든다.
  * - 인수 : state : 현재 앱 상태
  * - 인수 : edits : 적용할 score cell 편집 목록
- * - 반환값 : full rebuild가 반영된 앱 상태
+ * - 반환값 : 변경·무변경 상태 후보 또는 적용 거절 사유
  */
 export function applyRawTextBatchToScore(
   state: AppState,
   edits: ScoreTextEdit[],
-): AppState {
+): ScoreTextEditResult {
   if (edits.length === 0) {
-    return state;
+    return { kind: "unchanged", state };
   }
 
   const applyResult = measurePerf("runtime.applyScoreCellRawTextBatch", () =>
@@ -733,21 +740,35 @@ export function applyRawTextBatchToScore(
 
   if (!applyResult.ok) {
     return {
-      ...state,
-      selection: lastSelection,
-      statusMessage: {
+      kind: "rejected",
+      message: {
         level: applyResult.level,
         text: applyResult.message,
       },
     };
   }
 
+  // 하위 계층의 원본 참조 계약에 따라 무변경이면 인덱스·분석 재생성을 생략한다.
+  if (applyResult.score === state.document.score) {
+    return { kind: "unchanged", state: {
+      ...state,
+      selection: lastSelection,
+      statusMessage: { level: "info", text: "No score changes." },
+    } };
+  }
+
   const nextDocument = measurePerf("runtime.createRuntimeDocument", () =>
     createRuntimeDocument(applyResult.score)
   );
   const partialArtifacts = measurePerf("runtime.buildScoreTextEditPartialArtifacts", () =>
+    // 앱 UI 상태를 넘기지 않고 이전 산출물의 참조와 활성 트랙만 전달한다.
     buildScoreTextEditPartialArtifacts({
-      state,
+      previousArtifacts: {
+        parsed: state.parsed,
+        analysis: state.analysis,
+        renderInput: state.renderInput,
+      },
+      activeTrackIds: state.activeTrackIds,
       nextDocument,
       edits,
     })
@@ -757,17 +778,20 @@ export function applyRawTextBatchToScore(
   );
 
   return {
-    ...state,
-    document: nextDocument,
-    parsed: artifacts.parsed,
-    analysis: artifacts.analysis,
-    renderInput: artifacts.renderInput,
-    selection: lastSelection,
-    statusMessage: {
-      level: "info",
-      text: applyResult.isDelete
-        ? `Cleared ${applyResult.updated} cells.`
-        : `Applied ${applyResult.updated} cells.`,
+    kind: "applied",
+    state: {
+      ...state,
+      document: nextDocument,
+      parsed: artifacts.parsed,
+      analysis: artifacts.analysis,
+      renderInput: artifacts.renderInput,
+      selection: lastSelection,
+      statusMessage: {
+        level: "info",
+        text: applyResult.isDelete
+          ? `Cleared ${applyResult.updated} cells.`
+          : `Applied ${applyResult.updated} cells.`,
+      },
     },
   };
 }
@@ -809,34 +833,25 @@ export function applyRawTextEditToState(
 }
 
 /**
- * edit 적용 전후 busy/status 전환을 포함해 여러 rawText 편집을 한 번에 적용한다.
+ * batch 편집과 산출물 계산을 시도하고 성공 여부를 명시적으로 반환한다.
  * - 인수 : state : 현재 앱 상태
  * - 인수 : edits : 적용할 score cell 편집 목록
- * - 반환값 : 성공/실패 상태 메시지가 반영된 앱 상태
+ * - 반환값 : 변경·무변경 상태 후보 또는 거절 사유. 전달된 상태는 확정하거나 변경하지 않는다.
  */
 export function applyRawTextBatchEditToState(
   state: AppState,
   edits: ScoreTextEdit[],
-): AppState {
-  const actionState: AppState = {
-    ...state,
-    busy: { kind: "idle" },
-  };
-
+): ScoreTextEditResult {
   try {
-    return {
-      ...measurePerf("runtime.applyRawTextBatchToScore", () =>
-        applyRawTextBatchToScore(actionState, edits)
-      ),
-      busy: { kind: "idle" },
-    };
+    return measurePerf("runtime.applyRawTextBatchToScore", () =>
+      applyRawTextBatchToScore(state, edits)
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown edit error.";
 
     return {
-      ...state,
-      busy: { kind: "idle" },
-      statusMessage: {
+      kind: "rejected",
+      message: {
         level: "error",
         text: message,
       },

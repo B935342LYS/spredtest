@@ -16,7 +16,7 @@ import {
 } from "../infra/score_local_storage";
 import { touchScoreTimestampsForSave } from "./score_timestamp";
 import { isGameModeLocked } from "./game/game_types";
-import { syncLeftStatus } from "./app_ui_sync";
+import { syncLeftStatus, syncUiControls } from "./app_ui_sync";
 
 /** file/local storage binding이 app 상태를 읽고 갱신하기 위한 session 입력. */
 export type FileBindingSession = {
@@ -38,7 +38,7 @@ export function bindFileControls(
   dom.jsonDownloadButton.addEventListener("click", () => {
     const state = session.getState();
 
-    if (isGameModeLocked(state.gameMode)) {
+    if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode)) {
       return;
     }
 
@@ -64,7 +64,7 @@ export function bindFileControls(
   });
 
   dom.jsonLoadButton.addEventListener("click", () => {
-    if (isGameModeLocked(session.getState().gameMode)) {
+    if (session.getState().busy.kind !== "idle" || isGameModeLocked(session.getState().gameMode)) {
       return;
     }
 
@@ -78,12 +78,20 @@ export function bindFileControls(
       return;
     }
 
-    if (isGameModeLocked(session.getState().gameMode)) {
+    if (session.getState().busy.kind !== "idle" || isGameModeLocked(session.getState().gameMode)) {
       dom.jsonLoadInput.value = "";
       return;
     }
 
-    readTextFile(file)
+    // 파일 내용 읽기부터 검증·교체 완료까지 기존 busy 정책으로 다른 입력을 잠근다.
+    session.setState({
+      ...session.getState(),
+      busy: { kind: "loadingScore", message: `Reading ${file.name}...` },
+    });
+    syncLeftStatus(dom, session.getState());
+    syncUiControls(dom, session.getState());
+
+    Promise.resolve().then(() => readTextFile(file))
       .then((jsonText) => {
         session.loadScoreJsonText(jsonText, file.name);
       })
@@ -102,11 +110,14 @@ export function bindFileControls(
       })
       .finally(() => {
         dom.jsonLoadInput.value = "";
+        session.setState({ ...session.getState(), busy: { kind: "idle" } });
+        syncLeftStatus(dom, session.getState());
+        syncUiControls(dom, session.getState());
       });
   });
 
   dom.localSaveButton.addEventListener("click", () => {
-    if (isGameModeLocked(session.getState().gameMode)) {
+    if (session.getState().busy.kind !== "idle" || isGameModeLocked(session.getState().gameMode)) {
       return;
     }
 
@@ -150,7 +161,7 @@ export function bindFileControls(
   });
 
   dom.localLoadButton.addEventListener("click", () => {
-    if (isGameModeLocked(session.getState().gameMode)) {
+    if (session.getState().busy.kind !== "idle" || isGameModeLocked(session.getState().gameMode)) {
       return;
     }
 

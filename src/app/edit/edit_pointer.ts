@@ -6,7 +6,7 @@ import type {
   ScoreHit,
   ScoreSelection,
 } from "../app_types";
-import type { ScoreTextEdit } from "./edit_apply";
+import type { ScoreTextEdit } from "../../core/score/score_text_edit";
 
 /** 같은 cell 반복 클릭에서 current -> hold -> vib hold 순환을 추적하는 상태. */
 export type RepeatedClickCycleState = {
