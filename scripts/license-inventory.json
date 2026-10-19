@@ -1,0 +1,29 @@
+[
+  {
+    "name": "pitchy",
+    "version": "4.1.0",
+    "license": "MIT",
+    "file": "LICENSE",
+    "start": "",
+    "end": "",
+    "sha256": "4167cc03dfa21cb85c113cddcbb381d91f078eec0eaf95aeaf5a722694b8790b"
+  },
+  {
+    "name": "fft.js",
+    "version": "4.0.4",
+    "license": "MIT",
+    "file": "README.md",
+    "start": "#### LICENSE",
+    "end": "",
+    "sha256": "d3389343460c2b13bc65cf9f29ca7870b88bbdefa3d3b91124b948fc0d30d1b1"
+  },
+  {
+    "name": "vite",
+    "version": "8.0.14",
+    "license": "MIT",
+    "file": "LICENSE.md",
+    "start": "",
+    "end": "# Licenses of bundled dependencies",
+    "sha256": "2adaba77251a1b1f9def19c3a79e91bda053f61678c32f847123e8fcf11e1ac8"
+  }
+]

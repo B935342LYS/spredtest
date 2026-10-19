@@ -1,0 +1,5 @@
+section { margin: 28px 0; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.65; }
+a { overflow-wrap: anywhere; }
+footer { color: var(--muted); }
+@media (max-width: 640px) { section { padding: 14px; } }

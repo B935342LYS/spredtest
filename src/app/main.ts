@@ -628,6 +628,14 @@ async function boot(): Promise<void> {
   dom.manualButton.addEventListener("click", () => {
     window.open("./manual/index.html", "_blank", "noopener");
   });
+  // 정적 고지 페이지는 악보 상태를 변경하지 않고 별도 탭에서 연다.
+  dom.licensesButton.addEventListener("click", /**
+   * 배포에 포함된 외부 소프트웨어의 라이선스 고지를 연다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */ () => {
+    window.open("./licenses/index.html", "_blank", "noopener,noreferrer");
+  });
   resetRepeatedClickCycle = bindScorePointerControls(dom, appSession).resetRepeatedClickCycle;
   bindEditPanelControls(dom, {
     ...appSession,

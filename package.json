@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build",
+    "build": "node scripts/check-licenses.mjs && tsc --noEmit && vite build && node scripts/check-licenses.mjs --bundle",
     "preview": "vite preview --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "test:score": "tsx ./dev/test_score.ts",

@@ -115,6 +115,7 @@ export function collectAppDom(): AppDom {
     localLoadButton: queryElement(".local-load-button", HTMLButtonElement),
     examplesButton: queryElement(".examples-button", HTMLButtonElement),
     manualButton: queryElement(".manual-button", HTMLButtonElement),
+    licensesButton: queryElement(".licenses-button", HTMLButtonElement),
     examplesDialog: queryElement("#examples-dialog", HTMLDialogElement),
     examplesForm: queryElement(".examples-form", HTMLFormElement),
     examplesCloseButton: queryElement(".examples-close-button", HTMLButtonElement),

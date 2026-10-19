@@ -212,6 +212,7 @@ export type AppDom = {
   localLoadButton: HTMLButtonElement;
   examplesButton: HTMLButtonElement;
   manualButton: HTMLButtonElement;
+  licensesButton: HTMLButtonElement;
   examplesDialog: HTMLDialogElement;
   examplesForm: HTMLFormElement;
   examplesCloseButton: HTMLButtonElement;
