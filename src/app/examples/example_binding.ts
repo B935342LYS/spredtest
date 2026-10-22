@@ -42,7 +42,7 @@ export type ExampleBindingSession = {
    * 기존 검증·악보 교체 경로를 실행한다. 해당 경로가 busy와 결과 표시를 맡는다.
    * - 인수 : jsonText : 받은 Score JSON
    * - 인수 : sourceLabel : 로드 출처 표시
-   * - 반환값 : 로드 직후 앱 상태가 오류가 아니면 true
+   * - 반환값 : 검증 거절은 false, 정상 완료는 true. 출력 예외는 호출부 catch로 전파
    */
   loadScoreJsonText(jsonText: string, sourceLabel: string): boolean;
 };

@@ -85,13 +85,13 @@ assert(loadResult.ok, "Runtime document should load for layout apply test.");
 if (loadResult.ok) {
   const score = loadResult.document.score;
   const draft = createLayoutDraftBundle(score);
-  const presetResult = createUserLayoutPresetData(draft, score.instData.presetId);
+  const presetResult = createUserLayoutPresetData(draft, (score.instData.presetId ?? "custom"));
   const longNamePresetResult = createUserLayoutPresetData(
     {
       ...draft,
       layoutPresetDisplayName: "1234567890123456789012345678901",
     },
-    score.instData.presetId,
+    (score.instData.presetId ?? "custom"),
   );
   const oversizedPresetResult = parseUserLayoutPresetJson(" ".repeat(MAX_LAYOUT_PRESET_JSON_BYTES + 1));
   const outOfRangeNoteAddResult = addLayoutDraftRow(draft, {
@@ -106,12 +106,12 @@ if (loadResult.ok) {
   );
 
   globalThis.localStorage.setItem(
-    `layout-slot:${score.instData.presetId}:1`,
+    `layout-slot:${(score.instData.presetId ?? "custom")}:1`,
     JSON.stringify({
       formatVersion: "1",
       layoutPresetId: "slot-1",
       layoutPresetDisplayName: "Broken Local Slot",
-      instrumentPresetId: score.instData.presetId,
+      instrumentPresetId: (score.instData.presetId ?? "custom"),
       createdAt: "2026-06-21T00:00:00.000Z",
       updatedAt: "2026-06-21T00:00:00.000Z",
       instData: score.instData,
@@ -129,7 +129,7 @@ if (loadResult.ok) {
   );
 
   assert(
-    loadLayoutPresetSlotFromLocalStorage(score.instData.presetId, 1) === null,
+    loadLayoutPresetSlotFromLocalStorage((score.instData.presetId ?? "custom"), 1) === null,
     "Invalid local layout preset slot should be cleared and treated as empty.",
   );
 
@@ -201,7 +201,7 @@ if (loadResult.ok) {
         { ...draft, selectedStringId: "missing-string" });
       assert(missingSelection.selectedStringId === parsedPresetResult.value.instData.strings[0]?.stringId,
         "Missing selected string should fall back to the preset first string.");
-      const emptySlots = loadLayoutPresetSlotsFromLocalStorage(score.instData.presetId);
+      const emptySlots = loadLayoutPresetSlotsFromLocalStorage((score.instData.presetId ?? "custom"));
 
       assert(
         restoredDraft.layoutPresetDisplayName === draft.layoutPresetDisplayName,
@@ -224,7 +224,7 @@ if (loadResult.ok) {
       );
 
       const savedSlots = saveLayoutPresetSlotToLocalStorage(parsedPresetResult.value, 2);
-      const loadedSlotPreset = loadLayoutPresetSlotFromLocalStorage(score.instData.presetId, 2);
+      const loadedSlotPreset = loadLayoutPresetSlotFromLocalStorage((score.instData.presetId ?? "custom"), 2);
 
       assert(
         savedSlots[1]?.preset?.layoutPresetDisplayName === parsedPresetResult.value.layoutPresetDisplayName,
@@ -283,7 +283,7 @@ if (loadResult.ok) {
     formatVersion: "1",
     layoutPresetId: "invalid",
     layoutPresetDisplayName: "Invalid",
-    instrumentPresetId: score.instData.presetId,
+    instrumentPresetId: (score.instData.presetId ?? "custom"),
     createdAt: "2026-06-21T00:00:00.000Z",
     updatedAt: "2026-06-21T00:00:00.000Z",
     instData: score.instData,
@@ -396,3 +396,18 @@ if (loadResult.ok) {
 }
 
 console.log("Layout apply test completed.");
+
+// ID를 생략한 악보에서도 독립 프리셋은 custom 계열로 저장·재로드되어야 한다.
+if (loadResult.ok) {
+  const score = structuredClone(loadResult.document.score);
+  delete score.instData.presetId;
+  const draft = createLayoutDraftBundle(score);
+  draft.layoutPresetDisplayName = "Optional preset ID";
+  const preset = createUserLayoutPresetData(draft, score.instData.presetId ?? "custom");
+  assert(preset.ok, "Missing score preset ID should allow custom preset creation.");
+  if (preset.ok) {
+    assert(preset.value.instData.presetId === "custom", "Saved preset must carry custom ID.");
+    assert(preset.value.instrumentPresetId === "custom", "Saved preset must use custom slot family.");
+    assert(parseUserLayoutPresetJson(JSON.stringify(preset.value)).ok, "Custom preset must round trip.");
+  }
+}

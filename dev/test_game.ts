@@ -2206,3 +2206,10 @@ const recordedSample = judgeGameScoringSample(
     consumedOnsetIds: new Set(), attackSatisfiedEventIds: new Set() },
 );
 assert(JSON.stringify(recordedSample) === JSON.stringify(onTimeSample), "Recorded onset must preserve scoring result.");
+
+const omittedDifficulty = normalizeGameTrackDifficulty(undefined);
+assert(omittedDifficulty.basic === 1 && omittedDifficulty.optional === 2 && omittedDifficulty.extra === 3,
+  "Omitted difficulty must use existing Practice defaults.");
+const partialDifficulty = normalizeGameTrackDifficulty({ optional: 4 });
+assert(partialDifficulty.basic === 1 && partialDifficulty.optional === 4 && partialDifficulty.extra === 3,
+  "Partial difficulty must preserve provided values and default omitted tracks.");

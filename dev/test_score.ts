@@ -284,3 +284,24 @@ if (!result.ok) {
     process.exitCode = 1;
   }
 }
+
+// 선택 metadata의 생략 상태를 유지하며 로드·저장 경로를 검증한다.
+for (const partial of [false, true]) {
+  const candidate = cloneJson(fixtureValue);
+  delete candidate.instData.presetId;
+  if (partial) candidate.musicData.scoreDifficulty = { optional: 2.5 };
+  else delete candidate.musicData.scoreDifficulty;
+  const text = JSON.stringify(candidate);
+  const loaded = loadRuntimeDocument(text);
+  if (!loaded.ok) throw new Error("Optional metadata should load.");
+  if (JSON.stringify(loaded.document.score) !== text) throw new Error("Loading must preserve omitted fields.");
+  if (!loadScoreFile(JSON.stringify(loaded.document.score)).ok) throw new Error("Optional metadata must round trip.");
+}
+for (const invalid of [null, "hard", { basic: "hard" }]) {
+  const candidate = cloneJson(fixtureValue);
+  candidate.musicData.scoreDifficulty = invalid;
+  if (validateScoreFile(candidate).ok) throw new Error("Provided difficulty must have a valid shape.");
+}
+const invalidPresetId = cloneJson(fixtureValue);
+invalidPresetId.instData.presetId = 123;
+if (validateScoreFile(invalidPresetId).ok) throw new Error("Provided preset ID must be a string.");

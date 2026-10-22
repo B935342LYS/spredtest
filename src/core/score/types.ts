@@ -39,13 +39,14 @@ export type MusicData = {
     musicGenre: string;     // 곡의 장르 (default : "Unknown")
     scoreWriter: string;    // 악보 제작자명 (default : "Anonymous")
     comment: string;        // 악보 제작자 코멘트 (500자 이하)
-    scoreDifficulty: ScoreDifficulty;   // 트랙별 난이도
+    scoreDifficulty?: ScoreDifficulty;   // 생략한 난이도는 소비 시 기본값 사용
     createdAt: string;      // 악보 생성 날짜 (ISO 형식)
     updatedAt: string;      // 악보 마지막 수정 날짜 (생성 시각보다 과거일 수 없음)
     youtube: YoutubeSync;   // 유튜브 모드 관련 정보
 };
 
-export type ScoreDifficulty = Record<TrackId, number>;  // 난이도는 트랙마다 하나씩 필수로 할당한다. (default : 0)
+/** 트랙별 난이도는 각각 생략할 수 있다. */
+export type ScoreDifficulty = Partial<Record<TrackId, number>>;
 
 export type YoutubeSync = {
   videoId: string;      // 유튜브 동영상 ID
@@ -57,7 +58,7 @@ export type YoutubeSync = {
  * - 악기 종류와 필드 정보에 따라 다른 UI를 제공한다.
  */
 export type InstrumentData = {
-  presetId: string;         // 파일 내에 정의된 악기 프리셋을 불러온다. 사용자 임의 설정은 "custom"
+  presetId?: string;        // 생략 시 레이아웃 프리셋 계열은 "custom"으로 취급
   family: string;           // 악기의 종류
   instName: string;         // 사용자가 정할 수 있는 악기명. ex: "Otamatone Dx basic"
   supportsOpen: boolean;    // 악기가 개방현을 지원하는가

@@ -890,7 +890,7 @@ export function openLayoutDialog(
   syncLayoutDialogFromDraft(dom, activeLayoutDraft, "Layout draft is ready.");
   syncLayoutPresetSelect(
     dom,
-    loadLayoutPresetSlotsForDialog(dom, score.instData.presetId),
+    loadLayoutPresetSlotsForDialog(dom, score.instData.presetId ?? "custom"),
   );
   dom.layoutDialog.showModal();
 }
@@ -901,7 +901,7 @@ export function openLayoutDialog(
  * - 반환값 : 현재 score의 instrument preset ID
  */
 function getCurrentInstrumentPresetId(session: Pick<LayoutDialogBindingSession, "getState">): string {
-  return session.getState().document.score.instData.presetId;
+  return session.getState().document.score.instData.presetId ?? "custom";
 }
 
 /**
@@ -994,7 +994,7 @@ function applyLayoutToolbarPreset(
   }
 
   try {
-    const instrumentPresetId = state.document.score.instData.presetId;
+    const instrumentPresetId = state.document.score.instData.presetId ?? "custom";
     const preset = loadLayoutPresetSlotFromLocalStorage(instrumentPresetId, slotNumber);
 
     if (preset === null) {
@@ -1401,7 +1401,7 @@ export function bindLayoutDialogControls(
     syncLayoutDialogFromDraft(dom, activeLayoutDraft, "Layout draft was reset to the current score.");
     syncLayoutPresetSelect(
       dom,
-      loadLayoutPresetSlotsForDialog(dom, score.instData.presetId),
+      loadLayoutPresetSlotsForDialog(dom, score.instData.presetId ?? "custom"),
     );
   });
   dom.layoutNewPresetButton.addEventListener("click", () => {

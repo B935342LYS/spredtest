@@ -267,6 +267,11 @@ function validateBasicShapes(
   }
 
   // 현 목록은 stringId 중복 검사의 입력이므로 배열 형태가 필요하다.
+  // 생략은 허용하되 제공된 식별자의 타입은 저장 계약에 맞아야 한다.
+  if (score.instData.presetId !== undefined && typeof score.instData.presetId !== "string") {
+    return invalidShape("instData.presetId must be a string when provided.", "instData.presetId");
+  }
+
   if (!Array.isArray(score.instData.strings)) {
     return invalidShape("instData.strings must be an array.", "instData.strings");
   }
@@ -332,6 +337,19 @@ function validateMusicDataTextShape(musicData: Record<string, unknown>): ScoreVa
   for (const field of ["musicTitle", "musicArtist", "musicGenre", "scoreWriter", "comment"]) {
     if (typeof musicData[field] !== "string") {
       return invalidShape(`musicData.${field} must be a string.`, `musicData.${field}`);
+    }
+  }
+
+  // 선택 난이도 객체와 각 트랙 값은 누락을 허용한다. 원본에 기본값을 쓰지는 않는다.
+  if (musicData.scoreDifficulty !== undefined) {
+    if (!isRecord(musicData.scoreDifficulty)) {
+      return invalidShape("musicData.scoreDifficulty must be an object when provided.", "musicData.scoreDifficulty");
+    }
+    for (const trackId of TRACK_IDS) {
+      const difficulty = musicData.scoreDifficulty[trackId];
+      if (difficulty !== undefined && (typeof difficulty !== "number" || !Number.isFinite(difficulty))) {
+        return invalidShape("Track difficulty must be a finite number when provided.", `musicData.scoreDifficulty.${trackId}`);
+      }
     }
   }
 

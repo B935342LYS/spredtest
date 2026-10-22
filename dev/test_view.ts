@@ -203,9 +203,9 @@ assert(
   "Clear All should reset musicData.comment to an empty string.",
 );
 assert(
-  clearedState.document.score.musicData.scoreDifficulty.basic === 0 &&
-    clearedState.document.score.musicData.scoreDifficulty.optional === 0 &&
-    clearedState.document.score.musicData.scoreDifficulty.extra === 0,
+  clearedState.document.score.musicData.scoreDifficulty?.basic === 0 &&
+    clearedState.document.score.musicData.scoreDifficulty?.optional === 0 &&
+    clearedState.document.score.musicData.scoreDifficulty?.extra === 0,
   "Clear All should reset all track difficulties to 0.",
 );
 assert(

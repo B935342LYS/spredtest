@@ -22,7 +22,7 @@ import { syncLeftStatus, syncUiControls } from "./app_ui_sync";
 export type FileBindingSession = {
   getState(): AppState;
   setState(nextState: AppState): void;
-  loadScoreJsonText(jsonText: string, sourceLabel: string): void;
+  loadScoreJsonText(jsonText: string, sourceLabel: string): boolean;
 };
 
 /**

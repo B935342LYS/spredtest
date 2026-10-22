@@ -49,6 +49,8 @@ export function createUserLayoutPresetData(
       updatedAt: now,
       instData: cloneInstrumentData({
         ...draft.instData,
+        // 악보에서 생략 가능한 ID를 독립 프리셋 저장 계약에 맞춰 채운다.
+        presetId: draft.instData.presetId ?? "custom",
         instName: displayName,
       }),
       rowDefinitions: cloneEditableRows(draft.rowDefinitions),

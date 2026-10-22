@@ -510,7 +510,7 @@ function judgeTimingForTarget(
  * - 반환값 : 0, 누락, 비정상 값을 기본 난이도로 대체한 map
  */
 export function normalizeGameTrackDifficulty(
-  scoreDifficulty: Partial<Record<TrackId, number>>,
+  scoreDifficulty: Partial<Record<TrackId, number>> = {},
 ): Record<TrackId, number> {
   return {
     basic: normalizeTrackDifficulty("basic", scoreDifficulty.basic),

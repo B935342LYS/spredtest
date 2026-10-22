@@ -485,7 +485,13 @@ async function boot(): Promise<void> {
     );
   };
 
-  const loadScoreJsonText = (jsonText: string, sourceLabel: string): void => {
+  /**
+   * 검증된 새 악보로 교체하고 화면·재생 연결 완료 여부를 반환한다.
+   * - 인수 : jsonText : 입력 Score JSON
+   * - 인수 : sourceLabel : 로드 출처 표시
+   * - 반환값 : 검증 거절은 false, 정상 완료는 true. 출력 예외는 기존대로 전파한다.
+   */
+  const loadScoreJsonText = (jsonText: string, sourceLabel: string): boolean => {
     const previousPracticeJudgeMode = state.practiceJudgeMode;
 
     state = {
@@ -508,7 +514,7 @@ async function boot(): Promise<void> {
       };
       syncLeftStatus(dom, state);
       syncUiControls(dom, state);
-      return;
+      return false;
     }
 
     dom.editToggle.checked = false;
@@ -522,6 +528,7 @@ async function boot(): Promise<void> {
     render();
     resetPlaybackForCurrentState();
     youtubeControl.syncInputsFromScore();
+    return true;
   };
 
   const appSession = {
@@ -617,11 +624,10 @@ async function boot(): Promise<void> {
      * 공통 로드 경로의 처리 직후 결과만 Examples에 전달한다.
      * - 인수 : jsonText : 받은 Score JSON
      * - 인수 : sourceLabel : 로드 출처
-     * - 반환값 : 기존 dialog 닫기 조건인 오류 상태 아님 여부
+     * - 반환값 : 공통 로드 함수가 반환한 정상 완료 여부
      */
     loadScoreJsonText(jsonText, sourceLabel) {
-      loadScoreJsonText(jsonText, sourceLabel);
-      return state.statusMessage.level !== "error";
+      return loadScoreJsonText(jsonText, sourceLabel);
     },
   };
   bindExampleControls(dom, exampleSession);

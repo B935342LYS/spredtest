@@ -174,9 +174,9 @@ export function populateDetailsDialog(dom: AppDom, musicData: MusicData): void {
   dom.detailsCommentInput.value = musicData.comment;
   dom.detailsCreatedAtInput.value = musicData.createdAt;
   dom.detailsUpdatedAtInput.value = musicData.updatedAt;
-  dom.detailsBasicDifficultyInput.value = String(musicData.scoreDifficulty.basic);
-  dom.detailsOptionalDifficultyInput.value = String(musicData.scoreDifficulty.optional);
-  dom.detailsExtraDifficultyInput.value = String(musicData.scoreDifficulty.extra);
+  dom.detailsBasicDifficultyInput.value = String(musicData.scoreDifficulty?.basic ?? 0);
+  dom.detailsOptionalDifficultyInput.value = String(musicData.scoreDifficulty?.optional ?? 0);
+  dom.detailsExtraDifficultyInput.value = String(musicData.scoreDifficulty?.extra ?? 0);
 }
 
 /**
@@ -199,15 +199,15 @@ export function readDetailsDialogMusicData(
     scoreDifficulty: {
       basic: readIntegerInput(
         dom.detailsBasicDifficultyInput,
-        currentMusicData.scoreDifficulty.basic,
+        currentMusicData.scoreDifficulty?.basic ?? 0,
       ),
       optional: readIntegerInput(
         dom.detailsOptionalDifficultyInput,
-        currentMusicData.scoreDifficulty.optional,
+        currentMusicData.scoreDifficulty?.optional ?? 0,
       ),
       extra: readIntegerInput(
         dom.detailsExtraDifficultyInput,
-        currentMusicData.scoreDifficulty.extra,
+        currentMusicData.scoreDifficulty?.extra ?? 0,
       ),
     },
   };
