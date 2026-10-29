@@ -215,10 +215,10 @@ function createStringSummaryRow(stringInfo: InstrumentString): HTMLElement {
   row.dataset.stringId = stringInfo.stringId;
   row.append(
     createLayoutCell(stringInfo.stringId),
-    createLayoutCell(stringInfo.stringName),
+    createLayoutCell(stringInfo.stringName.trim() || stringInfo.stringId),
     createPitchSelect(stringInfo.minMidi, "Min MIDI", "minMidi"),
     createPitchSelect(stringInfo.maxMidi, "Max MIDI", "maxMidi"),
-    createPitchSelect(stringInfo.openMidi ?? stringInfo.minMidi, "Open MIDI", "openMidi", true),
+    createPitchSelect(stringInfo.openMidi, "Open MIDI", "openMidi", true),
   );
 
   return row;
@@ -231,7 +231,7 @@ function createStringSummaryRow(stringInfo: InstrumentString): HTMLElement {
  * - 반환값 : 0..127 MIDI 선택지를 가진 select 요소
  */
 function createPitchSelect(
-  selectedMidi: number,
+  selectedMidi: number | undefined,
   label: string,
   field: "minMidi" | "maxMidi" | "openMidi",
   disabled = false,
@@ -251,7 +251,13 @@ function createPitchSelect(
     select.appendChild(option);
   }
 
-  select.value = String(selectedMidi);
+  if (selectedMidi === undefined) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "Not specified";
+    select.appendChild(option);
+  }
+  select.value = selectedMidi === undefined ? "" : String(selectedMidi);
 
   return select;
 }
@@ -363,7 +369,7 @@ function createLayoutPreviewRow(
 
   if (row.type === "note") {
     rowElement.style.setProperty("--layout-preview-label-bg", colorForLabelMidi(row.midi));
-    label.textContent = row.displayLabel;
+    label.textContent = row.displayLabel.trim() || row.rowId;
   } else {
     label.textContent = "";
   }
@@ -664,7 +670,7 @@ function wrapLayoutControl(control: HTMLElement): HTMLSpanElement {
  */
 function formatLayoutRowPitch(row: LayoutEditableRowDefinition): string {
   if (row.type === "note") {
-    return `${row.displayLabel} (${row.midi})`;
+    return `${row.displayLabel.trim() || row.rowId} (${row.midi})`;
   }
 
   return "";
@@ -755,15 +761,12 @@ function readLayoutInstrumentStringsFromDialog(
 
     const minMidi = readLayoutStringPitchSelect(row, "minMidi", stringInfo.minMidi);
     const maxMidi = readLayoutStringPitchSelect(row, "maxMidi", stringInfo.maxMidi);
-    const openMidi = readLayoutStringPitchSelect(row, "openMidi", stringInfo.openMidi ?? minMidi);
-
-    const { openMidi: _openMidi, ...baseStringInfo } = stringInfo;
 
     return {
-      ...baseStringInfo,
+      ...stringInfo,
       minMidi,
       maxMidi,
-      ...(dom.layoutSupportsOpenInput.checked ? { openMidi } : {}),
+      // 읽기 전용 개방현 값은 누락과 불일치 상태까지 원본 그대로 보존한다.
     };
   });
 }

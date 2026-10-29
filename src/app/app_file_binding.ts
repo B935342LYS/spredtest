@@ -14,6 +14,7 @@ import {
   loadScoreFromLocalStorage,
   saveScoreToLocalStorage,
 } from "../infra/score_local_storage";
+import { isValidScoreTimestamp } from "../core/score/score_warnings";
 import { touchScoreTimestampsForSave } from "./score_timestamp";
 import { isGameModeLocked } from "./game/game_types";
 import { syncLeftStatus, syncUiControls } from "./app_ui_sync";
@@ -57,7 +58,7 @@ export function bindFileControls(
       scoreOrigin: "saved",
       statusMessage: {
         level: "info",
-        text: "JSON downloaded.",
+        text: `JSON downloaded.${!isValidScoreTimestamp(state.document.score.musicData.createdAt) ? " Missing/invalid createdAt was replaced with the save time." : ""}`,
       },
     });
     syncLeftStatus(dom, session.getState());
@@ -142,7 +143,7 @@ export function bindFileControls(
         scoreOrigin: "saved",
         statusMessage: {
           level: "info",
-          text: "Score saved to local storage.",
+          text: `Score saved to local storage.${!isValidScoreTimestamp(state.document.score.musicData.createdAt) ? " Missing/invalid createdAt was replaced with the save time." : ""}`,
         },
       });
     } catch (error: unknown) {

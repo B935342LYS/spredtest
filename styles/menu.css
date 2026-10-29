@@ -385,3 +385,26 @@
   grid-template-columns: 1fr;
 }
 
+
+/* 로드 경고의 전체 내용을 좁은 메뉴에서도 읽을 수 있게 한다. */
+.score-load-warnings {
+  position: relative;
+  font-size: 12px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.score-load-warning-content {
+  position: absolute;
+  z-index: 100;
+  top: 100%;
+  left: 0;
+  width: min(440px, 80vw);
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 20%);
+  white-space: pre-line;
+  max-height: 200px;
+  overflow: auto;
+  line-height: 1.5;
+}

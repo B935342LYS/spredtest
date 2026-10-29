@@ -453,14 +453,6 @@ function addNoteRow(
     };
   }
 
-  if (midi < stringInfo.minMidi || midi > stringInfo.maxMidi) {
-    return {
-      ok: false,
-      level: "warning",
-      message: `${formatPitchName(midi, "sharp")} is outside ${stringId} range ${formatPitchName(stringInfo.minMidi, "sharp")}..${formatPitchName(stringInfo.maxMidi, "sharp")}.`,
-    };
-  }
-
   if (draft.rowDefinitions.some((row) => row.type === "note" && row.stringId === stringId && row.midi === midi)) {
     return {
       ok: false,
@@ -471,7 +463,7 @@ function addNoteRow(
 
   const row = createNoteRow(stringId, midi, input.height);
 
-  return insertDraftRow(draft, row, input.position, `Added note row ${row.displayLabel}.`);
+  return insertDraftRow(draft, row, input.position, `Added note row ${row.displayLabel}.${midi < stringInfo.minMidi || midi > stringInfo.maxMidi ? " Warning: outside the range configured in instrument information." : ""}`);
 }
 
 /**

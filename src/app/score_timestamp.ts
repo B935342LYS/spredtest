@@ -2,6 +2,7 @@
  * ScoreFile의 수정 시각 metadata를 갱신하는 helper이다.
  */
 
+import { isValidScoreTimestamp } from "../core/score/score_warnings";
 import type { ScoreFile } from "../core/score/types";
 import type { ScoreOrigin } from "./app_types";
 
@@ -58,7 +59,9 @@ export function touchScoreTimestampsForSave(
     };
   }
 
-  return touchScoreUpdatedAt(score, timestamp);
+  // 정상 작성 시각은 보존하고, 누락/오류 시각만 명시 저장 시 보완한다.
+  const createdAt = isValidScoreTimestamp(score.musicData.createdAt) ? score.musicData.createdAt : timestamp;
+  return touchScoreUpdatedAt({ ...score, musicData: { ...score.musicData, createdAt } }, timestamp);
 }
 
 /**
@@ -67,7 +70,8 @@ export function touchScoreTimestampsForSave(
  * - 인수 : updatedAt : 수정 시각 후보
  * - 반환값 : 저장할 updatedAt 문자열
  */
-function normalizeUpdatedAt(createdAt: string, updatedAt: string): string {
+function normalizeUpdatedAt(createdAt: unknown, updatedAt: string): string {
+  if (!isValidScoreTimestamp(createdAt)) return updatedAt;
   const createdTime = Date.parse(createdAt);
   const updatedTime = Date.parse(updatedAt);
 
@@ -76,5 +80,5 @@ function normalizeUpdatedAt(createdAt: string, updatedAt: string): string {
     return updatedAt;
   }
 
-  return updatedTime < createdTime ? createdAt : updatedAt;
+  return updatedTime < createdTime ? new Date(createdTime).toISOString() : updatedAt;
 }

@@ -172,8 +172,8 @@ export function populateDetailsDialog(dom: AppDom, musicData: MusicData): void {
   dom.detailsGenreInput.value = musicData.musicGenre;
   dom.detailsWriterInput.value = musicData.scoreWriter;
   dom.detailsCommentInput.value = musicData.comment;
-  dom.detailsCreatedAtInput.value = musicData.createdAt;
-  dom.detailsUpdatedAtInput.value = musicData.updatedAt;
+  dom.detailsCreatedAtInput.value = typeof musicData.createdAt === "string" ? musicData.createdAt : "";
+  dom.detailsUpdatedAtInput.value = typeof musicData.updatedAt === "string" ? musicData.updatedAt : "";
   dom.detailsBasicDifficultyInput.value = String(musicData.scoreDifficulty?.basic ?? 0);
   dom.detailsOptionalDifficultyInput.value = String(musicData.scoreDifficulty?.optional ?? 0);
   dom.detailsExtraDifficultyInput.value = String(musicData.scoreDifficulty?.extra ?? 0);

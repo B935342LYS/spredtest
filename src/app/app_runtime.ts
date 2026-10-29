@@ -2,6 +2,7 @@
  * RuntimeDocument에서 app 상태와 renderer 입력을 재생성하는 경계를 담당한다.
  */
 
+import { collectScoreWarnings } from "../core/score/score_warnings";
 import { loadYoutubeLocalOffsetMs } from "../infra/youtube_preferences";
 import { analyzeDocument } from "../core/analyze/analyze_full";
 import type { AnalysisResult } from "../core/analyze/types";
@@ -537,14 +538,25 @@ export function loadScoreTextAsInitialState(
     };
   }
 
+  const initialState = createInitialState(loadResult.document, scoreOrigin);
+  const warnings = collectScoreWarnings(loadResult.document.score);
+  // 기존 parser 결과를 재사용해 오류 위치와 시작 기본값 적용을 함께 안내한다.
+  for (const [kind, entries] of initialState.parsed.globalCellsByKindAndCol) {
+    const invalid = [...entries.values()].filter((entry) => entry.parsedCell.kind === "invalid");
+    if (invalid.length === 0) continue;
+    const positions = invalid.slice(0, 5).map((entry) => `${entry.rowId}@${entry.col}`).join(", ");
+    const fallback = entries.get(0)?.parsedCell.kind === "invalid"
+      ? ` Start default: ${DEFAULT_GLOBAL_RAW_TEXT_BY_KIND[kind]}.` : " Invalid cells are ignored; valid global values and ramps remain in effect.";
+    warnings.push(`${kind}: ${invalid.length} invalid cell(s) (${positions}${invalid.length > 5 ? ", …" : ""}).${fallback}`);
+  }
   return {
     ok: true,
     state: {
-      ...createInitialState(loadResult.document, scoreOrigin),
+      ...initialState,
       practiceJudgeMode: "standard",
       statusMessage: {
-        level: "info",
-        text: `${sourceLabel} loaded.`,
+        level: warnings.length > 0 ? "warning" : "info",
+        text: [`${sourceLabel} loaded.`, ...warnings].join("\n"),
       },
     },
   };

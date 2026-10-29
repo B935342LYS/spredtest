@@ -40,8 +40,8 @@ export type MusicData = {
     scoreWriter: string;    // 악보 제작자명 (default : "Anonymous")
     comment: string;        // 악보 제작자 코멘트 (500자 이하)
     scoreDifficulty?: ScoreDifficulty;   // 생략한 난이도는 소비 시 기본값 사용
-    createdAt: string;      // 악보 생성 날짜 (ISO 형식)
-    updatedAt: string;      // 악보 마지막 수정 날짜 (생성 시각보다 과거일 수 없음)
+    createdAt?: unknown;    // 로드 시 원본 보존, 저장 시 유효한 ISO 시각으로 보완
+    updatedAt?: unknown;    // 로드 시 원본 보존, 저장 시 ISO 시각 갱신
     youtube: YoutubeSync;   // 유튜브 모드 관련 정보
 };
 
@@ -69,7 +69,7 @@ export type InstrumentString = {
   stringId: StringId;       // 현 구분을 위한 식별자 ex: s1, s2, s3, ...
   stringName: string;       // UI상으로 뜨게 되는 현 이름 ex: 1st String
   openMidi?: number;        // (지원시) 개방현의 음정
-  minMidi: number;          // 지판을 눌러서 연주되는 최저음
+  minMidi: number;          // 개방현을 포함할 수 있는 악기 최저음
   maxMidi: number;          // 현의 최고음
 };
 

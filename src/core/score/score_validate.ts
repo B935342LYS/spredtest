@@ -74,6 +74,7 @@ export type ScoreValidationResult =
       error: ScoreValidationError;
     };
 
+const SUPPORTED_SCORE_VERSIONS = ["0.0.1"];
 const TRACK_IDS: TrackId[] = ["basic", "optional", "extra"];
 const GLOBAL_KINDS: GlobalKind[] = [
   "bpm",
@@ -115,6 +116,9 @@ export function validateScoreFile(value: unknown): ScoreValidationResult {
     return { ok: false, error: shapeError };
   }
 
+  const nestedError = validateNestedShapes(score as ScoreFile);
+  if (nestedError) return { ok: false, error: nestedError };
+
   // 위 shape 검사를 통과한 뒤에만 후속 참조 검증을 위해 ScoreFile로 단언한다.
   const scoreFile = score as ScoreFile;
 
@@ -147,7 +151,7 @@ export function validateScoreFile(value: unknown): ScoreValidationResult {
     return { ok: false, error: globalCellError };
   }
 
-  // 트랙 셀의 rowId 참조, gap row 참조 금지, 열 범위, 좌표 중복 검사
+  // 트랙 셀의 rowId 참조, note 행만 참조, 열 범위, 좌표 중복 검사
   const trackCellError = validateTrackCells(scoreFile, rowValidation.rowById);
   if (trackCellError) {
     return { ok: false, error: trackCellError };
@@ -630,7 +634,7 @@ function validateGlobalCells(
 }
 
 /**
- * 트랙 셀의 rowId 참조, gap row 참조 금지, 열 범위, 좌표 중복을 확인한다.
+ * 트랙 셀의 rowId 참조, note 행만 참조, 열 범위, 좌표 중복을 확인한다.
  * - 인수 : score : 기본 형태 검증을 통과한 ScoreFile
  * - 인수 : rowById : validateRows()에서 생성한 rowId 조회 Map
  * - 반환값 : ScoreValidationError | null : 트랙 셀 오류 또는 통과 결과
@@ -653,11 +657,11 @@ function validateTrackCells(
         return unknownRowId(cell.rowId, `tracks.${track.trackId}.cells`);
       }
 
-      // gap row는 화면 간격 표현용 행이므로 실제 입력 셀이 붙을 수 없다.
-      if (row.type === "gap") {
+      // 트랙 셀은 note 행만 참조하며 전역 상태와 간격 행에는 붙을 수 없다.
+      if (row.type !== "note") {
         return {
           code: "invalid_cell_row_type",
-          message: `Track cell rowId must not refer to a gap row: ${cell.rowId}.`,
+          message: `Track cell rowId must refer to a note row: ${cell.rowId}.`,
           path: `tracks.${track.trackId}.cells`,
         };
       }
@@ -824,4 +828,78 @@ function invalidShape(message: string, path?: string): ScoreValidationError {
 function isRecord(value: unknown): value is Record<string, unknown> {
   // typeof null도 object로 평가되며, 배열도 object의 일종이므로 둘 다 명시적으로 제외한다.
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * 중첩 객체의 타입을 검사하여 후속 참조 검사에서 예외가 발생하지 않게 한다.
+ * - 인수 : score : 상위 객체와 배열 검사를 통과한 후보
+ * - 반환값 : 구조 오류 또는 null
+ */
+function validateNestedShapes(score: ScoreFile): ScoreValidationError | null {
+  if (score.format.formatName !== "spred-sheet" || !SUPPORTED_SCORE_VERSIONS.includes(score.format.version)) {
+    return invalidShape("Unsupported score format/version. Supported: spred-sheet 0.0.1.", "format");
+  }
+  for (const field of ["family", "instName"] as const) {
+    if (typeof score.instData[field] !== "string") return invalidShape(`instData.${field} must be a string.`, `instData.${field}`);
+  }
+  if (typeof score.instData.supportsOpen !== "boolean" || score.instData.strings.length === 0) {
+    return invalidShape("Instrument requires supportsOpen boolean and at least one string.", "instData");
+  }
+  // 현의 수치 정보는 보장하고 개방현과의 관계는 경고로 처리한다.
+  for (const entry of score.instData.strings) {
+    if (!isRecord(entry) || !isIdentifier(entry.stringId) || typeof entry.stringName !== "string"
+      || !isMidi(entry.minMidi) || !isMidi(entry.maxMidi) || entry.minMidi > entry.maxMidi
+      || (entry.openMidi !== undefined && !isMidi(entry.openMidi))) {
+      return invalidShape("Invalid instrument string fields or MIDI range.", "instData.strings");
+    }
+  }
+  if (!Number.isSafeInteger(score.layout.baseColumnWidthPx) || score.layout.baseColumnWidthPx < 1) {
+    return invalidShape("baseColumnWidthPx must be a positive safe integer.", "layout.baseColumnWidthPx");
+  }
+  const kinds = new Set<GlobalKind>();
+  for (const row of score.layout.rowDefinitions) {
+    if (!isRecord(row) || !isIdentifier(row.rowId) || !["global", "note", "gap"].includes(row.type)) {
+      return invalidShape("Row requires a nonblank rowId and supported type.", "layout.rowDefinitions");
+    }
+    if (row.type === "global") {
+      if (!GLOBAL_KINDS.includes(row.kind) || kinds.has(row.kind)) {
+        return invalidShape("Global kind must be supported and unique.", "layout.rowDefinitions");
+      }
+      kinds.add(row.kind);
+    } else if (!isIdentifier(row.stringId) || (row.type === "note" && typeof row.displayLabel !== "string")) {
+      return invalidShape("Invalid row stringId or displayLabel.", "layout.rowDefinitions");
+    }
+  }
+  for (const track of score.tracks) {
+    if (!isRecord(track) || typeof track.trackName !== "string" || !Array.isArray(track.cells)) {
+      return invalidShape("Track requires an object, string trackName and cells array.", "tracks");
+    }
+  }
+  // 배열 원소를 참조 접근 전에 검사하여 null도 정상적인 검증 실패로 반환한다.
+  for (const cells of [score.globalLines.cells, ...score.tracks.map((track) => track.cells)]) {
+    for (const cell of cells) {
+      if (!isRecord(cell) || !isIdentifier(cell.rowId)) {
+        return invalidShape("Cell requires an object and nonblank rowId.", "cells");
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * 참조 식별자가 공백만 있는 문자열인지 검사한다. 원본은 변경하지 않는다.
+ * - 인수 : value : 후보 값
+ * - 반환값 : 유효한 식별자 여부
+ */
+function isIdentifier(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+/**
+ * MIDI 정수의 유효 범위를 검사한다.
+ * - 인수 : value : 후보 값
+ * - 반환값 : 0~127 정수 여부
+ */
+function isMidi(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 127;
 }

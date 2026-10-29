@@ -184,11 +184,11 @@ function validateInstrumentData(value: unknown): LayoutPresetResult<InstrumentDa
     return invalidPreset("Layout preset instData.presetId is required.");
   }
 
-  if (typeof value.family !== "string" || value.family.trim().length === 0) {
+  if (typeof value.family !== "string") {
     return invalidPreset("Layout preset instData.family is required.");
   }
 
-  if (typeof value.instName !== "string" || value.instName.trim().length === 0) {
+  if (typeof value.instName !== "string") {
     return invalidPreset("Layout preset instData.instName is required.");
   }
 
@@ -221,7 +221,7 @@ function validateInstrumentData(value: unknown): LayoutPresetResult<InstrumentDa
       return invalidPreset(`Duplicate layout preset stringId: ${stringInfo.stringId}.`);
     }
 
-    if (typeof stringInfo.stringName !== "string" || stringInfo.stringName.trim().length === 0) {
+    if (typeof stringInfo.stringName !== "string") {
       return invalidPreset(`Layout preset stringName is required: ${stringInfo.stringId}.`);
     }
 
@@ -311,13 +311,7 @@ function validatePresetRows(
         return invalidPreset(`Layout preset note MIDI is invalid: ${row.rowId}.`);
       }
 
-      const stringInfo = stringById.get(row.stringId);
-
-      if (stringInfo === undefined || row.midi < stringInfo.minMidi || row.midi > stringInfo.maxMidi) {
-        return invalidPreset(`Layout preset note MIDI is outside string range: ${row.rowId}.`);
-      }
-
-      if (typeof row.displayLabel !== "string" || row.displayLabel.length === 0) {
+      if (typeof row.displayLabel !== "string") {
         return invalidPreset(`Layout preset note displayLabel is required: ${row.rowId}.`);
       }
 

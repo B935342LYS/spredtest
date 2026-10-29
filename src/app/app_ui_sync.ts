@@ -84,6 +84,15 @@ export function syncLeftStatus(dom: AppDom, state: AppState): void {
   dom.leftStatusLine.textContent = message.text;
   dom.leftStatusLine.dataset.level = message.level;
   dom.leftStatusLine.title = message.text;
+  // 로드 경고는 마우스 hover 없이 키보드·터치로도 전체 내용을 펼칠 수 있다.
+  const details = dom.leftStatusLine.parentElement?.querySelector<HTMLDetailsElement>(".score-load-warnings");
+  const content = details?.querySelector<HTMLElement>(".score-load-warning-content");
+  if (details && content) {
+    const lines = message.text.split("\n");
+    details.hidden = message.level !== "warning" || lines.length < 2;
+    content.textContent = lines.slice(1).join("\n");
+    if (details.hidden) details.open = false;
+  }
 }
 
 /**

@@ -101,8 +101,8 @@ if (loadResult.ok) {
   });
 
   assert(
-    !outOfRangeNoteAddResult.ok,
-    "Layout draft should block note row insertion outside the selected string MIDI range.",
+    outOfRangeNoteAddResult.ok && outOfRangeNoteAddResult.message.includes("outside"),
+    "Layout draft should allow an out-of-range note and explain the configured instrument range.",
   );
 
   globalThis.localStorage.setItem(
@@ -117,10 +117,10 @@ if (loadResult.ok) {
       instData: score.instData,
       rowDefinitions: [
         {
-          rowId: "s1-note-92",
+          rowId: "s1-note-128",
           type: "note",
           stringId: "s1",
-          midi: 92,
+          midi: 128,
           height: 7,
           displayLabel: "G#6",
         },
