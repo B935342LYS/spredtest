@@ -580,6 +580,8 @@ export function bindScorePointerControls(
     resetNotePreviewHit();
 
     event.preventDefault();
+    // 기본 pointer 포커스 이동을 막았으므로 악보에 직접 옮겨 이전 입력 필드가 단축키를 가로막지 않게 한다.
+    dom.scoreArea.focus({ preventScroll: true });
     suppressNextClick = true;
 
     if (event.ctrlKey && event.button === 0) {
@@ -864,7 +866,8 @@ export function bindScorePointerControls(
   });
 
   document.addEventListener("keydown", (event) => {
-    if (isEditableKeyboardTarget(event.target)) {
+    // 대화상자 버튼의 키 입력이 뒤쪽 악보의 선택·클립보드를 변경하지 않게 한다.
+    if (event.defaultPrevented || document.querySelector("dialog[open]") !== null || isEditableKeyboardTarget(event.target)) {
       return;
     }
 

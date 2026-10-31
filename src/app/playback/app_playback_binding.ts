@@ -1059,7 +1059,13 @@ export function bindPlaybackControls(
   };
 
   document.addEventListener("keydown", (event) => {
-    if (event.code !== "Space" || isEditableKeyboardTarget(event.target)) {
+    // 대화상자와 버튼·메뉴의 기본 Space 조작을 전역 재생 단축키가 가로채지 않게 한다.
+    if (
+      event.code !== "Space" || event.defaultPrevented ||
+      document.querySelector("dialog[open]") !== null ||
+      isEditableKeyboardTarget(event.target) ||
+      (event.target instanceof Element && event.target.closest("button, summary, a[href]") !== null)
+    ) {
       return;
     }
 

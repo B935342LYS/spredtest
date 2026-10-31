@@ -564,7 +564,8 @@ async function boot(): Promise<void> {
     applyRedo();
   });
   document.addEventListener("keydown", (event) => {
-    if (isEditableKeyboardTarget(event.target)) {
+    // 대화상자가 열려 있으면 뒤쪽 악보의 Undo/Redo를 실행하지 않는다.
+    if (event.defaultPrevented || document.querySelector("dialog[open]") !== null || isEditableKeyboardTarget(event.target)) {
       return;
     }
 
