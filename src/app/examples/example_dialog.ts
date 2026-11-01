@@ -232,8 +232,8 @@ function resetExampleDialog(dom: AppDom): void {
   dom.examplesList.dataset.selectedExampleId = "";
   dom.examplesNameSearchInput.value = "";
   dom.examplesGenreSearchInput.value = "";
-  dom.examplesSortSelect.value = "title";
-  dom.examplesSortDirectionSelect.value = "asc";
+  dom.examplesSortSelect.value = "updated-at";
+  dom.examplesSortDirectionSelect.value = "desc";
   dom.examplesLoadButton.disabled = true;
   setExampleDialogNotice(dom, "Public examples load automatically.", "info");
   setExampleDialogBusy(dom, false);
