@@ -520,6 +520,8 @@ async function boot(): Promise<void> {
     dom.editToggle.checked = false;
     state = {
       ...nextLoadResult.state,
+      // 테마는 악보 데이터가 아닌 사용자 UI 선택이므로 새 악보를 불러와도 유지한다.
+      menuTheme: state.menuTheme,
       // 악보를 교체해도 저장소 접근 실패 시의 페이지 내 환경 보정을 보존한다.
       youtubeLocalOffsetMs: state.youtubeLocalOffsetMs,
       practiceJudgeMode: previousPracticeJudgeMode,
