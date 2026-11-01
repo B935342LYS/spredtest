@@ -81,6 +81,8 @@ async function loadManifestFromSupabase(
 async function loadScoreTextFromUrl(item: ExampleScoreManifestItem, signal?: AbortSignal): Promise<string> {
   const response = await fetch(item.scoreUrl, {
     method: "GET",
+    // 같은 URL의 JSON 갱신을 긴 max-age의 브라우저 캐시가 숨기지 않도록 매번 재검증한다.
+    cache: "no-cache",
     signal,
   });
 
