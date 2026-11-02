@@ -8,6 +8,8 @@ import type {
 } from "../app_types";
 import type {
   InstrumentString,
+  ScoreFile,
+  RowDefinition,
 } from "../../core/score/types";
 import { applyLayoutDraftEditToState } from "../app_runtime";
 import {
@@ -18,6 +20,7 @@ import {
   getRowsForSelectedString,
   selectLayoutDraftRow,
   selectLayoutDraftString,
+  shiftLayoutDraftPitch,
   updateLayoutDraftCommonNoteHeight,
   updateLayoutDraftRowHeight,
   type LayoutDraftMutationResult,
@@ -27,6 +30,7 @@ import type {
   LayoutDraftBundle,
   LayoutEditableRowDefinition,
 } from "./layout_types";
+import { confirmLayoutCellDeletion } from "./layout_confirmation";
 import { calculateLayoutCellDeletionSummary } from "./layout_apply";
 import {
   createLayoutDraftFromPreset,
@@ -74,6 +78,7 @@ type LayoutPreviewDragState = {
 };
 
 let activeLayoutDraft: LayoutDraftBundle | null = null;
+let layoutSourceScore: ScoreFile | null = null;
 let layoutFileRequestId = 0;
 
 /**
@@ -126,6 +131,58 @@ function syncLayoutDialogFromDraft(
   syncLayoutAddRowHeightState(dom);
   renderLayoutDraftRows(dom, draft);
   renderLayoutDraftPreview(dom, draft);
+  syncLayoutPitchShiftSummary(dom, draft);
+}
+
+/**
+ * 선택 string의 원본·draft 음역과 전체 삭제 대상 수를 라벨 툴팁에 반영한다.
+ * - 인수 : dom : 음정 이동 입력과 안내 요소
+ * - 인수 : draft : 현재 편집 중인 레이아웃
+ * - 반환값 : 없음
+ */
+function syncLayoutPitchShiftSummary(dom: AppDom, draft: LayoutDraftBundle): void {
+  const notes = getRowsForSelectedString(draft).filter((row) => row.type === "note");
+  dom.layoutPitchShiftUpButton.disabled = notes.length === 0 || notes.some((row) => row.midi >= 127);
+  dom.layoutPitchShiftDownButton.disabled = notes.length === 0 || notes.some((row) => row.midi <= 0);
+  if (notes.length === 0 || layoutSourceScore === null) {
+    dom.layoutPitchShiftLabel.title = "Select a string with note rows to shift.";
+    return;
+  }
+  const source = layoutSourceScore.layout.rowDefinitions.filter((row) =>
+    row.type === "note" && row.stringId === draft.selectedStringId);
+  const count = calculateLayoutCellDeletionSummary(layoutSourceScore, draft).totalCount;
+  dom.layoutPitchShiftLabel.title = `Score: ${formatLayoutPitchRange(source)} → Draft: ${formatLayoutPitchRange(notes)}. `
+    + `Spacing unchanged. ${count} cell(s) to delete on Apply (confirmation required).`;
+}
+
+/**
+ * note 행의 최저·최고 음정을 표시한다.
+ * - 인수 : rows : 음역을 계산할 행 목록
+ * - 반환값 : 음정 범위 또는 행 없음 안내
+ */
+function formatLayoutPitchRange(rows: readonly RowDefinition[]): string {
+  const midis = rows.filter((row) => row.type === "note").map((row) => row.midi);
+  return midis.length === 0 ? "none"
+    : `${formatPitchName(Math.min(...midis), "sharp")}–${formatPitchName(Math.max(...midis), "sharp")}`;
+}
+
+/**
+ * 원본 score의 ID를 기준으로 현재 draft의 매핑을 한 반음 이동한다.
+ * - 인수 : dom : Layout Editor 입력과 미리보기
+ * - 인수 : session : 적용 전 현재 score 조회 경계
+ * - 인수 : semitones : 버튼에 대응하는 +1 또는 -1
+ * - 반환값 : 없음. 실패하면 draft를 유지한다.
+ */
+function shiftLayoutPitchFromDialog(dom: AppDom, session: LayoutDialogBindingSession, semitones: 1 | -1): void {
+  const result = shiftLayoutDraftPitch(
+    readLayoutDraftFromDialog(dom), semitones, session.getState().document.score.layout.rowDefinitions,
+  );
+  if (result.ok) {
+    // 새 편집 이후 도착한 파일 응답이 이동 결과를 덮어쓰지 않도록 한다.
+    invalidateLayoutFileRead(dom);
+    handleLayoutPreviewResizeEnd();
+  }
+  applyLayoutDraftChange(dom, result);
 }
 
 /**
@@ -818,25 +875,18 @@ function applyLayoutDialogDraft(
   }
 
   const draft = readLayoutDraftFromDialog(dom);
-  const deletionSummary = calculateLayoutCellDeletionSummary(
+  const allowCellDeletion = confirmLayoutCellDeletion(
     session.getState().document.score,
     draft,
+    (message) => window.confirm(message),
   );
-  let allowCellDeletion = false;
-
-  if (deletionSummary.totalCount > 0) {
-    allowCellDeletion = window.confirm(
-      `This layout change will delete ${deletionSummary.totalCount} track cell(s). Continue?`,
+  if (!allowCellDeletion) {
+    setLayoutDialogNotice(
+      dom,
+      "Layout apply was cancelled before deleting track cells.",
+      "warning",
     );
-
-    if (!allowCellDeletion) {
-      setLayoutDialogNotice(
-        dom,
-        "Layout apply was cancelled before deleting track cells.",
-        "warning",
-      );
-      return;
-    }
+    return;
   }
 
   const nextState = applyLayoutDraftEditToState(
@@ -889,6 +939,7 @@ export function openLayoutDialog(
   invalidateLayoutFileRead(dom);
   const score = session.getState().document.score;
 
+  layoutSourceScore = score;
   activeLayoutDraft = createLayoutDraftBundle(score);
   syncLayoutDialogFromDraft(dom, activeLayoutDraft, "Layout draft is ready.");
   syncLayoutPresetSelect(
@@ -1063,28 +1114,22 @@ function applyLayoutToolbarDraft(
     return;
   }
 
-  const deletionSummary = calculateLayoutCellDeletionSummary(state.document.score, draft);
-  let allowCellDeletion = false;
+  const allowCellDeletion = confirmLayoutCellDeletion(
+    state.document.score, draft, (message) => window.confirm(message), label,
+  );
+  if (!allowCellDeletion) {
+    const nextState = {
+      ...state,
+      statusMessage: {
+        level: "warning" as const,
+        text: `${label} apply was cancelled before deleting track cells.`,
+      },
+    };
 
-  if (deletionSummary.totalCount > 0) {
-    allowCellDeletion = window.confirm(
-      `${label} will delete ${deletionSummary.totalCount} track cell(s). Continue?`,
-    );
-
-    if (!allowCellDeletion) {
-      const nextState = {
-        ...state,
-        statusMessage: {
-          level: "warning" as const,
-          text: `${label} apply was cancelled before deleting track cells.`,
-        },
-      };
-
-      session.setState(nextState);
-      syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
-      syncLeftStatus(dom, nextState);
-      return;
-    }
+    session.setState(nextState);
+    syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
+    syncLeftStatus(dom, nextState);
+    return;
   }
 
   const nextState = applyLayoutDraftEditToState(state, draft, allowCellDeletion);
@@ -1386,6 +1431,12 @@ export function bindLayoutDialogControls(
       message: `Selected string ${dom.layoutStringSelect.value}.`,
     });
   });
+  dom.layoutPitchShiftUpButton.addEventListener("click", () => {
+    shiftLayoutPitchFromDialog(dom, session, 1);
+  });
+  dom.layoutPitchShiftDownButton.addEventListener("click", () => {
+    shiftLayoutPitchFromDialog(dom, session, -1);
+  });
   dom.layoutNoteHeightInput.addEventListener("change", () => {
     applyLayoutDraftChange(
       dom,
@@ -1398,6 +1449,7 @@ export function bindLayoutDialogControls(
   dom.layoutResetButton.addEventListener("click", () => {
     invalidateLayoutFileRead(dom);
     const score = session.getState().document.score;
+    layoutSourceScore = score;
 
     handleLayoutPreviewResizeEnd();
     activeLayoutDraft = createLayoutDraftBundle(score);

@@ -7,6 +7,7 @@ import type {
   InstrumentData,
   NoteRowDefinition,
   RowId,
+  RowDefinition,
   ScoreFile,
   StringId,
 } from "../../core/score/types";
@@ -114,6 +115,127 @@ export function getRowsForSelectedString(
   }
 
   return draft.rowDefinitions.filter((row) => row.stringId === draft.selectedStringId);
+}
+
+/**
+ * 선택 string의 물리적 행 간격을 유지하며 음정 매핑을 정수 반음만큼 이동한다.
+ * - 인수 : draft : 현재 편집 draft. 입력 객체는 수정하지 않는다.
+ * - 인수 : semitones : 현재 draft에 적용할 정수 반음 이동량
+ * - 인수 : sourceRows : 현재 score의 원본 행 목록. 연속 이동에도 같은 원본을 전달한다.
+ * - 반환값 : 이동한 draft 또는 오류. 셀 삭제 판단과 실제 악보 적용은 수행하지 않는다.
+ */
+export function shiftLayoutDraftPitch(
+  draft: LayoutDraftBundle,
+  semitones: number,
+  sourceRows: readonly RowDefinition[],
+): LayoutDraftMutationResult {
+  if (!Number.isInteger(semitones)) {
+    return { ok: false, level: "warning", message: "Pitch shift must be a finite integer in semitones." };
+  }
+  const stringInfo = draft.instData.strings.find((entry) => entry.stringId === draft.selectedStringId);
+  const rows = getRowsForSelectedString(draft);
+  if (!stringInfo || !rows.some((row) => row.type === "note")) {
+    return { ok: false, level: "warning", message: "Select a string with note rows to shift." };
+  }
+  if (semitones === 0) {
+    return { ok: true, draft, message: "Pitch mapping unchanged." };
+  }
+
+  // 같은 음정의 기존 ID를 우선 보존한다. 원본을 나중에 등록하여 왕복 이동 시 ID를 복원한다.
+  const rowIdByPitch = new Map<string, RowId>();
+  const sourcePitchById = new Map<RowId, string>();
+  for (const row of [...draft.rowDefinitions, ...sourceRows]) {
+    rowIdByPitch.set(getLayoutRowPitchKey(row), row.rowId);
+  }
+  for (const row of sourceRows) {
+    sourcePitchById.set(row.rowId, getLayoutRowPitchKey(row));
+  }
+
+  // 대상 note를 먼저 이동하고 gap은 다음 단계에서 변경된 인접 note로 계산한다.
+  const shiftedRows: LayoutEditableRowDefinition[] = [];
+  const noteMidis = new Set<number>();
+  let outsideInstrumentRange = false;
+  for (const row of rows) {
+    const heightError = validateRowHeight(row.height);
+    if (heightError) return heightError;
+    if (row.type === "gap") {
+      shiftedRows.push({ ...row });
+      continue;
+    }
+    const midi = row.midi + semitones;
+    if (!Number.isInteger(row.midi) || row.midi < 0 || row.midi > 127 ||
+        !Number.isInteger(midi) || midi < 0 || midi > 127) {
+      return { ok: false, level: "warning", message: "Pitch shift would move a note outside MIDI 0..127." };
+    }
+    if (noteMidis.has(midi)) {
+      return { ok: false, level: "warning", message: `Duplicate note MIDI ${midi} in ${stringInfo.stringId}.` };
+    }
+    noteMidis.add(midi);
+    outsideInstrumentRange ||= midi < stringInfo.minMidi || midi > stringInfo.maxMidi;
+    shiftedRows.push(createNoteRow(row.stringId, midi, row.height));
+  }
+
+  // 표시 순서의 인접 note로 gap 경계를 다시 계산하고 음정에 대응하는 ID를 부여한다.
+  for (let index = 0; index < shiftedRows.length; index += 1) {
+    let row = shiftedRows[index];
+    if (row.type === "gap") {
+      const previous = shiftedRows[index - 1];
+      const next = shiftedRows[index + 1];
+      if (previous?.type === "gap" || next?.type === "gap") {
+        return { ok: false, level: "warning", message: "Gap rows cannot be adjacent." };
+      }
+      const boundary = resolveGapBoundaryMidi(
+        previous?.type === "note" ? previous : null,
+        next?.type === "note" ? next : null,
+      );
+      if (!boundary) {
+        return { ok: false, level: "warning", message: "Gap row requires an adjacent note." };
+      }
+      const boundaryError = validateGapBoundaryMidi(boundary.fromMidi, boundary.toMidi);
+      if (boundaryError) return boundaryError;
+      row = createGapRow(row.stringId, boundary.fromMidi, boundary.toMidi, row.height);
+    }
+    const key = getLayoutRowPitchKey(row);
+    shiftedRows[index] = { ...row, rowId: rowIdByPitch.get(key) ?? row.rowId };
+  }
+
+  // 비대상 행의 참조를 유지하고 선택은 이동 전과 같은 물리적 행을 따라간다.
+  let selectedRowId = draft.selectedRowId;
+  let targetIndex = 0;
+  const rowDefinitions = draft.rowDefinitions.map((row) => {
+    if (row.stringId !== draft.selectedStringId) return row;
+    const shifted = shiftedRows[targetIndex++];
+    if (row.rowId === draft.selectedRowId) selectedRowId = shifted.rowId;
+    return shifted;
+  });
+  const usedIds = new Set(sourceRows.filter((row) => row.type === "global").map((row) => row.rowId));
+  for (const row of rowDefinitions) {
+    const originalKey = sourcePitchById.get(row.rowId);
+    // 사라지는 원본 행의 ID도 다른 음정에 재사용하지 않아 기존 셀의 잘못된 재연결을 막는다.
+    if (usedIds.has(row.rowId) || (originalKey !== undefined && originalKey !== getLayoutRowPitchKey(row))) {
+      return { ok: false, level: "warning", message: `Pitch shift would conflict with row ID ${row.rowId}.` };
+    }
+    usedIds.add(row.rowId);
+  }
+
+  return {
+    ok: true,
+    draft: { ...draft, rowDefinitions, selectedRowId },
+    message: `Shifted pitch mapping by ${semitones} semitone(s).${outsideInstrumentRange
+      ? " Warning: outside the range configured in instrument information." : ""}`,
+  };
+}
+
+/**
+ * 행 ID 문자열과 독립적인 음정 매핑 조회 키를 만든다.
+ * - 인수 : row : 전역·note·gap 행
+ * - 반환값 : 행 종류와 string/음정 경계를 포함한 충돌 없는 JSON 키
+ */
+function getLayoutRowPitchKey(row: RowDefinition): string {
+  if (row.type === "global") return JSON.stringify([row.type, row.kind]);
+  return row.type === "note"
+    ? JSON.stringify([row.type, row.stringId, row.midi])
+    : JSON.stringify([row.type, row.stringId, row.fromMidi, row.toMidi]);
 }
 
 /**

@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import { runLayoutPitchShiftTests } from "./test_layout_pitch_shift";
+import { runLayoutPitchApplyTests } from "./test_layout_pitch_apply";
 
 import {
   applyLayoutDraftEditToState,
@@ -84,6 +86,8 @@ assert(loadResult.ok, "Runtime document should load for layout apply test.");
 
 if (loadResult.ok) {
   const score = loadResult.document.score;
+  runLayoutPitchShiftTests(score);
+  runLayoutPitchApplyTests(score);
   const draft = createLayoutDraftBundle(score);
   const presetResult = createUserLayoutPresetData(draft, (score.instData.presetId ?? "custom"));
   const longNamePresetResult = createUserLayoutPresetData(

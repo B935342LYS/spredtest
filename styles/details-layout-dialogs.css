@@ -122,6 +122,20 @@
   font-size: 13px;
 }
 
+.layout-pitch-shift-controls {
+  gap: 6px;
+}
+
+.layout-pitch-shift-label {
+  cursor: help;
+}
+
+.layout-pitch-shift-controls button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
 .layout-field-row,
 .layout-button-row,
 .layout-section-title-row {
