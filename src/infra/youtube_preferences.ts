@@ -5,17 +5,15 @@ const STORAGE_KEY = "regression-code:youtube-local-offset-ms";
 /**
  * 저장값이 없는 브라우저의 환경별 초기 보정값을 고른다.
  * - 인수 : 없음
- * - 반환값 : 모바일로 식별되면 -220ms, Windows·그 외 환경은 0ms
+ * - 반환값 : Android로 식별되면 -220ms, iOS/iPadOS·Windows·그 외 환경은 0ms
  */
 function getInitialYoutubeLocalOffsetMs(): number {
   if (typeof navigator === "undefined") return 0;
   const userAgent = navigator.userAgent;
   // 터치 지원 Windows도 데스크톱 기본값을 사용한다.
   if (/Windows/i.test(userAgent)) return 0;
-  // iPadOS의 데스크톱 UA는 Macintosh 표기와 멀티터치 지원을 함께 확인한다.
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(userAgent) ||
-    (/Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1);
-  return isMobile ? -220 : 0;
+  // Android에만 보정한다. iPadOS의 데스크톱 UA도 별도 판별 없이 0ms를 사용한다.
+  return /Android/i.test(userAgent) ? -220 : 0;
 }
 
 /**
