@@ -95,13 +95,13 @@ function runYoutubeTests(): void {
   assert.ok(Math.abs(secondsUntilYoutubeStart(0.1, 300) - 0.2) < 0.000001);
   assert.equal(secondsUntilYoutubeStart(0.3, 300), 0);
 
-  assert.equal(shouldResyncYoutubeDrift(10, 10.099, 0), false);
-  assert.equal(shouldResyncYoutubeDrift(10, 9.901, 0), false);
-  assert.equal(shouldResyncYoutubeDrift(0, 0.1, 0), false);
-  assert.equal(shouldResyncYoutubeDrift(0.1, 0, 0), false);
-  assert.equal(shouldResyncYoutubeDrift(10, 10.101, 0), true);
-  assert.equal(shouldResyncYoutubeDrift(10, 9.899, 0), true);
-  assert.equal(shouldResyncYoutubeDrift(10, 10.2, 0), true);
+  assert.equal(shouldResyncYoutubeDrift(10, 10.249, 0), false);
+  assert.equal(shouldResyncYoutubeDrift(10, 9.751, 0), false);
+  assert.equal(shouldResyncYoutubeDrift(10, 10.25, 0), false);
+  assert.equal(shouldResyncYoutubeDrift(10, 9.75, 0), false);
+  assert.equal(shouldResyncYoutubeDrift(10, 10.251, 0), true);
+  assert.equal(shouldResyncYoutubeDrift(10, 9.749, 0), true);
+  assert.equal(shouldResyncYoutubeDrift(10, 10.2, 0), false);
   assert.equal(shouldResyncYoutubeDrift(10, 22.5, -12500), false);
   assert.equal(shouldResyncYoutubeDrift(0.1, 0.25, 300), false);
 
