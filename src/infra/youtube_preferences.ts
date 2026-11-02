@@ -16,12 +16,16 @@ export function normalizeYoutubeLocalOffsetMs(value: number): number {
 /**
  * 현재 브라우저의 Local offset을 읽는다.
  * - 인수 : 없음
- * - 반환값 : 저장된 값. 부재·오염·접근 실패 시 0
+ * - 반환값 : 저장값 우선. 부재 시 Android 시험값 -220ms, 그 외·오염·접근 실패 시 0
  */
 export function loadYoutubeLocalOffsetMs(): number {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return normalizeYoutubeLocalOffsetMs(raw === null || raw.trim() === "" ? 0 : Number(raw));
+    // 테스트 배포본 한정: 미설정 Android에만 임시 기본값을 적용하고 저장하지 않는다.
+    if (raw === null) {
+      return typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent) ? -220 : 0;
+    }
+    return normalizeYoutubeLocalOffsetMs(raw.trim() === "" ? 0 : Number(raw));
   } catch {
     return 0;
   }

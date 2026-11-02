@@ -31,13 +31,22 @@ function runYoutubeTests(): void {
   assert.equal(normalizeYoutubeLocalOffsetMs(5001), 5000);
   assert.equal(normalizeYoutubeLocalOffsetMs(1.4), 1);
   const originalStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
   const values = new Map<string, string>();
   Object.defineProperty(globalThis, "localStorage", { configurable: true, value: {
     getItem: (key: string) => values.get(key) ?? null,
     setItem: (key: string, value: string) => values.set(key, value),
   } });
   try {
+    Object.defineProperty(globalThis, "navigator", { configurable: true, value: { userAgent: "Mozilla/5.0 Windows NT 10.0" } });
     assert.equal(loadYoutubeLocalOffsetMs(), 0);
+    Object.defineProperty(globalThis, "navigator", { configurable: true, value: { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)" } });
+    assert.equal(loadYoutubeLocalOffsetMs(), 0);
+    Object.defineProperty(globalThis, "navigator", { configurable: true, value: { userAgent: "Mozilla/5.0 (Linux; Android 14)" } });
+    assert.equal(loadYoutubeLocalOffsetMs(), -220);
+    assert.equal(values.size, 0, "Temporary default should not be persisted.");
+    assert.equal(saveYoutubeLocalOffsetMs(0), 0);
+    assert.equal(loadYoutubeLocalOffsetMs(), 0, "Explicit zero must override the Android default.");
     assert.equal(saveYoutubeLocalOffsetMs(-201), -201);
     assert.equal(loadYoutubeLocalOffsetMs(), -201);
     for (const raw of ["", " ", "oops", "NaN", "Infinity"]) {
@@ -49,6 +58,8 @@ function runYoutubeTests(): void {
     assert.equal(loadYoutubeLocalOffsetMs(), 0);
     assert.equal(saveYoutubeLocalOffsetMs(201), 201);
   } finally {
+    if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
+    else Reflect.deleteProperty(globalThis, "navigator");
     if (originalStorage) Object.defineProperty(globalThis, "localStorage", originalStorage);
     else Reflect.deleteProperty(globalThis, "localStorage");
   }
