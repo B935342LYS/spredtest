@@ -2,7 +2,7 @@
  * score time과 YouTube player time 사이의 변환과 drift 판단을 담당한다.
  */
 
-export const YOUTUBE_DRIFT_THRESHOLD_SECONDS = 0.25;
+export const YOUTUBE_DRIFT_THRESHOLD_SECONDS = 0.1;
 
 /**
  * 곡과 브라우저 보정을 합산한다. 합계에는 ScoreFile 범위를 다시 적용하지 않는다.

@@ -194,13 +194,15 @@ export function applyReverseRowsOption(
  * RuntimeDocument를 AppState 초기값으로 변환한다.
  * - 인수 : document : 로드된 런타임 문서
  * - 인수 : scoreOrigin : 현재 score가 앱에 들어온 출처
+ * - 인수 : activeTrackIds : 첫 표시·편집·재생에 사용할 활성 트랙 목록
  * - 반환값 : 첫 렌더에 필요한 앱 상태
  */
 export function createInitialState(
   document: RuntimeDocument,
   scoreOrigin: ScoreOrigin = "loaded",
+  activeTrackIds: readonly TrackId[] = DEFAULT_ACTIVE_TRACK_IDS,
 ): AppState {
-  const artifacts = buildRuntimeArtifacts(document);
+  const artifacts = buildRuntimeArtifacts(document, activeTrackIds);
 
   return {
     document,
@@ -208,7 +210,7 @@ export function createInitialState(
     parsed: artifacts.parsed,
     analysis: artifacts.analysis,
     renderInput: artifacts.renderInput,
-    activeTrackIds: [...DEFAULT_ACTIVE_TRACK_IDS],
+    activeTrackIds: [...activeTrackIds],
     reverseRows: false,
     menuTheme: "light",
     speedScale: 1,
@@ -514,12 +516,14 @@ export function applyClearAllScoreToState(
  * - 인수 : jsonText : ScoreFile JSON 문자열
  * - 인수 : sourceLabel : 사용자 상태 메시지에 표시할 로드 출처
  * - 인수 : scoreOrigin : 현재 score가 앱에 들어온 출처
+ * - 인수 : activeTrackIds : 악보 교체 후 유지할 활성 트랙 목록. 생략 시 최초 실행 기본값
  * - 반환값 : 로드 성공 시 새 AppState, 실패 시 기존 상태에 표시할 오류 메시지
  */
 export function loadScoreTextAsInitialState(
   jsonText: string,
   sourceLabel: string,
   scoreOrigin: ScoreOrigin = "loaded",
+  activeTrackIds: readonly TrackId[] = DEFAULT_ACTIVE_TRACK_IDS,
 ):
   | {
       ok: true;
@@ -538,7 +542,7 @@ export function loadScoreTextAsInitialState(
     };
   }
 
-  const initialState = createInitialState(loadResult.document, scoreOrigin);
+  const initialState = createInitialState(loadResult.document, scoreOrigin, activeTrackIds);
   const warnings = collectScoreWarnings(loadResult.document.score);
   // 기존 parser 결과를 재사용해 오류 위치와 시작 기본값 적용을 함께 안내한다.
   for (const [kind, entries] of initialState.parsed.globalCellsByKindAndCol) {

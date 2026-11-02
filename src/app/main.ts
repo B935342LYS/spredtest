@@ -501,7 +501,8 @@ async function boot(): Promise<void> {
     syncLeftStatus(dom, state);
     syncUiControls(dom, state);
 
-    const nextLoadResult = loadScoreTextAsInitialState(jsonText, sourceLabel);
+    // 활성 트랙 조합을 새 악보의 첫 renderer 입력과 편집·재생 상태에 함께 반영한다.
+    const nextLoadResult = loadScoreTextAsInitialState(jsonText, sourceLabel, "loaded", state.activeTrackIds);
 
     if (!nextLoadResult.ok) {
       state = {

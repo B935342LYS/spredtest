@@ -2,11 +2,12 @@ import { readFileSync } from "node:fs";
 
 import { buildAudioSchedule } from "../src/audio/audio_schedule_builder";
 import { createRuntimeDocument } from "../src/core/score/create_runtime_document";
-import type { ScoreFile } from "../src/core/score/types";
+import type { ScoreFile, TrackId } from "../src/core/score/types";
 import {
   applyActiveTrackIdsToState,
   buildRuntimeArtifacts,
   createInitialState,
+  loadScoreTextAsInitialState,
 } from "../src/app/app_runtime";
 import { applyScoreCellRawTextBatch } from "../src/app/edit/edit_apply";
 import { toggleActiveTrackId } from "../src/app/app_track_binding";
@@ -118,5 +119,22 @@ assert(
     emptyTrackState.renderInput.noteItems.every((item) => item.renderAlpha === INACTIVE_TRACK_ALPHA),
   "App state track update should rebuild renderer input without parse/analyze changes.",
 );
+
+// 3개 트랙의 모든 조합으로 로드하여 상태·첫 렌더·재생 필터가 일치하는지 확인한다.
+const trackIds: TrackId[] = ["basic", "optional", "extra"];
+for (let mask = 0; mask < 8; mask += 1) {
+  const activeTrackIds = trackIds.filter((_, index) => (mask & (1 << index)) !== 0);
+  const loaded = loadScoreTextAsInitialState(JSON.stringify(document.score), "Track test", "loaded", activeTrackIds);
+  if (!loaded.ok) throw new Error(loaded.message);
+  assert(loaded.state.activeTrackIds.join() === activeTrackIds.join(), "Load should preserve the selected tracks.");
+  assert(loaded.state.activeTrackIds !== activeTrackIds, "Loaded state should own its track array.");
+  assert(loaded.state.renderInput.noteItems.every((item) =>
+    item.renderAlpha === (activeTrackIds.includes(item.trackId as TrackId) ? 1 : INACTIVE_TRACK_ALPHA)
+  ), "First loaded render should use the preserved track selection.");
+  const schedule = buildAudioSchedule({ analysis: loaded.state.analysis, activeTrackIds: loaded.state.activeTrackIds });
+  assert(schedule.events.every((event) => activeTrackIds.includes(event.trackId)), "Loaded playback should exclude inactive tracks.");
+  assert(activeTrackIds.length === 0 ? schedule.events.length === 0 : schedule.events.length > 0, "Loaded schedule should reflect empty/nonempty track selection.");
+}
+assert(initialState.activeTrackIds.join() === "basic", "First launch should retain basic as its default.");
 
 console.log("Track layer test completed.");
