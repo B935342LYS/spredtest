@@ -38,15 +38,28 @@ function runYoutubeTests(): void {
     setItem: (key: string, value: string) => values.set(key, value),
   } });
   try {
-    Object.defineProperty(globalThis, "navigator", { configurable: true, value: { userAgent: "Mozilla/5.0 Windows NT 10.0" } });
-    assert.equal(loadYoutubeLocalOffsetMs(), 0);
-    Object.defineProperty(globalThis, "navigator", { configurable: true, value: { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)" } });
+    // UA와 터치 수를 조합하여 Windows 태블릿을 포함한 환경별 초기값을 확인한다.
+    const environments = [
+      { userAgent: "Mozilla/5.0 Windows NT 10.0", maxTouchPoints: 10, expected: 0 },
+      { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)", maxTouchPoints: 5, expected: -220 },
+      { userAgent: "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X)", maxTouchPoints: 5, expected: -220 },
+      { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", maxTouchPoints: 5, expected: -220 },
+      { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", maxTouchPoints: 0, expected: 0 },
+      { userAgent: "Mozilla/5.0 (X11; Linux x86_64)", maxTouchPoints: 10, expected: 0 },
+      { userAgent: "Mozilla/5.0 (Linux; Android 14)", maxTouchPoints: 5, expected: -220 },
+      { userAgent: "", maxTouchPoints: 0, expected: 0 },
+    ];
+    for (const environment of environments) {
+      Object.defineProperty(globalThis, "navigator", { configurable: true, value: environment });
+      assert.equal(loadYoutubeLocalOffsetMs(), environment.expected);
+    }
+    Reflect.deleteProperty(globalThis, "navigator");
     assert.equal(loadYoutubeLocalOffsetMs(), 0);
     Object.defineProperty(globalThis, "navigator", { configurable: true, value: { userAgent: "Mozilla/5.0 (Linux; Android 14)" } });
     assert.equal(loadYoutubeLocalOffsetMs(), -220);
-    assert.equal(values.size, 0, "Temporary default should not be persisted.");
+    assert.equal(values.size, 0, "Environment default should not overwrite a user preference.");
     assert.equal(saveYoutubeLocalOffsetMs(0), 0);
-    assert.equal(loadYoutubeLocalOffsetMs(), 0, "Explicit zero must override the Android default.");
+    assert.equal(loadYoutubeLocalOffsetMs(), 0, "Explicit zero must override the mobile default.");
     assert.equal(saveYoutubeLocalOffsetMs(-201), -201);
     assert.equal(loadYoutubeLocalOffsetMs(), -201);
     for (const raw of ["", " ", "oops", "NaN", "Infinity"]) {
