@@ -48,7 +48,16 @@ export function bindFileControls(
       state.scoreOrigin,
     );
 
-    downloadScoreJson(nextScore);
+    const downloadResult = downloadScoreJson(nextScore);
+    if (!downloadResult.ok) {
+      // 저장 후보의 timestamp와 origin을 확정하지 않고 현재 악보를 유지한다.
+      session.setState({
+        ...state,
+        statusMessage: { level: "error", text: downloadResult.message },
+      });
+      syncLeftStatus(dom, session.getState());
+      return;
+    }
     session.setState({
       ...state,
       document: {

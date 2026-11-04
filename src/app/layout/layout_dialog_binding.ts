@@ -174,15 +174,17 @@ function formatLayoutPitchRange(rows: readonly RowDefinition[]): string {
  * - 반환값 : 없음. 실패하면 draft를 유지한다.
  */
 function shiftLayoutPitchFromDialog(dom: AppDom, session: LayoutDialogBindingSession, semitones: 1 | -1): void {
-  const result = shiftLayoutDraftPitch(
-    readLayoutDraftFromDialog(dom), semitones, session.getState().document.score.layout.rowDefinitions,
-  );
-  if (result.ok) {
-    // 새 편집 이후 도착한 파일 응답이 이동 결과를 덮어쓰지 않도록 한다.
-    invalidateLayoutFileRead(dom);
-    handleLayoutPreviewResizeEnd();
-  }
-  applyLayoutDraftChange(dom, result);
+  applyLayoutDraftChange(dom, (draft) => {
+    const result = shiftLayoutDraftPitch(
+      draft, semitones, session.getState().document.score.layout.rowDefinitions,
+    );
+    if (result.ok) {
+      // 새 편집 이후 도착한 파일 응답이 이동 결과를 덮어쓰지 않도록 한다.
+      invalidateLayoutFileRead(dom);
+      handleLayoutPreviewResizeEnd();
+    }
+    return result;
+  });
 }
 
 /**
@@ -451,11 +453,11 @@ function createLayoutPreviewRow(
       return;
     }
 
-    applyLayoutDraftChange(dom, {
+    applyLayoutDraftChange(dom, (currentDraft) => ({
       ok: true,
-      draft: selectLayoutDraftRow(requireActiveLayoutDraft(), row.rowId),
+      draft: selectLayoutDraftRow(currentDraft, row.rowId),
       message: `Selected ${row.rowId}.`,
-    });
+    }));
   });
 
   return rowElement;
@@ -506,11 +508,11 @@ function beginLayoutPreviewResize(
     lastHeight: row.height,
   };
 
-  applyLayoutDraftChange(dom, {
+  applyLayoutDraftChange(dom, (currentDraft) => ({
     ok: true,
-    draft: selectLayoutDraftRow(requireActiveLayoutDraft(), row.rowId),
+    draft: selectLayoutDraftRow(currentDraft, row.rowId),
     message: `Drag to resize ${row.rowId}.`,
-  });
+  }));
 
   window.addEventListener("pointermove", handleLayoutPreviewResizeMove);
   window.addEventListener("pointerup", handleLayoutPreviewResizeEnd);
@@ -628,8 +630,8 @@ function createLayoutDraftRowElement(
     heightInput.addEventListener("change", () => {
       applyLayoutDraftChange(
         dom,
-        updateLayoutDraftRowHeight(
-          requireActiveLayoutDraft(),
+        (currentDraft) => updateLayoutDraftRowHeight(
+          currentDraft,
           row.rowId,
           Number(heightInput.value),
         ),
@@ -645,7 +647,7 @@ function createLayoutDraftRowElement(
     deleteButton.textContent = "Delete";
     deleteButton.className = "layout-row-delete-button";
     deleteButton.addEventListener("click", () => {
-      applyLayoutDraftChange(dom, deleteLayoutDraftRow(requireActiveLayoutDraft(), row.rowId));
+      applyLayoutDraftChange(dom, (currentDraft) => deleteLayoutDraftRow(currentDraft, row.rowId));
     });
     deleteCell.appendChild(deleteButton);
   }
@@ -665,18 +667,18 @@ function createLayoutDraftRowElement(
       return;
     }
 
-    applyLayoutDraftChange(dom, {
+    applyLayoutDraftChange(dom, (currentDraft) => ({
       ok: true,
-      draft: selectLayoutDraftRow(requireActiveLayoutDraft(), row.rowId),
+      draft: selectLayoutDraftRow(currentDraft, row.rowId),
       message: `Selected ${row.rowId}.`,
-    });
+    }));
   });
   selectInput.addEventListener("change", () => {
-    applyLayoutDraftChange(dom, {
+    applyLayoutDraftChange(dom, (currentDraft) => ({
       ok: true,
-      draft: selectLayoutDraftRow(requireActiveLayoutDraft(), row.rowId),
+      draft: selectLayoutDraftRow(currentDraft, row.rowId),
       message: `Selected ${row.rowId}.`,
-    });
+    }));
   });
   return element;
 }
@@ -747,15 +749,17 @@ function requireActiveLayoutDraft(): LayoutDraftBundle {
 }
 
 /**
- * layout draft 변경 결과를 dialog에 반영한다.
+ * 현재 상위 입력을 병합한 draft로 편집을 실행하고 성공한 결과만 dialog에 반영한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
- * - 인수 : result : draft 변경 결과
+ * - 인수 : mutate : 최신 입력이 포함된 draft를 변경하는 함수
  * - 반환값 : 없음
  */
 function applyLayoutDraftChange(
   dom: AppDom,
-  result: LayoutDraftMutationResult,
+  mutate: (draft: LayoutDraftBundle) => LayoutDraftMutationResult,
 ): void {
+  // DOM에 남아 있는 이름·악기 설정을 행 편집보다 먼저 읽어 재렌더링 시 유실을 막는다.
+  const result = mutate(readLayoutDraftFromDialog(dom));
   if (!result.ok) {
     setLayoutDialogNotice(dom, result.message, result.level);
     return;
@@ -1354,7 +1358,7 @@ function addLayoutRowFromDialog(
 
   applyLayoutDraftChange(
     dom,
-    addLayoutDraftRow(requireActiveLayoutDraft(), {
+    (currentDraft) => addLayoutDraftRow(currentDraft, {
       rowType,
       height: rowType === "note"
         ? Number(dom.layoutNoteHeightInput.value)
@@ -1425,11 +1429,11 @@ export function bindLayoutDialogControls(
     applyLayoutDialogDraft(dom, session);
   });
   dom.layoutStringSelect.addEventListener("change", () => {
-    applyLayoutDraftChange(dom, {
+    applyLayoutDraftChange(dom, (currentDraft) => ({
       ok: true,
-      draft: selectLayoutDraftString(requireActiveLayoutDraft(), dom.layoutStringSelect.value),
+      draft: selectLayoutDraftString(currentDraft, dom.layoutStringSelect.value),
       message: `Selected string ${dom.layoutStringSelect.value}.`,
-    });
+    }));
   });
   dom.layoutPitchShiftUpButton.addEventListener("click", () => {
     shiftLayoutPitchFromDialog(dom, session, 1);
@@ -1440,8 +1444,8 @@ export function bindLayoutDialogControls(
   dom.layoutNoteHeightInput.addEventListener("change", () => {
     applyLayoutDraftChange(
       dom,
-      updateLayoutDraftCommonNoteHeight(
-        requireActiveLayoutDraft(),
+      (currentDraft) => updateLayoutDraftCommonNoteHeight(
+        currentDraft,
         Number(dom.layoutNoteHeightInput.value),
       ),
     );

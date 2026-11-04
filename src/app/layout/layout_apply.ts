@@ -38,7 +38,8 @@ export function calculateLayoutCellDeletionSummary(
   draft: LayoutDraftBundle,
 ): LayoutCellDeletionSummary {
   const nextNoteRowIds = createNoteRowIdSet(draft.rowDefinitions);
-  const countByRowId: Record<RowId, number> = {};
+  // 외부 rowId가 constructor·__proto__여도 상속 속성과 충돌하지 않게 한다.
+  const countByRowId: Record<RowId, number> = Object.create(null);
   let totalCount = 0;
 
   // tracks의 모든 cell을 순회하며 draft 적용 후 존재하지 않을 note row 참조를 집계한다.

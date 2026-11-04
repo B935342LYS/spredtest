@@ -3,6 +3,12 @@
  */
 
 import type { ScoreFile } from "../core/score/types";
+import { MAX_SCORE_JSON_BYTES, formatByteSize, getUtf8ByteLength } from "../core/score/score_limits";
+
+/** 다운로드할 JSON 본문 준비 결과. 용량 초과 시 악보 내용은 수정하지 않는다. */
+export type ScoreJsonExportResult =
+  | { ok: true; jsonText: string }
+  | { ok: false; message: string };
 
 /**
  * ScoreFile을 사람이 읽기 쉬운 JSON 문자열로 직렬화한다.
@@ -11,6 +17,28 @@ import type { ScoreFile } from "../core/score/types";
  */
 export function serializeScoreFile(score: ScoreFile): string {
   return `${JSON.stringify(score, null, 2)}\n`;
+}
+
+/**
+ * 파일 로드 상한 안에서 악보를 다시 읽을 수 있는 JSON 본문을 준비한다.
+ * - 인수 : score : 저장 시각까지 반영된 최종 악보
+ * - 반환값 : 들여쓰기 JSON, 필요 시 공백 없는 JSON, 둘 다 초과하면 실패
+ */
+export function prepareScoreJsonExport(score: ScoreFile): ScoreJsonExportResult {
+  const pretty = serializeScoreFile(score);
+  if (getUtf8ByteLength(pretty) <= MAX_SCORE_JSON_BYTES) {
+    return { ok: true, jsonText: pretty };
+  }
+
+  // JSON 구조의 들여쓰기만 생략한다. rawText 등 문자열 내부 공백은 보존한다.
+  const compact = JSON.stringify(score);
+  if (getUtf8ByteLength(compact) <= MAX_SCORE_JSON_BYTES) {
+    return { ok: true, jsonText: compact };
+  }
+  return {
+    ok: false,
+    message: `Cannot download: score JSON exceeds ${formatByteSize(MAX_SCORE_JSON_BYTES)} even without indentation. Reduce the score size and try again.`,
+  };
 }
 
 /**
@@ -31,14 +59,17 @@ export function createScoreJsonFileName(score: ScoreFile): string {
 /**
  * ScoreFile JSON 문자열을 브라우저 다운로드로 내보낸다.
  * - 인수 : score : 저장할 score JSON 객체
- * - 반환값 : 없음
+ * - 반환값 : JSON 준비 결과. 용량 초과 시 다운로드를 시작하지 않는다.
  */
-export function downloadScoreJson(score: ScoreFile): void {
+export function downloadScoreJson(score: ScoreFile): ScoreJsonExportResult {
+  const result = prepareScoreJsonExport(score);
+  if (!result.ok) return result;
   downloadTextFile(
     createScoreJsonFileName(score),
-    serializeScoreFile(score),
+    result.jsonText,
     "application/json;charset=utf-8",
   );
+  return result;
 }
 
 /**

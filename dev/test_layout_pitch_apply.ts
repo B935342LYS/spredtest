@@ -18,6 +18,31 @@ import { buildAudioSchedule } from "../src/audio/audio_schedule_builder";
  * - 반환값 : 없음. 검증 실패 시 assertion 예외
  */
 export function runLayoutPitchApplyTests(baseScore: ScoreFile): void {
+  // 외부 행 ID가 Object의 속성명과 같아도 승인 전 안내와 실제 삭제 수가 일치해야 한다.
+  for (const rowId of ["__proto__", "constructor", "toString"]) {
+    const external = structuredClone(baseScore);
+    external.layout.rowDefinitions.find((row) => row.rowId === "s1-note-52")!.rowId = rowId;
+    for (const track of external.tracks) {
+      for (const cell of track.cells) if (cell.rowId === "s1-note-52") cell.rowId = rowId;
+    }
+    assert.ok(loadRuntimeDocument(JSON.stringify(external)).ok);
+    const candidate = createLayoutDraftBundle(external);
+    candidate.rowDefinitions = candidate.rowDefinitions.filter((row) => row.rowId !== rowId && row.rowId !== "s1-gap-51-52");
+    const summary = calculateLayoutCellDeletionSummary(external, candidate);
+    assert.equal(summary.countByRowId[rowId], 4);
+    assert.equal(Object.values(summary.countByRowId).reduce((sum, count) => sum + count, 0), summary.totalCount);
+    const before = JSON.stringify(external);
+    assert.equal(confirmLayoutCellDeletion(external, candidate, (message) => {
+      assert.ok(message.includes(`${rowId} (s1, E3, MIDI 52): 4 cell(s)`));
+      return false;
+    }), false);
+    assert.equal(applyLayoutDraftToScore(external, candidate).ok, false);
+    const accepted = applyLayoutDraftToScore(external, candidate, { allowCellDeletion: true });
+    assert.ok(accepted.ok);
+    assert.equal(accepted.deletedCells.totalCount, 4);
+    assert.ok(accepted.score.tracks.every((track) => track.cells.every((cell) => cell.rowId !== rowId)));
+    assert.equal(JSON.stringify(external), before);
+  }
   const score = structuredClone(baseScore);
   const c4 = score.layout.rowDefinitions.find((row) => row.type === "note" && row.midi === 60)!;
   c4.rowId = "opaque-c4";

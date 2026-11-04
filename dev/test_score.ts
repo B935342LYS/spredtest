@@ -1,4 +1,5 @@
 import "./test_score_policy";
+import "./test_score_export";
 import { readFileSync } from "node:fs";
 
 import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
