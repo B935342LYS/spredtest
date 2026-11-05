@@ -73,6 +73,10 @@ type ScoreEditHistoryTransaction = {
   label: string;
   beforeLookup: HistoryCellLookup;
   edits: ScoreTextEdit[];
+  touchOwner?: symbol;
+  generation?: number;
+  rollbackEdits?: ScoreTextEdit[];
+  beforeMode?: AppState["mode"];
 };
 
 /**
@@ -105,6 +109,8 @@ async function boot(): Promise<void> {
   let stopPlaybackAnimation = (): void => {};
   let resetRepeatedClickCycle = (): void => {};
   let activeHistoryTransaction: ScoreEditHistoryTransaction | null = null;
+  let documentGeneration = 0;
+  let cancelTouchInteraction = (): boolean => true;
 
   const render = (): void => {
     const perfSession = beginPerfSession("app.render");
@@ -434,11 +440,87 @@ async function boot(): Promise<void> {
   };
 
   /**
+   * 첫 터치의 변경 전 조회 기준과 문서 세대를 소유 토큰에 연결한다.
+   * - 인수 : 없음
+   * - 반환값 : 새 소유 토큰 또는 기존 transaction으로 인한 거절
+   */
+  const beginTouchEditTransaction = (): symbol | null => {
+    if (activeHistoryTransaction !== null) return null;
+    const owner = Symbol("touch edit");
+    activeHistoryTransaction = {
+      label: "Touch edit", beforeLookup: captureHistoryCellLookup(state.document.indexes), edits: [],
+      touchOwner: owner, generation: documentGeneration, beforeMode: state.mode,
+    };
+    return owner;
+  };
+
+  /**
+   * 같은 문서에서 정상 종료한 터치만 하나의 이력으로 확정한다.
+   * - 인수 : owner : 시작 시 받은 소유 토큰
+   * - 반환값 : 없음
+   */
+  const finishTouchEditTransaction = (owner: symbol): void => {
+    if (activeHistoryTransaction?.touchOwner !== owner) return;
+    if (activeHistoryTransaction.generation !== documentGeneration) {
+      activeHistoryTransaction = null;
+      return;
+    }
+    endScoreEditHistoryTransaction();
+  };
+
+  /**
+   * 터치가 실제 변경한 셀만 이력 없이 복원하고 출력 실패는 재시도 자료를 보존한다.
+   * - 인수 : owner : 시작 시 받은 소유 토큰
+   * - 반환값 : restored는 복원 완료, stale은 소유/문서 불일치, failed는 복원 또는 출력 실패
+   */
+  const rollbackTouchEditTransaction = (owner: symbol): "restored" | "stale" | "failed" => {
+    const transaction = activeHistoryTransaction;
+    if (transaction?.touchOwner !== owner) return "stale";
+    if (transaction.generation !== documentGeneration) {
+      activeHistoryTransaction = null;
+      return "stale";
+    }
+    try {
+      // 최초 복원 목록을 보존하여 출력만 실패했어도 같은 값으로 복구를 재시도할 수 있다.
+      transaction.rollbackEdits ??= createScoreTextEditsFromHistoryPatches(
+        buildCellHistoryPatches(transaction.beforeLookup, state.document.indexes, transaction.edits), "before",
+      );
+      if (transaction.rollbackEdits.length > 0) {
+        const result = applyScoreTextEdits(transaction.rollbackEdits, { recordHistory: false });
+        if (result.kind === "rejected" || result.output.kind === "failed") return "failed";
+      }
+      state = {
+        ...state, mode: transaction.beforeMode ?? state.mode, selection: null, rangeSelection: null,
+        rangeClipboard: null, pastePreview: { anchorCol: null },
+        statusMessage: { level: "info", text: "Touch edit cancelled." },
+      };
+      const uiOutput = applyEditEffects({ render, refresh: render,
+        updatePlayback: () => { if (state.outputSyncError !== undefined) resetPlaybackForCurrentStatePreservingPosition(); },
+        stopPlayback: stopPlaybackAfterEditFailure });
+      if (uiOutput.kind === "failed") {
+        state = { ...state, outputSyncError: `${uiOutput.stage}: ${uiOutput.message}` };
+        syncEditOutcomeUi();
+        return "failed";
+      }
+      state = { ...state, outputSyncError: undefined };
+      activeHistoryTransaction = null;
+      return "restored";
+    } catch (error: unknown) {
+      state = { ...state, outputSyncError: `Touch rollback: ${String(error)}`,
+        statusMessage: { level: "error", text: `Touch rollback failed: ${String(error)}` } };
+      try { stopPlaybackAfterEditFailure(); } catch (cleanupError: unknown) { console.error(cleanupError); }
+      syncEditOutcomeUi();
+      return "failed";
+    }
+  };
+
+  /**
    * 최근 이력의 이전 값을 적용하고 성공한 경우에만 redo로 이동한다.
    * - 인수 : 없음
    * - 반환값 : 없음
    */
   const applyUndo = (): void => {
+    if (!cancelTouchInteraction()) return;
     if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode)) {
       return;
     }
@@ -465,6 +547,7 @@ async function boot(): Promise<void> {
    * - 반환값 : 없음
    */
   const applyRedo = (): void => {
+    if (!cancelTouchInteraction()) return;
     if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode)) {
       return;
     }
@@ -492,6 +575,7 @@ async function boot(): Promise<void> {
    * - 반환값 : 검증 거절은 false, 정상 완료는 true. 출력 예외는 기존대로 전파한다.
    */
   const loadScoreJsonText = (jsonText: string, sourceLabel: string): boolean => {
+    if (!cancelTouchInteraction()) return false;
     const previousPracticeJudgeMode = state.practiceJudgeMode;
 
     state = {
@@ -519,6 +603,7 @@ async function boot(): Promise<void> {
     }
 
     dom.editToggle.checked = false;
+    documentGeneration += 1;
     state = {
       ...nextLoadResult.state,
       // 테마는 악보 데이터가 아닌 사용자 UI 선택이므로 새 악보를 불러와도 유지한다.
@@ -537,6 +622,16 @@ async function boot(): Promise<void> {
   const appSession = {
     getState: () => state,
     setState: (nextState: typeof state): void => {
+      if (nextState.document !== state.document) {
+        // 외부 비동기 구조 변경이 터치 도중 도착하면 오래된 후보를 적용하지 않는다.
+        if (activeHistoryTransaction?.touchOwner !== undefined) {
+          if (!cancelTouchInteraction()) return;
+          state = { ...state, statusMessage: { level: "warning", text: "Touch edit interrupted. Please retry the document command." } };
+          syncEditOutcomeUi();
+          return;
+        }
+        documentGeneration += 1;
+      }
       state = nextState;
     },
     render,
@@ -551,6 +646,9 @@ async function boot(): Promise<void> {
     beginScoreEditHistoryTransaction,
     endScoreEditHistoryTransaction,
     cancelScoreEditHistoryTransaction,
+    beginTouchEditTransaction,
+    finishTouchEditTransaction,
+    rollbackTouchEditTransaction,
     get youtubeControl(): YoutubePlaybackControl {
       return youtubeControl;
     },
@@ -646,7 +744,9 @@ async function boot(): Promise<void> {
    */ () => {
     window.open("./licenses/index.html", "_blank", "noopener,noreferrer");
   });
-  resetRepeatedClickCycle = bindScorePointerControls(dom, appSession).resetRepeatedClickCycle;
+  const pointerControl = bindScorePointerControls(dom, appSession);
+  resetRepeatedClickCycle = pointerControl.resetRepeatedClickCycle;
+  cancelTouchInteraction = pointerControl.cancelTouchInteraction;
   bindEditPanelControls(dom, {
     ...appSession,
     resetRepeatedClickCycle: () => {

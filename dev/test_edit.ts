@@ -1,3 +1,4 @@
+import "./test_touch_edit_gesture";
 import { buildScoreIndexes } from "../src/core/score/build_score_indexes";
 import { strict as nodeAssert } from "node:assert";
 import { readFileSync } from "node:fs";

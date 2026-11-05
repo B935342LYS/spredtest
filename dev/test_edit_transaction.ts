@@ -19,7 +19,7 @@ const ast = ts.createSourceFile("main.ts", source, ts.ScriptTarget.Latest, true)
 const boot = ast.statements.find((node): node is ts.FunctionDeclaration =>
   ts.isFunctionDeclaration(node) && node.name?.text === "boot");
 assert(boot?.body);
-const names = ["applyScoreTextEdits", "beginScoreEditHistoryTransaction", "endScoreEditHistoryTransaction", "cancelScoreEditHistoryTransaction", "applyUndo", "applyRedo"];
+const names = ["applyScoreTextEdits", "beginScoreEditHistoryTransaction", "endScoreEditHistoryTransaction", "cancelScoreEditHistoryTransaction", "beginTouchEditTransaction", "finishTouchEditTransaction", "rollbackTouchEditTransaction", "applyUndo", "applyRedo"];
 const declarations = names.map((name) => {
   const node = boot.body!.statements.find((statement) => ts.isVariableStatement(statement) &&
     statement.declarationList.declarations.some((declaration) => declaration.name.getText(ast) === name));
@@ -29,8 +29,11 @@ const declarations = names.map((name) => {
 const program = ts.transpileModule(`(function () {
   let state = initialState;
   let activeHistoryTransaction = null;
+  let documentGeneration = 0;
+  const cancelTouchInteraction = () => true;
   ${declarations.join("\n")}
-  return { ${names.join(", ")}, getState: () => state, getTransaction: () => activeHistoryTransaction };
+  return { ${names.join(", ")}, getState: () => state, getTransaction: () => activeHistoryTransaction,
+    replaceDocument: (next) => { state = next; documentGeneration += 1; } };
 })()`, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
 const fixture = readFileSync(new URL("./test_cases/minimal-valid-score.json", import.meta.url), "utf8");
 const loaded = loadRuntimeDocument(fixture);
@@ -81,6 +84,10 @@ function harness(initialState: AppState = base) {
     getState(): AppState;
     cancelScoreEditHistoryTransaction(): void;
     getTransaction(): { beforeLookup: history.HistoryCellLookup } | null;
+    beginTouchEditTransaction(): symbol | null;
+    finishTouchEditTransaction(owner: symbol): void;
+    rollbackTouchEditTransaction(owner: symbol): "restored" | "stale" | "failed";
+    replaceDocument(state: AppState): void;
   };
   return { api, control };
 }
@@ -92,6 +99,61 @@ function harness(initialState: AppState = base) {
  */
 function run(): void {
   let cases = 0;
+  const touch = harness();
+  touch.api.applyScoreTextEdits([edit]);
+  touch.api.applyScoreTextEdits([{ ...edit, rawText: "second" }]);
+  touch.api.applyUndo();
+  const beforeTouch = touch.api.getState();
+  const owner = touch.api.beginTouchEditTransaction()!;
+  touch.api.applyScoreTextEdits([{ ...edit, rawText: "third" }]);
+  touch.api.applyScoreTextEdits([{ ...edit, rawText: "fourth" }]);
+  const global = beforeTouch.document.score.layout.rowDefinitions.find((row) => row.type === "global");
+  assert(global);
+  touch.api.applyScoreTextEdits([
+    { ...edit, selection: { ...edit.selection, col: 10 }, rawText: "new" },
+    { ...edit, selection: { ...edit.selection, trackId: "optional" }, rawText: "optional" },
+    { selection: { ...edit.selection, rowId: global.rowId, rowKind: "global", col: 4 }, rawText: "120" },
+  ]);
+  assert.equal(touch.api.rollbackTouchEditTransaction(owner), "restored");
+  assert.deepEqual(touch.api.getState().document.indexes.cellMapByTrackId, beforeTouch.document.indexes.cellMapByTrackId);
+  assert.deepEqual(touch.api.getState().document.indexes.globalCellMapByCoord, beforeTouch.document.indexes.globalCellMapByCoord);
+  assert.equal(touch.api.getState().history, beforeTouch.history);
+  assert.equal(touch.api.rollbackTouchEditTransaction(owner), "stale");
+  console.log(++cases, "touch restores repeated/empty/multiple-track/global cells and preserves both stacks");
+
+  const emptyOwner = touch.api.beginTouchEditTransaction()!;
+  assert.equal(touch.api.rollbackTouchEditTransaction(emptyOwner), "restored");
+  assert.equal(touch.api.getState().history, beforeTouch.history);
+  const oldOwner = touch.api.beginTouchEditTransaction()!;
+  touch.api.applyScoreTextEdits([{ ...edit, rawText: "old document edit" }]);
+  touch.api.replaceDocument(base);
+  assert.equal(touch.api.rollbackTouchEditTransaction(oldOwner), "stale");
+  assert.equal(touch.api.getState(), base);
+  console.log(++cases, "empty touch does not consume Undo; replaced document rejects stale rollback");
+
+  for (const outputFailure of [false, true]) {
+    const failure = harness();
+    const token = failure.api.beginTouchEditTransaction()!;
+    failure.api.applyScoreTextEdits([edit]);
+    failure.control.reject = !outputFailure;
+    failure.control.renderThrows = outputFailure;
+    failure.control.refreshThrows = outputFailure;
+    assert.equal(failure.api.rollbackTouchEditTransaction(token), "failed");
+    assert.notEqual(failure.api.getTransaction(), null);
+    assert.equal(failure.api.getState().history, base.history);
+    failure.control.reject = false;
+    failure.control.renderThrows = false;
+    failure.control.refreshThrows = false;
+    assert.equal(failure.api.rollbackTouchEditTransaction(token), "restored");
+    assert.equal(JSON.stringify(failure.api.getState().document.score), JSON.stringify(base.document.score));
+  }
+  const completedTouch = harness();
+  const completedOwner = completedTouch.api.beginTouchEditTransaction()!;
+  completedTouch.api.applyScoreTextEdits([edit]);
+  completedTouch.api.finishTouchEditTransaction(completedOwner);
+  completedTouch.api.finishTouchEditTransaction(completedOwner);
+  assert.equal(completedTouch.api.getState().history.undoStack.length, 1);
+  console.log(++cases, "rollback failures retain retry data; normal touch commits once");
   const normal = harness();
   normal.api.applyScoreTextEdits([edit]);
   assert.equal(normal.api.getState().history.undoStack.length, 1);

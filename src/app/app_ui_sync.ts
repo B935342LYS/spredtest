@@ -278,6 +278,7 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
   const isBusy = state.busy.kind !== "idle";
   const isGameLocked = isGameModeLocked(state.gameMode);
   const isEditMode = state.mode.kind === "edit";
+  dom.scoreStage.classList.toggle("touch-edit-enabled", isEditMode);
   const isPletExtendTool = state.mode.kind === "edit" && state.mode.tool.kind === "pletExtend";
   const isTupletTool = state.mode.kind === "edit" && state.mode.tool.kind === "tuplet";
   const isTupletMode = isPletExtendTool || isTupletTool;

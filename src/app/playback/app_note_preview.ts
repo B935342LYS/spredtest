@@ -31,6 +31,7 @@ export function createAppNotePreviewRuntime(dom: AppDom): AppNotePreviewRuntime 
     releaseSeconds: 0.035,
   });
   let lastPreviewAtMs = 0;
+  let generation = 0;
 
   return {
     previewMidi(midi: number): void {
@@ -44,10 +45,13 @@ export function createAppNotePreviewRuntime(dom: AppDom): AppNotePreviewRuntime 
       }
 
       lastPreviewAtMs = nowMs;
+      const requestedGeneration = generation;
 
       // 입력 preview는 짧은 단발음이므로 이전 음은 release에 맡기고 새 음을 최소 간격으로 제한한다.
       backend.ensureStarted()
         .then(() => {
+          // 터치 취소 등으로 폐기된 preview의 비동기 시작이 뒤늦게 소리를 내지 않게 한다.
+          if (requestedGeneration !== generation) return;
           backend.scheduleEvent(createPreviewScheduleEvent(midi), 0);
         })
         .catch(() => {
@@ -58,6 +62,7 @@ export function createAppNotePreviewRuntime(dom: AppDom): AppNotePreviewRuntime 
       backend.setMasterVolume(volume * PREVIEW_VOLUME_SCALE);
     },
     dispose(): void {
+      generation += 1;
       backend.dispose();
     },
   };

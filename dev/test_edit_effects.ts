@@ -2,6 +2,10 @@
 import assert from "node:assert/strict";
 import { applyEditEffects } from "../src/app/edit/edit_commit_effects";
 import { createPlaybackController } from "../src/audio/playback_controller";
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
+import type { AppNotePreviewRuntime } from "../src/app/playback/app_note_preview";
 
 /**
  * 실패 단계에 따라 제한된 복구와 재생 정리가 수행되는지 검사한다.
@@ -67,6 +71,34 @@ async function testPendingPlayback(): Promise<void> {
   }
 }
 
+/**
+ * 실제 preview 함수의 대기 중 ensureStarted가 취소 뒤 소리를 예약하지 않는지 검사한다.
+ * - 인수 : 없음
+ * - 반환값 : 비동기 검사 완료 Promise
+ */
+async function testPendingNotePreview(): Promise<void> {
+  const source = readFileSync(new URL("../src/app/playback/app_note_preview.ts", import.meta.url), "utf8");
+  const ast = ts.createSourceFile("preview.ts", source, ts.ScriptTarget.Latest, true);
+  const body = ast.statements.filter(node => !ts.isImportDeclaration(node)).map(node => node.getText(ast)).join("\n");
+  const code = ts.transpileModule(body, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+  for (const cancelled of [false, true]) {
+    let release!: () => void;
+    let scheduled = 0;
+    const exports: { createAppNotePreviewRuntime?: (dom: unknown) => AppNotePreviewRuntime } = {};
+    runInNewContext(code, { exports, performance: { now: () => 1000 }, createOscillatorBackend: () => ({
+      ensureStarted: () => new Promise<void>(resolve => { release = resolve; }),
+      scheduleEvent: () => { scheduled += 1; }, dispose: () => {},
+    }) });
+    const preview = exports.createAppNotePreviewRuntime!({ waveSelect: { value: "sine" }, volumeInput: { value: "100" } });
+    preview.previewMidi(60);
+    if (cancelled) preview.dispose();
+    release();
+    await Promise.resolve();
+    assert.equal(scheduled, cancelled ? 0 : 1);
+  }
+}
+
 testEffects();
 await testPendingPlayback();
-console.log("Edit effects: 5 recovery cases and 5 pending playback cases passed.");
+await testPendingNotePreview();
+console.log("Edit effects: 5 recovery, 5 pending playback and 2 pending preview cases passed.");

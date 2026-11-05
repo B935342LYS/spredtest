@@ -37,9 +37,11 @@ import {
   createPasteEditsFromClipboard,
   createScoreRangeSelection,
 } from "./edit_range_selection";
+import { createTouchEditGesture, reduceTouchEditGesture, type TouchGestureInput } from "./touch_edit_gesture";
 
 const DRAG_START_DISTANCE_PX = 4;
 const NOTE_ROW_HIT_SLOP_PX = 14;
+
 
 /** pointer binding이 app 상태와 edit 적용 흐름에 접근하기 위한 session 입력. */
 export type PointerBindingSession = {
@@ -51,11 +53,16 @@ export type PointerBindingSession = {
   beginScoreEditHistoryTransaction(label: string): void;
   endScoreEditHistoryTransaction(): void;
   cancelScoreEditHistoryTransaction(): void;
+  beginTouchEditTransaction(): symbol | null;
+  finishTouchEditTransaction(owner: symbol): void;
+  rollbackTouchEditTransaction(owner: symbol): "restored" | "stale" | "failed";
+  resetNotePreviewForCurrentDom(): void;
 };
 
 /** pointer binding이 edit panel 등 외부 입력 변경에 제공하는 control 객체. */
 export type PointerBindingControl = {
   resetRepeatedClickCycle(): void;
+  cancelTouchInteraction(): boolean;
 };
 
 /**
@@ -80,12 +87,16 @@ export function bindScorePointerControls(
   let dragEditRafId: number | null = null;
   let isDragHistoryTransactionOpen = false;
   const pendingDragEdits = new Map<string, ScoreTextEdit>();
+  let touchGesture = createTouchEditGesture();
+  let touchOwner: symbol | null = null;
+  let nativePointerId: number | null = null;
 
   const resetRepeatedClickCycle = (): void => {
     repeatedClickCycle = null;
   };
 
   const beginDragHistoryTransaction = (): void => {
+    if (touchOwner !== null) return;
     if (isDragHistoryTransactionOpen) {
       return;
     }
@@ -557,7 +568,12 @@ export function bindScorePointerControls(
     session.applyScoreTextEdits(expandEditForActiveTracks(result.edit));
   };
 
-  dom.scoreStage.addEventListener("pointerdown", (event) => {
+  /**
+   * 기존 도구의 단일 포인터 입력을 시작한다.
+   * - 인수 : event : 소유권 판정을 마친 포인터
+   * - 반환값 : 없음
+   */
+  const onPointerDown = (event: PointerEvent): void => {
     const state = session.getState();
 
     lastPointerColumn = getPointerColumn(event, state);
@@ -584,7 +600,7 @@ export function bindScorePointerControls(
     dom.scoreArea.focus({ preventScroll: true });
     suppressNextClick = true;
 
-    if (event.ctrlKey && event.button === 0) {
+    if (event.pointerType !== "touch" && event.ctrlKey && event.button === 0) {
       if (hit !== null && (hit.rowKind === "note" || hit.rowKind === "global")) {
         rangeDrag = {
           pointerId: event.pointerId,
@@ -648,9 +664,14 @@ export function bindScorePointerControls(
     }
 
     dom.scoreStage.setPointerCapture(event.pointerId);
-  });
+  };
 
-  dom.scoreStage.addEventListener("pointermove", (event) => {
+  /**
+   * 소유 포인터의 이동을 기존 드래그 도구에 전달한다.
+   * - 인수 : event : 편집할 이동 이벤트
+   * - 반환값 : 없음
+   */
+  const onPointerMove = (event: PointerEvent): void => {
     if (rangeDrag !== null && rangeDrag.pointerId === event.pointerId) {
       const state = session.getState();
 
@@ -731,14 +752,19 @@ export function bindScorePointerControls(
     });
 
     queueDragEdits(expandEditsForActiveTracks(edits));
-  });
+  };
 
   dom.scoreStage.addEventListener("pointerleave", () => {
     lastPointerColumn = null;
     clearPastePreview();
   });
 
-  dom.scoreStage.addEventListener("pointerup", (event) => {
+  /**
+   * 정상 종료한 단일 포인터의 탭 또는 드래그를 반영한다.
+   * - 인수 : event : 종료 이벤트
+   * - 반환값 : 없음
+   */
+  const onPointerUp = (event: PointerEvent): void => {
     if (rangeDrag !== null && rangeDrag.pointerId === event.pointerId) {
       rangeDrag = null;
 
@@ -777,9 +803,14 @@ export function bindScorePointerControls(
       forceDelete: completedDrag.button === 2,
     });
     resetNotePreviewHit();
-  });
+  };
 
-  dom.scoreStage.addEventListener("pointercancel", (event) => {
+  /**
+   * 마우스·펜의 기존 취소 확정 정책을 유지한다.
+   * - 인수 : event : 종료된 비터치 포인터
+   * - 반환값 : 없음
+   */
+  const onPointerCancel = (event: PointerEvent): void => {
     if (rangeDrag !== null && rangeDrag.pointerId === event.pointerId) {
       rangeDrag = null;
       return;
@@ -793,10 +824,169 @@ export function bindScorePointerControls(
     flushPendingDragEdits();
     endDragHistoryTransaction();
     resetNotePreviewHit();
+  };
+
+  /**
+   * 예약된 편집을 버린 뒤 현재 터치의 셀과 일시 UI를 복원한다.
+   * - 인수 : 없음
+   * - 반환값 : 복원 완료 또는 소유권 만료 여부. 실패 자료는 재시도를 위해 유지한다.
+   */
+  const rollbackTouch = (): boolean => {
+    if (touchOwner === null) return true;
+    if (dragEditRafId !== null) cancelAnimationFrame(dragEditRafId);
+    dragEditRafId = null;
+    pendingDragEdits.clear();
+    dragEdit = null;
+    rangeDrag = null;
+    resetRepeatedClickCycle();
+    resetNotePreviewHit();
+    let result: "restored" | "stale" | "failed";
+    try {
+      session.resetNotePreviewForCurrentDom();
+      result = session.rollbackTouchEditTransaction(touchOwner);
+    } catch (error: unknown) {
+      console.error("Touch cleanup failed", error);
+      result = "failed";
+    }
+    if (result === "failed") {
+      setStatusMessage("error", "Touch edit could not be restored. Editing and pan are blocked; retry after releasing all fingers.");
+      return false;
+    }
+    touchOwner = null;
+    return true;
+  };
+
+  /**
+   * 다른 명령 전에 터치 편집을 취소하고 남은 접촉의 입력을 막는다.
+   * - 인수 : 없음
+   * - 반환값 : 외부 명령을 계속 실행해도 되는지
+   */
+  const cancelTouchInteraction = (): boolean => {
+    if (touchGesture.phase === "idle" && touchOwner === null) return true;
+    touchGesture = { ...touchGesture, phase: touchGesture.points.size > 0 ? "blocked" : "idle", center: null };
+    suppressNextClick = true;
+    return rollbackTouch();
+  };
+
+  /**
+   * touch만 순수 판정기로 전달하고 기존 편집 handler와 스크롤을 선택한다.
+   * - 인수 : event : 터치 포인터 이벤트
+   * - 인수 : kind : 접촉 수명 종류
+   * - 반환값 : 없음
+   */
+  const onTouch = (event: PointerEvent, kind: "down" | "move" | "up" | "cancel"): void => {
+    const current = session.getState();
+    if (kind === "down") {
+      if (current.mode.kind !== "edit") {
+        if (touchGesture.phase === "idle" && touchOwner === null) suppressNextClick = false;
+        return;
+      }
+      if (current.busy.kind !== "idle" || isGameModeLocked(current.gameMode)) return;
+      if (touchGesture.phase === "idle" && touchOwner !== null && !rollbackTouch()) return;
+      // 입력 필드의 blur/change는 터치 소유를 시작하기 전에 확정한다.
+      if (touchGesture.phase === "idle" && nativePointerId === null) dom.scoreArea.focus({ preventScroll: true });
+      // 마우스·펜이 이미 소유한 입력은 터치가 인수하지 않는다.
+      if (nativePointerId !== null && touchGesture.phase === "idle") touchGesture = { ...touchGesture, phase: "blocked" };
+    } else if (!touchGesture.points.has(event.pointerId)) return;
+
+    event.preventDefault();
+    suppressNextClick = true;
+    const input: TouchGestureInput = { kind, pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY };
+    const result = reduceTouchEditGesture(touchGesture, input);
+    touchGesture = result.state;
+    if (kind === "down") dom.scoreStage.setPointerCapture(event.pointerId);
+    if (result.action === "begin") {
+      touchOwner = session.beginTouchEditTransaction();
+      if (touchOwner === null) {
+        touchGesture = { ...touchGesture, phase: "blocked" };
+        return;
+      }
+      onPointerDown(event);
+    } else if (result.action === "edit") {
+      onPointerMove(event);
+    } else if (result.action === "finish") {
+      onPointerUp(event);
+      if (touchOwner !== null) session.finishTouchEditTransaction(touchOwner);
+      touchOwner = null;
+    } else if (result.action === "rollback") {
+      const success = rollbackTouch();
+      touchGesture = reduceTouchEditGesture(touchGesture, { kind: "restored", success }).state;
+    } else if (result.action === "pan") {
+      dom.scoreArea.scrollLeft = Math.max(0, Math.min(dom.scoreArea.scrollWidth - dom.scoreArea.clientWidth, dom.scoreArea.scrollLeft + result.scrollX));
+      dom.scoreArea.scrollTop = Math.max(0, Math.min(dom.scoreArea.scrollHeight - dom.scoreArea.clientHeight, dom.scoreArea.scrollTop + result.scrollY));
+    }
+    if ((kind === "up" || kind === "cancel") && dom.scoreStage.hasPointerCapture(event.pointerId)) dom.scoreStage.releasePointerCapture(event.pointerId);
+  };
+
+  dom.scoreStage.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "touch") { onTouch(event, "down"); return; }
+    if (touchGesture.phase !== "idle" || touchOwner !== null || nativePointerId !== null) { suppressNextClick = true; event.preventDefault(); return; }
+    const state = session.getState();
+    if (state.mode.kind !== "edit") { suppressNextClick = false; return; }
+    if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode) || (event.button !== 0 && event.button !== 2)) return;
+    nativePointerId = event.pointerId;
+    onPointerDown(event);
+    if (!dom.scoreStage.hasPointerCapture(event.pointerId) && dragEdit === null && rangeDrag === null) nativePointerId = null;
   });
+  dom.scoreStage.addEventListener("pointermove", (event) => {
+    if (event.pointerType === "touch") { onTouch(event, "move"); return; }
+    if (nativePointerId === event.pointerId || (nativePointerId === null && touchGesture.phase === "idle" && touchOwner === null)) onPointerMove(event);
+  });
+  dom.scoreStage.addEventListener("pointerup", (event) => {
+    if (event.pointerType === "touch") { onTouch(event, "up"); return; }
+    if (nativePointerId !== event.pointerId) return;
+    nativePointerId = null;
+    onPointerUp(event);
+  });
+  dom.scoreStage.addEventListener("pointercancel", (event) => {
+    if (event.pointerType === "touch") { onTouch(event, "cancel"); return; }
+    if (nativePointerId !== event.pointerId) return;
+    nativePointerId = null;
+    onPointerCancel(event);
+  });
+  dom.scoreStage.addEventListener("lostpointercapture", (event) => {
+    // 정상 up에서 이미 제외한 pointerId는 중복 취소하지 않는다.
+    if (touchGesture.points.has(event.pointerId)) onTouch(event, "cancel");
+    else if (nativePointerId === event.pointerId) { nativePointerId = null; onPointerCancel(event); }
+  });
+
+  /**
+   * blur/hidden 후 이전 포인터를 해제하여 뒤늦은 이벤트를 무시한다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
+  const abandonTouch = (): void => {
+    if (touchGesture.phase === "idle" && touchOwner === null) return;
+    const pointerIds = [...touchGesture.points.keys()];
+    cancelTouchInteraction();
+    touchGesture = createTouchEditGesture();
+    for (const pointerId of pointerIds) {
+      if (dom.scoreStage.hasPointerCapture(pointerId)) dom.scoreStage.releasePointerCapture(pointerId);
+    }
+  };
+  window.addEventListener("blur", abandonTouch);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) abandonTouch(); });
+
+  /**
+   * 패널·팝업·단축키가 현재 제스처와 같은 transaction에 섞이지 않게 선행 취소한다.
+   * - 인수 : event : 악보 외부 조작 또는 키 명령
+   * - 반환값 : 없음
+   */
+  const beforeExternalCommand = (event: Event): void => {
+    if (event.type !== "keydown" && event.target instanceof Node && dom.scoreStage.contains(event.target)) return;
+    if (!cancelTouchInteraction()) { event.preventDefault(); event.stopImmediatePropagation(); }
+  };
+  for (const name of ["pointerdown", "click", "input", "change", "keydown"]) {
+    document.addEventListener(name, beforeExternalCommand, { capture: true });
+  }
 
   dom.scoreStage.addEventListener("click", (event) => {
     const state = session.getState();
+
+    // 터치의 탭은 pointerup에서 이미 처리했다. 호환 click은 다시 편집하지 않는다.
+    const touchClick = (event as PointerEvent).pointerType === "touch" ||
+      (event as MouseEvent & { sourceCapabilities?: { firesTouchEvents: boolean } }).sourceCapabilities?.firesTouchEvents;
+    if ((touchClick && (state.mode.kind === "edit" || suppressNextClick)) || touchGesture.phase !== "idle" || touchOwner !== null) return;
 
     if (suppressNextClick) {
       suppressNextClick = false;
@@ -923,6 +1113,7 @@ export function bindScorePointerControls(
 
   return {
     resetRepeatedClickCycle,
+    cancelTouchInteraction,
   };
 }
 

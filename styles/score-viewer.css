@@ -350,3 +350,7 @@
   }
 }
 
+.touch-edit-enabled {
+  touch-action: none;
+}
+

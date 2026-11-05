@@ -287,3 +287,13 @@
   line-height: 1.35;
 }
 
+.touch-edit-hint {
+  display: none;
+  margin: 2px 8px;
+  font-size: 11px;
+}
+
+@media (any-pointer: coarse) {
+  .touch-edit-hint { display: block; }
+}
+
