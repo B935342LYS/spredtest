@@ -93,7 +93,7 @@ console.log("Score policy checks passed.");
 // 허용된 음역/빈 라벨이 레이아웃 프리셋 저장·재로드에서도 유지되어야 한다.
 const draft = createLayoutDraftBundle(validation.score);
 draft.layoutPresetDisplayName = "Policy preset";
-const preset = createUserLayoutPresetData(draft, "custom");
+const preset = createUserLayoutPresetData(draft);
 assert(preset.ok);
 const reloadedPreset = parseUserLayoutPresetJson(JSON.stringify(preset.value));
 assert(reloadedPreset.ok);

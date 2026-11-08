@@ -40,6 +40,7 @@ import {
 import {
   parseUserLayoutPresetJson,
   serializeUserLayoutPresetData,
+  type UserLayoutPresetData,
 } from "../../core/score/layout_preset";
 import { isGameModeLocked } from "../game/game_types";
 import { formatPitchName } from "../pitch_label";
@@ -53,6 +54,7 @@ import {
   type LocalLayoutPresetSlot,
   type LocalLayoutPresetSlotNumber,
   createSlotLayoutPresetId,
+  InvalidLayoutPresetSlotError,
   loadLayoutPresetSlotFromLocalStorage,
   loadLayoutPresetSlotsFromLocalStorage,
   parseLocalLayoutPresetSlotNumber,
@@ -188,7 +190,7 @@ function shiftLayoutPitchFromDialog(dom: AppDom, session: LayoutDialogBindingSes
 }
 
 /**
- * 현재 score의 악기 프리셋에 해당하는 로컬 layout preset 슬롯을 select에 표시한다.
+ * 사용자 공통 로컬 layout preset 슬롯을 select에 표시한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
  * - 인수 : slots : localStorage에서 읽은 Slot 1..3 저장 상태
  * - 인수 : selectedSlotNumber : 선택할 슬롯 번호
@@ -203,10 +205,11 @@ function syncLayoutPresetSelect(
 
   for (const slot of slots) {
     const option = document.createElement("option");
-    const suffix = slot.preset === null ? "Empty" : slot.layoutPresetDisplayName;
+    const suffix = slot.readError ? "Read error" : slot.preset === null ? "Empty" : slot.layoutPresetDisplayName;
 
     option.value = createSlotLayoutPresetId(slot.slotNumber);
     option.textContent = `Slot ${slot.slotNumber}: ${suffix}`;
+    option.title = slot.readError ?? "";
     dom.layoutPresetSelect.appendChild(option);
   }
 
@@ -234,10 +237,11 @@ function syncLayoutToolbarPresetSelect(
 
   for (const slot of slots) {
     const option = document.createElement("option");
-    const suffix = slot.preset === null ? "Empty" : slot.layoutPresetDisplayName;
+    const suffix = slot.readError ? "Read error" : slot.preset === null ? "Empty" : slot.layoutPresetDisplayName;
 
     option.value = createSlotLayoutPresetId(slot.slotNumber);
     option.textContent = `Slot ${slot.slotNumber}: ${suffix}`;
+    option.title = slot.readError ?? "";
     dom.layoutPresetToolbarSelect.appendChild(option);
   }
 
@@ -948,7 +952,7 @@ export function openLayoutDialog(
   syncLayoutDialogFromDraft(dom, activeLayoutDraft, "Layout draft is ready.");
   syncLayoutPresetSelect(
     dom,
-    loadLayoutPresetSlotsForDialog(dom, score.instData.presetId ?? "custom"),
+    loadLayoutPresetSlotsForDialog(dom),
   );
   dom.layoutDialog.showModal();
 }
@@ -965,44 +969,30 @@ function getCurrentInstrumentPresetId(session: Pick<LayoutDialogBindingSession, 
 /**
  * localStorage layout preset 슬롯을 읽되 오류가 나도 dialog를 계속 사용할 수 있게 한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
- * - 인수 : instrumentPresetId : 현재 score의 악기 프리셋 ID
- * - 반환값 : 읽기에 성공한 Slot 1..3 저장 상태 또는 빈 슬롯 목록
+ * - 반환값 : 읽기에 성공한 Slot 1..3 저장 상태 또는 슬롯별 오류 정보
  */
 function loadLayoutPresetSlotsForDialog(
   dom: AppDom,
-  instrumentPresetId: string,
 ): LocalLayoutPresetSlot[] {
-  try {
-    return loadLayoutPresetSlotsFromLocalStorage(instrumentPresetId);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown local layout preset slot error.";
-
-    setLayoutDialogNotice(dom, message, "error");
-    return [1, 2, 3].map((slotNumber) => ({
-      slotNumber: slotNumber as LocalLayoutPresetSlotNumber,
-      layoutPresetId: createSlotLayoutPresetId(slotNumber as LocalLayoutPresetSlotNumber),
-      layoutPresetDisplayName: `Slot ${slotNumber} Empty`,
-      updatedAt: null,
-      preset: null,
-    }));
-  }
+  const slots = loadLayoutPresetSlotsFromLocalStorage();
+  const errors = slots.flatMap((slot) => slot.readError ? [slot.readError] : []);
+  if (errors.length > 0) setLayoutDialogNotice(dom, errors.join(" "), "error");
+  return slots;
 }
 
 /**
- * 현재 score의 악기 프리셋에 맞춰 layout toolbar preset 목록을 갱신한다.
+ * 악보와 독립된 사용자 공통 layout toolbar preset 목록을 갱신한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
- * - 인수 : session : app 상태 조회 callback 묶음
  * - 인수 : selectedValue : 선택할 option value
  * - 반환값 : 없음
  */
 export function syncLayoutToolbarPresetSelectForCurrentScore(
   dom: AppDom,
-  session: Pick<LayoutDialogBindingSession, "getState">,
   selectedValue = dom.layoutPresetToolbarSelect.value || "default",
 ): void {
   syncLayoutToolbarPresetSelect(
     dom,
-    loadLayoutPresetSlotsForDialog(dom, getCurrentInstrumentPresetId(session)),
+    loadLayoutPresetSlotsForDialog(dom),
     selectedValue,
   );
 }
@@ -1021,7 +1011,7 @@ function applyLayoutToolbarPreset(
   const state = session.getState();
 
   if (isGameModeLocked(state.gameMode)) {
-    syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
+    syncLayoutToolbarPresetSelectForCurrentScore(dom);
     session.setState({
       ...state,
       statusMessage: {
@@ -1047,13 +1037,12 @@ function applyLayoutToolbarPreset(
   const slotNumber = parseLocalLayoutPresetSlotNumber(selectedValue);
 
   if (slotNumber === null) {
-    syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
+    syncLayoutToolbarPresetSelectForCurrentScore(dom);
     return;
   }
 
   try {
-    const instrumentPresetId = state.document.score.instData.presetId ?? "custom";
-    const preset = loadLayoutPresetSlotFromLocalStorage(instrumentPresetId, slotNumber);
+    const preset = loadLayoutPresetSlotFromLocalStorage(slotNumber);
 
     if (preset === null) {
       applyLayoutToolbarDraft(
@@ -1082,7 +1071,7 @@ function applyLayoutToolbarPreset(
     };
 
     session.setState(nextState);
-    syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
+    syncLayoutToolbarPresetSelectForCurrentScore(dom);
     syncLeftStatus(dom, nextState);
   }
 }
@@ -1106,7 +1095,7 @@ function applyLayoutToolbarDraft(
   const state = session.getState();
 
   if (isGameModeLocked(state.gameMode)) {
-    syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
+    syncLayoutToolbarPresetSelectForCurrentScore(dom);
     session.setState({
       ...state,
       statusMessage: {
@@ -1131,7 +1120,7 @@ function applyLayoutToolbarDraft(
     };
 
     session.setState(nextState);
-    syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
+    syncLayoutToolbarPresetSelectForCurrentScore(dom);
     syncLeftStatus(dom, nextState);
     return;
   }
@@ -1141,7 +1130,7 @@ function applyLayoutToolbarDraft(
   session.setState(nextState);
 
   if (nextState.statusMessage.level !== "info") {
-    syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
+    syncLayoutToolbarPresetSelectForCurrentScore(dom);
     syncLeftStatus(dom, nextState);
     return;
   }
@@ -1149,21 +1138,18 @@ function applyLayoutToolbarDraft(
   session.render();
   session.resetPlaybackForCurrentState();
   syncLeftStatus(dom, session.getState());
-  syncLayoutToolbarPresetSelectForCurrentScore(dom, session, selectedValue);
+  syncLayoutToolbarPresetSelectForCurrentScore(dom, selectedValue);
 }
 
 /**
  * localStorage에 현재 draft를 레이아웃 프리셋으로 저장한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
- * - 인수 : session : app 상태 조회 callback 묶음
  * - 반환값 : 없음
  */
 function saveLayoutDraftToLocalPreset(
   dom: AppDom,
-  session: Pick<LayoutDialogBindingSession, "getState">,
 ): void {
   try {
-    const instrumentPresetId = getCurrentInstrumentPresetId(session);
     const draft = readLayoutDraftFromDialog(dom);
     const slotNumber = parseLocalLayoutPresetSlotNumber(dom.layoutPresetSelect.value);
 
@@ -1172,17 +1158,25 @@ function saveLayoutDraftToLocalPreset(
       return;
     }
 
-    const existingPreset = loadLayoutPresetSlotFromLocalStorage(instrumentPresetId, slotNumber) ?? undefined;
+    let existingPreset: UserLayoutPresetData | undefined;
+    let damagedSlot = false;
+    // 접근 실패는 저장을 중단하고, 검증 실패만 명시적 덮어쓰기 확인으로 복구한다.
+    try {
+      existingPreset = loadLayoutPresetSlotFromLocalStorage(slotNumber) ?? undefined;
+    } catch (error: unknown) {
+      if (!(error instanceof InvalidLayoutPresetSlotError)) throw error;
+      damagedSlot = true;
+    }
 
     if (
-      existingPreset !== undefined
-      && !window.confirm(`Overwrite Slot ${slotNumber}: ${existingPreset.layoutPresetDisplayName}?`)
+      (existingPreset !== undefined || damagedSlot)
+      && !window.confirm(`Overwrite Slot ${slotNumber}: ${existingPreset?.layoutPresetDisplayName ?? "Invalid saved preset"}?`)
     ) {
       setLayoutDialogNotice(dom, "Local layout preset save was cancelled.", "warning");
       return;
     }
 
-    const presetResult = createUserLayoutPresetData(draft, instrumentPresetId, existingPreset);
+    const presetResult = createUserLayoutPresetData(draft, existingPreset);
 
     if (!presetResult.ok) {
       setLayoutDialogNotice(dom, presetResult.message, presetResult.level);
@@ -1212,12 +1206,10 @@ function saveLayoutDraftToLocalPreset(
 /**
  * 선택된 localStorage 레이아웃 프리셋을 draft로 불러온다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
- * - 인수 : session : app 상태 조회 callback 묶음
  * - 반환값 : 없음
  */
 function loadLayoutDraftFromLocalPreset(
   dom: AppDom,
-  session: Pick<LayoutDialogBindingSession, "getState">,
 ): void {
   const slotNumber = parseLocalLayoutPresetSlotNumber(dom.layoutPresetSelect.value);
 
@@ -1227,8 +1219,7 @@ function loadLayoutDraftFromLocalPreset(
   }
 
   try {
-    const instrumentPresetId = getCurrentInstrumentPresetId(session);
-    const preset = loadLayoutPresetSlotFromLocalStorage(instrumentPresetId, slotNumber);
+    const preset = loadLayoutPresetSlotFromLocalStorage(slotNumber);
 
     if (preset === null) {
       setLayoutDialogNotice(dom, `Slot ${slotNumber} is empty.`, "warning");
@@ -1239,7 +1230,7 @@ function loadLayoutDraftFromLocalPreset(
     syncLayoutDialogFromDraft(dom, activeLayoutDraft, `Loaded Slot ${slotNumber}: ${preset.layoutPresetDisplayName}.`);
     syncLayoutPresetSelect(
       dom,
-      loadLayoutPresetSlotsForDialog(dom, instrumentPresetId),
+      loadLayoutPresetSlotsForDialog(dom),
       slotNumber,
     );
   } catch (error: unknown) {
@@ -1252,16 +1243,13 @@ function loadLayoutDraftFromLocalPreset(
 /**
  * 현재 draft를 레이아웃 프리셋 JSON 파일로 다운로드한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
- * - 인수 : session : app 상태 조회 callback 묶음
  * - 반환값 : 없음
  */
 function saveLayoutDraftToPresetFile(
   dom: AppDom,
-  session: Pick<LayoutDialogBindingSession, "getState">,
 ): void {
   const presetResult = createUserLayoutPresetData(
     readLayoutDraftFromDialog(dom),
-    getCurrentInstrumentPresetId(session),
   );
 
   if (!presetResult.ok) {
@@ -1329,9 +1317,9 @@ function loadLayoutDraftFromPresetFile(
       );
       syncLayoutPresetSelect(
         dom,
-        loadLayoutPresetSlotsForDialog(dom, currentInstrumentPresetId),
+        loadLayoutPresetSlotsForDialog(dom),
       );
-      syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
+      syncLayoutToolbarPresetSelectForCurrentScore(dom);
     })
     .catch((error: unknown) => {
       if (requestId !== layoutFileRequestId || !dom.layoutDialog.open) return;
@@ -1460,14 +1448,13 @@ export function bindLayoutDialogControls(
     syncLayoutDialogFromDraft(dom, activeLayoutDraft, "Layout draft was reset to the current score.");
     syncLayoutPresetSelect(
       dom,
-      loadLayoutPresetSlotsForDialog(dom, score.instData.presetId ?? "custom"),
+      loadLayoutPresetSlotsForDialog(dom),
     );
   });
   dom.layoutNewPresetButton.addEventListener("click", () => {
     invalidateLayoutFileRead(dom);
-    const instrumentPresetId = getCurrentInstrumentPresetId(session);
-    const slots = loadLayoutPresetSlotsForDialog(dom, instrumentPresetId);
-    const emptySlot = slots.find((slot) => slot.preset === null);
+    const slots = loadLayoutPresetSlotsForDialog(dom);
+    const emptySlot = slots.find((slot) => slot.preset === null && !slot.readError);
 
     if (emptySlot === undefined) {
       setLayoutDialogNotice(dom, "All local layout preset slots are full. Select a slot to overwrite or use File Save.", "warning");
@@ -1488,17 +1475,17 @@ export function bindLayoutDialogControls(
     syncLayoutAddRowHeightState(dom);
   });
   dom.layoutLocalSaveButton.addEventListener("click", () => {
-    saveLayoutDraftToLocalPreset(dom, session);
+    saveLayoutDraftToLocalPreset(dom);
   });
   dom.layoutLocalLoadButton.addEventListener("click", () => {
     invalidateLayoutFileRead(dom);
-    loadLayoutDraftFromLocalPreset(dom, session);
+    loadLayoutDraftFromLocalPreset(dom);
   });
   dom.layoutPresetSelect.addEventListener("change", () => {
     invalidateLayoutFileRead(dom);
   });
   dom.layoutFileSaveButton.addEventListener("click", () => {
-    saveLayoutDraftToPresetFile(dom, session);
+    saveLayoutDraftToPresetFile(dom);
   });
   dom.layoutFileLoadButton.addEventListener("click", () => {
     dom.layoutFileLoadInput.click();

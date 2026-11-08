@@ -445,7 +445,7 @@ export function bindViewControls(
   dom: AppDom,
   session: ViewControlsBindingSession,
 ): void {
-  syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
+  syncLayoutToolbarPresetSelectForCurrentScore(dom);
   bindLayoutDialogControls(dom, session);
   let dynamicViewportScrollRafId: number | null = null;
 

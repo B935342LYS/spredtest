@@ -26,6 +26,7 @@ import {
   serializeUserLayoutPresetData,
 } from "../src/core/score/layout_preset";
 import {
+  InvalidLayoutPresetSlotError,
   loadLayoutPresetSlotFromLocalStorage,
   loadLayoutPresetSlotsFromLocalStorage,
   saveLayoutPresetSlotToLocalStorage,
@@ -86,16 +87,16 @@ assert(loadResult.ok, "Runtime document should load for layout apply test.");
 
 if (loadResult.ok) {
   const score = loadResult.document.score;
+  runSharedLayoutSlotTests(score);
   runLayoutPitchShiftTests(score);
   runLayoutPitchApplyTests(score);
   const draft = createLayoutDraftBundle(score);
-  const presetResult = createUserLayoutPresetData(draft, (score.instData.presetId ?? "custom"));
+  const presetResult = createUserLayoutPresetData(draft);
   const longNamePresetResult = createUserLayoutPresetData(
     {
       ...draft,
       layoutPresetDisplayName: "1234567890123456789012345678901",
     },
-    (score.instData.presetId ?? "custom"),
   );
   const oversizedPresetResult = parseUserLayoutPresetJson(" ".repeat(MAX_LAYOUT_PRESET_JSON_BYTES + 1));
   const outOfRangeNoteAddResult = addLayoutDraftRow(draft, {
@@ -110,7 +111,7 @@ if (loadResult.ok) {
   );
 
   globalThis.localStorage.setItem(
-    `layout-slot:${(score.instData.presetId ?? "custom")}:1`,
+    "layout-slot:shared:v1:1",
     JSON.stringify({
       formatVersion: "1",
       layoutPresetId: "slot-1",
@@ -133,9 +134,11 @@ if (loadResult.ok) {
   );
 
   assert(
-    loadLayoutPresetSlotFromLocalStorage((score.instData.presetId ?? "custom"), 1) === null,
-    "Invalid local layout preset slot should be cleared and treated as empty.",
+    loadLayoutPresetSlotsFromLocalStorage()[0]?.readError !== undefined &&
+      globalThis.localStorage.getItem("layout-slot:shared:v1:1") !== null,
+    "Invalid local layout preset should remain stored and be reported as an error.",
   );
+  globalThis.localStorage.clear();
 
   const unchangedLayoutApplyResult = applyLayoutDraftToScore(score, draft);
 
@@ -205,7 +208,7 @@ if (loadResult.ok) {
         { ...draft, selectedStringId: "missing-string" });
       assert(missingSelection.selectedStringId === parsedPresetResult.value.instData.strings[0]?.stringId,
         "Missing selected string should fall back to the preset first string.");
-      const emptySlots = loadLayoutPresetSlotsFromLocalStorage((score.instData.presetId ?? "custom"));
+      const emptySlots = loadLayoutPresetSlotsFromLocalStorage();
 
       assert(
         restoredDraft.layoutPresetDisplayName === draft.layoutPresetDisplayName,
@@ -228,7 +231,7 @@ if (loadResult.ok) {
       );
 
       const savedSlots = saveLayoutPresetSlotToLocalStorage(parsedPresetResult.value, 2);
-      const loadedSlotPreset = loadLayoutPresetSlotFromLocalStorage((score.instData.presetId ?? "custom"), 2);
+      const loadedSlotPreset = loadLayoutPresetSlotFromLocalStorage(2);
 
       assert(
         savedSlots[1]?.preset?.layoutPresetDisplayName === parsedPresetResult.value.layoutPresetDisplayName,
@@ -243,26 +246,29 @@ if (loadResult.ok) {
 
   globalThis.localStorage.clear();
 
-  const normalScoreSlots = loadLayoutPresetSlotsFromLocalStorage("otamatone-basic");
-  const normalScoreSlot = loadLayoutPresetSlotFromLocalStorage("otamatone-basic", 1);
+  const normalScoreSlots = loadLayoutPresetSlotsFromLocalStorage();
+  const normalScoreSlot = loadLayoutPresetSlotFromLocalStorage(1);
 
   // 기본 제공 객체의 반환값을 수정해도 다음 조회와 asset 원본은 보존한다.
   if (normalScoreSlot !== null) {
     const bundledBefore = JSON.stringify(NORMAL_SCORE_LAYOUT_PRESET);
-    const independent = loadLayoutPresetSlotFromLocalStorage("otamatone-basic", 1)!;
+    const independent = loadLayoutPresetSlotFromLocalStorage(1)!;
     independent.instData.strings[0]!.stringName = "Changed copy";
     independent.rowDefinitions[0]!.height = 99;
     assert(JSON.stringify(NORMAL_SCORE_LAYOUT_PRESET) === bundledBefore &&
-      JSON.stringify(loadLayoutPresetSlotFromLocalStorage("otamatone-basic", 1)) === bundledBefore,
+      JSON.stringify(loadLayoutPresetSlotFromLocalStorage(1)) === bundledBefore,
       "Bundled preset must remain independent of returned mutable copies.");
   }
-  const brokenKey = "layout-slot:otamatone-basic:1";
+  const brokenKey = "layout-slot:shared:v1:1";
   globalThis.localStorage.setItem(brokenKey, "{broken");
-  assert(loadLayoutPresetSlotFromLocalStorage("otamatone-basic", 1) === null &&
-    globalThis.localStorage.getItem(brokenKey) === null,
-    "Corrupt slot should be removed and return null on the detecting read.");
-  assert(loadLayoutPresetSlotFromLocalStorage("otamatone-basic", 1)?.layoutPresetDisplayName === "Normal Score",
-    "A subsequent absent-slot read should offer the bundled preset.");
+  let rejectedCorruptSlot = false;
+  try { loadLayoutPresetSlotFromLocalStorage(1); }
+  catch (error) { rejectedCorruptSlot = error instanceof InvalidLayoutPresetSlotError; }
+  assert(rejectedCorruptSlot && globalThis.localStorage.getItem(brokenKey) === "{broken",
+    "Corrupt slot should reject loading without deleting or replacing its bytes.");
+  assert(loadLayoutPresetSlotsFromLocalStorage()[0]?.readError !== undefined,
+    "Corrupt slot should not be presented as Empty or the bundled preset.");
+  globalThis.localStorage.clear();
 
   assert(
     normalScoreSlots[0]?.layoutPresetDisplayName === "Normal Score",
@@ -407,11 +413,74 @@ if (loadResult.ok) {
   delete score.instData.presetId;
   const draft = createLayoutDraftBundle(score);
   draft.layoutPresetDisplayName = "Optional preset ID";
-  const preset = createUserLayoutPresetData(draft, score.instData.presetId ?? "custom");
+  const preset = createUserLayoutPresetData(draft);
   assert(preset.ok, "Missing score preset ID should allow custom preset creation.");
   if (preset.ok) {
     assert(preset.value.instData.presetId === "custom", "Saved preset must carry custom ID.");
     assert(preset.value.instrumentPresetId === "custom", "Saved preset must use custom slot family.");
     assert(parseUserLayoutPresetJson(JSON.stringify(preset.value)).ok, "Custom preset must round trip.");
   }
+}
+
+/**
+ * 악기 ID가 다른 악보의 로드·적용과 저장 오류가 공통 슬롯에 미치는 영향을 검증한다.
+ * - 인수 : score : 유효한 악보 fixture
+ * - 반환값 : 없음
+ */
+function runSharedLayoutSlotTests(score: import("../src/core/score/types").ScoreFile): void {
+  const storage = globalThis.localStorage;
+  storage.clear();
+  const legacyKey = "layout-slot:otamatone-basic:2";
+  storage.setItem(legacyKey, "legacy bytes");
+  assert(loadLayoutPresetSlotsFromLocalStorage()[1]?.preset === null,
+    "Legacy keys must not be migrated or read.");
+  for (const slot of [1, 2, 3] as const) {
+    const preset = structuredClone(NORMAL_SCORE_LAYOUT_PRESET);
+    preset.layoutPresetDisplayName = `Saved ${slot}`;
+    saveLayoutPresetSlotToLocalStorage(preset, slot);
+  }
+  const storedBytes = [1, 2, 3].map(n => storage.getItem(`layout-slot:shared:v1:${n}`));
+  for (const presetId of [undefined, "custom", "another-instrument"]) {
+    const source = structuredClone(score);
+    if (presetId === undefined) delete source.instData.presetId;
+    else source.instData.presetId = presetId;
+    const loaded = loadRuntimeDocument(JSON.stringify(source));
+    assert(loaded.ok, "Scores with absent/custom/other preset IDs should load.");
+    if (!loaded.ok) continue;
+    const slots = loadLayoutPresetSlotsFromLocalStorage();
+    assert(slots.map(s => s.layoutPresetDisplayName).join() === "Saved 1,Saved 2,Saved 3",
+      "Loading another instrument must preserve all three saved slot labels.");
+    const preset = slots[0]!.preset!;
+    const draft = createLayoutDraftFromPreset(preset, createLayoutDraftBundle(loaded.document.score));
+    const applied = applyLayoutDraftToScore(loaded.document.score, draft, { allowCellDeletion: true });
+    assert(applied.ok && applied.score.instData.presetId === preset.instData.presetId,
+      "A shared preset should be applicable across instrument IDs.");
+    const resaved = createUserLayoutPresetData(draft);
+    assert(resaved.ok && resaved.value.instrumentPresetId === preset.instData.presetId,
+      "Saving a loaded draft should retain its instrument metadata, not the current score ID.");
+    assert(JSON.stringify(storedBytes) === JSON.stringify(
+      [1, 2, 3].map(n => storage.getItem(`layout-slot:shared:v1:${n}`))),
+      "Loading/applying must preserve the stored preset bytes.");
+  }
+  const replacement = { ...structuredClone(NORMAL_SCORE_LAYOUT_PRESET), layoutPresetDisplayName: "Replacement" };
+  saveLayoutPresetSlotToLocalStorage(replacement, 2);
+  assert(storage.getItem("layout-slot:shared:v1:1") === storedBytes[0] &&
+    storage.getItem("layout-slot:shared:v1:3") === storedBytes[2] &&
+    loadLayoutPresetSlotFromLocalStorage(2)?.layoutPresetDisplayName === "Replacement",
+    "Explicit save should overwrite only the selected shared slot.");
+  const beforeFailure = storage.getItem("layout-slot:shared:v1:2");
+  const originalSetItem = storage.setItem;
+  storage.setItem = () => { throw new Error("Quota exceeded"); };
+  let rejected = false;
+  try { saveLayoutPresetSlotToLocalStorage(replacement, 2); } catch { rejected = true; }
+  storage.setItem = originalSetItem;
+  assert(rejected && storage.getItem("layout-slot:shared:v1:2") === beforeFailure,
+    "Failed save must preserve the previous bytes.");
+  const originalGetItem = storage.getItem;
+  storage.getItem = () => { throw new Error("Storage denied"); };
+  assert(loadLayoutPresetSlotsFromLocalStorage().every(s => s.readError !== undefined),
+    "Access errors must be distinct from empty slots.");
+  storage.getItem = originalGetItem;
+  assert(storage.getItem(legacyKey) === "legacy bytes", "Legacy bytes must remain untouched.");
+  storage.clear();
 }

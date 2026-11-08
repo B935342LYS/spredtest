@@ -9,13 +9,11 @@ import type { LayoutDraftBundle, LayoutEditableRowDefinition } from "./layout_ty
 /**
  * draft를 저장 가능한 레이아웃 프리셋 데이터로 변환한다.
  * - 인수 : draft : 현재 layout draft
- * - 인수 : instrumentPresetId : 현재 score의 악기 프리셋 ID
  * - 인수 : existingPreset : 기존 프리셋을 덮어쓸 때 유지할 metadata
  * - 반환값 : localStorage와 파일 저장에 공통으로 사용할 프리셋 데이터
  */
 export function createUserLayoutPresetData(
   draft: LayoutDraftBundle,
-  instrumentPresetId: string,
   existingPreset?: UserLayoutPresetData,
 ): LayoutPresetResult<UserLayoutPresetData> {
   const displayName = draft.layoutPresetDisplayName.trim();
@@ -44,7 +42,7 @@ export function createUserLayoutPresetData(
       formatVersion: "1",
       layoutPresetId: existingPreset?.layoutPresetId ?? createLayoutPresetId(now),
       layoutPresetDisplayName: displayName,
-      instrumentPresetId,
+      instrumentPresetId: draft.instData.presetId ?? "custom",
       createdAt: existingPreset?.createdAt ?? now,
       updatedAt: now,
       instData: cloneInstrumentData({

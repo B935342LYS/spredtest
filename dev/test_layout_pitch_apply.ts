@@ -125,14 +125,14 @@ export function runLayoutPitchApplyTests(baseScore: ScoreFile): void {
   const malformed = structuredClone(deletionScore);
   malformed.tracks[2].cells.at(-1)!.rawText = "";
   assert.equal(calculateLayoutCellDeletionSummary(malformed, shift.draft).totalCount, 3);
-  const preset = createUserLayoutPresetData(shift.draft, score.instData.presetId ?? "custom");
+  const preset = createUserLayoutPresetData(shift.draft);
   assert.ok(preset.ok);
   const serialized = serializeUserLayoutPresetData(preset.value);
   assert.ok(serialized.ok);
   const filePreset = parseUserLayoutPresetJson(serialized.value);
   assert.ok(filePreset.ok);
   saveLayoutPresetSlotToLocalStorage(preset.value, 3);
-  const slotPreset = loadLayoutPresetSlotFromLocalStorage(preset.value.instrumentPresetId, 3);
+  const slotPreset = loadLayoutPresetSlotFromLocalStorage(3);
   assert.ok(slotPreset);
   const slotKey = `layout-slot:${preset.value.instrumentPresetId}:3`;
   const savedSlot = globalThis.localStorage.getItem(slotKey);

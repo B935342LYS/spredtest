@@ -9,8 +9,11 @@ import {
   serializeUserLayoutPresetData,
 } from "../core/score/layout_preset";
 
-/** 악기 프리셋별 로컬 레이아웃 프리셋 슬롯 수. */
+/** 사용자 공통 로컬 레이아웃 프리셋 슬롯 수. */
 export const LOCAL_LAYOUT_PRESET_SLOT_COUNT = 3;
+
+/** 저장소 접근 실패와 구분하여 명시적 덮어쓰기를 허용할 손상 데이터 오류. */
+export class InvalidLayoutPresetSlotError extends Error {}
 
 /** 로컬 레이아웃 프리셋 슬롯 번호. */
 export type LocalLayoutPresetSlotNumber = 1 | 2 | 3;
@@ -26,18 +29,25 @@ export type LocalLayoutPresetSlot = {
   layoutPresetDisplayName: string;
   updatedAt: string | null;
   preset: UserLayoutPresetData | null;
+  // preset이 null이어도 이 값이 있으면 빈 슬롯이 아니라 조회 실패다.
+  readError?: string;
 };
 
 /**
- * instrumentPresetId에 해당하는 local layout preset 3슬롯을 읽는다.
- * - 인수 : instrumentPresetId : 현재 score의 악기 프리셋 ID
+ * 악보와 독립된 사용자 공통 3슬롯을 읽고 슬롯별 오류를 표시 정보에 담는다.
+ * - 인수 : 없음
  * - 반환값 : Slot 1..3의 현재 저장 상태
  */
-export function loadLayoutPresetSlotsFromLocalStorage(
-  instrumentPresetId: string,
-): LocalLayoutPresetSlot[] {
+export function loadLayoutPresetSlotsFromLocalStorage(): LocalLayoutPresetSlot[] {
   return getLocalLayoutPresetSlotNumbers().map((slotNumber) => {
-    const preset = loadLayoutPresetSlotFromLocalStorage(instrumentPresetId, slotNumber);
+    let preset: UserLayoutPresetData | null = null;
+    let readError: string | undefined;
+    // 한 슬롯이 손상되거나 접근이 실패해도 다른 슬롯은 각각 조회한다.
+    try {
+      preset = loadLayoutPresetSlotFromLocalStorage(slotNumber);
+    } catch (error: unknown) {
+      readError = error instanceof Error ? error.message : "Layout slot could not be read.";
+    }
 
     return {
       slotNumber,
@@ -45,6 +55,7 @@ export function loadLayoutPresetSlotsFromLocalStorage(
       layoutPresetDisplayName: preset?.layoutPresetDisplayName ?? `Slot ${slotNumber} Empty`,
       updatedAt: preset?.updatedAt ?? null,
       preset,
+      readError,
     };
   });
 }
@@ -70,36 +81,33 @@ export function saveLayoutPresetSlotToLocalStorage(
   }
 
   localStorage.setItem(
-    createLayoutPresetSlotKey(preset.instrumentPresetId, slotNumber),
+    createLayoutPresetSlotKey(slotNumber),
     jsonResult.value,
   );
 
-  return loadLayoutPresetSlotsFromLocalStorage(preset.instrumentPresetId);
+  return loadLayoutPresetSlotsFromLocalStorage();
 }
 
 /**
  * localStorage에서 지정 슬롯의 레이아웃 프리셋 데이터를 읽고 검증한다.
- * - 인수 : instrumentPresetId : 현재 score의 악기 프리셋 ID
  * - 인수 : slotNumber : 불러올 슬롯 번호
  * - 반환값 : 검증된 레이아웃 프리셋 데이터, 비어 있으면 null
  */
 export function loadLayoutPresetSlotFromLocalStorage(
-  instrumentPresetId: string,
   slotNumber: LocalLayoutPresetSlotNumber,
 ): UserLayoutPresetData | null {
-  const slotKey = createLayoutPresetSlotKey(instrumentPresetId, slotNumber);
+  const slotKey = createLayoutPresetSlotKey(slotNumber);
   const presetText = localStorage.getItem(slotKey);
 
   if (presetText === null) {
-    return getBundledLayoutPresetForSlot(instrumentPresetId, slotNumber);
+    return getBundledLayoutPresetForSlot(slotNumber);
   }
 
   const result = parseUserLayoutPresetJson(presetText);
 
   if (!result.ok) {
-    // 로컬 슬롯은 개인 캐시이므로 깨진 이전 데이터가 새 저장을 막지 않도록 비운다.
-    localStorage.removeItem(slotKey);
-    return null;
+    // 읽기는 원본을 변경하지 않으며, 명시적 덮어쓰기에서만 손상값을 교체한다.
+    throw new InvalidLayoutPresetSlotError(`Slot ${slotNumber}: ${result.message}`);
   }
 
   return result.value;
@@ -107,18 +115,13 @@ export function loadLayoutPresetSlotFromLocalStorage(
 
 /**
  * localStorage에 사용자 저장값이 없을 때 제공할 bundled layout preset을 반환한다.
- * - 인수 : instrumentPresetId : 현재 score의 악기 프리셋 ID
  * - 인수 : slotNumber : 조회할 슬롯 번호
  * - 반환값 : 기본 제공 프리셋 또는 null
  */
 function getBundledLayoutPresetForSlot(
-  instrumentPresetId: string,
   slotNumber: LocalLayoutPresetSlotNumber,
 ): UserLayoutPresetData | null {
-  if (
-    slotNumber === 1 &&
-    instrumentPresetId === NORMAL_SCORE_LAYOUT_PRESET.instrumentPresetId
-  ) {
+  if (slotNumber === 1) {
     return cloneLayoutPreset(NORMAL_SCORE_LAYOUT_PRESET);
   }
 
@@ -186,13 +189,11 @@ function getLocalLayoutPresetSlotNumbers(): LocalLayoutPresetSlotNumber[] {
 
 /**
  * layout preset slot localStorage key를 만든다.
- * - 인수 : instrumentPresetId : 악기 프리셋 ID
  * - 인수 : slotNumber : 슬롯 번호
  * - 반환값 : slot data 저장 key
  */
 function createLayoutPresetSlotKey(
-  instrumentPresetId: string,
   slotNumber: LocalLayoutPresetSlotNumber,
 ): string {
-  return `layout-slot:${instrumentPresetId}:${slotNumber}`;
+  return `layout-slot:shared:v1:${slotNumber}`;
 }

@@ -121,7 +121,7 @@ async function boot(): Promise<void> {
       measurePerf("app.render.syncLeftStatus", () => syncLeftStatus(dom, state));
       measurePerf("app.render.syncUiControls", () => syncUiControls(dom, state));
       measurePerf("app.render.syncLayoutToolbarPresetSelect", () =>
-        syncLayoutToolbarPresetSelectForCurrentScore(dom, { getState: () => state })
+        syncLayoutToolbarPresetSelectForCurrentScore(dom)
       );
       measurePerf("app.render.syncPlaybackUi", () => syncPlaybackUi(dom, state, playbackRuntime));
     } finally {
@@ -153,7 +153,7 @@ async function boot(): Promise<void> {
     measurePerf("app.editRender.syncLeftStatus", () => syncLeftStatus(dom, state));
     measurePerf("app.editRender.syncUiControls", () => syncUiControls(dom, state));
     measurePerf("app.editRender.syncLayoutToolbarPresetSelect", () =>
-      syncLayoutToolbarPresetSelectForCurrentScore(dom, { getState: () => state })
+      syncLayoutToolbarPresetSelectForCurrentScore(dom)
     );
     measurePerf("app.editRender.syncPlaybackUi", () => syncPlaybackUi(dom, state, playbackRuntime));
   };
@@ -613,6 +613,8 @@ async function boot(): Promise<void> {
       practiceJudgeMode: previousPracticeJudgeMode,
       busy: { kind: "idle" },
     };
+    // 새 악보의 기본 레이아웃을 표시하므로 선택만 초기화해 같은 저장 슬롯을 다시 적용할 수 있게 한다.
+    dom.layoutPresetToolbarSelect.value = "default";
     render();
     resetPlaybackForCurrentState();
     youtubeControl.syncInputsFromScore();
