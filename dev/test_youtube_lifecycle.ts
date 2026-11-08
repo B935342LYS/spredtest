@@ -10,7 +10,7 @@ import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
 
 /** 이벤트·소유 DOM 정리에 필요한 최소 요소 대역. */
 class ElementStub extends EventTarget {
-  value = ""; checked = false; hidden = false; textContent = ""; title = "";
+  value = ""; checked = false; hidden = false; disabled = false; textContent = ""; title = "";
   dataset: Record<string, string> = {}; style: Record<string, string> = {};
   attributes: Record<string, string> = {}; children: ElementStub[] = [];
   parent: ElementStub | null = null;
@@ -79,10 +79,14 @@ async function testBinding(): Promise<void> {
     assert.equal(elements.youtubeControls.hidden, false);
     assert.equal(elements.youtubeStatus.textContent, "No video");
     assert.equal(requests.length, 0);
+    assert.equal(elements.youtubeReloadButton.disabled, true);
     elements.youtubeVideoInput.value = "abcDEF_123-";
     dispatch(elements.youtubeVideoInput, "keydown", true); assert.equal(state, before);
     dispatch(elements.youtubeVideoInput, "keydown"); dispatch(elements.youtubeVideoInput); await flush();
     assert.equal(requests.length, 1);
+    assert.equal(elements.youtubeReloadButton.disabled, true);
+    dispatch(elements.youtubeReloadButton, "click"); await flush();
+    assert.equal(requests.length, 1, "loading click must not restart the request");
     requests[0].resolve(requests[0].handle); await flush();
     assert.equal(elements.youtubeStatus.textContent, "Ready");
     const readyState = state;
@@ -101,6 +105,30 @@ async function testBinding(): Promise<void> {
     assert.equal(state.document, metadataState.document);
     assert.equal(elements.youtubeVideoInput.value, "invalid url");
     assert.equal(state.youtubeLocalOffsetMs, -201);
+    const beforeSyncCalls = requests[0].calls.length;
+    dispatch(elements.youtubeReloadButton, "click"); await flush();
+    assert.equal(requests.length, 1, "ready button seeks without recreating player");
+    assert.deepEqual(requests[0].calls.slice(beforeSyncCalls), ["pause", "seek:10.2"]);
+    assert.equal(elements.youtubeReloadButton.disabled, false);
+    assert.match(elements.youtubeReloadButton.attributes["aria-label"], /Sync/);
+    // 포커스된 offset 확정은 정렬 한 번만 수행하며 player/이력을 유지한다.
+    elements.youtubeLocalOffsetInput.focus();
+    elements.youtubeLocalOffsetInput.value = "-301";
+    const offsetSyncCalls = requests[0].calls.length;
+    dispatch(elements.youtubeReloadButton, "click");
+    assert.deepEqual(requests[0].calls.slice(offsetSyncCalls), ["pause", "seek:10.3"]);
+    elements.youtubeLocalOffsetInput.value = "-201";
+    dispatch(elements.youtubeLocalOffsetInput);
+    playing = true;
+    const playingSyncCalls = requests[0].calls.length;
+    dispatch(elements.youtubeReloadButton, "click");
+    assert.deepEqual(requests[0].calls.slice(playingSyncCalls), ["seek:10.2", "play"]);
+    playing = false;
+    control.pause();
+    assert.equal(state.document, metadataState.document);
+    assert.equal(state.history, before.history);
+    requests[0].error("retry probe");
+    assert.match(elements.youtubeReloadButton.attributes["aria-label"], /Retry/);
     dispatch(elements.youtubeReloadButton, "click"); await flush();
     assert.equal(requests.length, 2);
     assert.equal(state.document, metadataState.document);

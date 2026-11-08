@@ -515,3 +515,68 @@
   color: var(--danger);
 }
 
+.youtube-reload-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 var(--ui-control-height);
+  width: var(--ui-control-height);
+  padding: 0;
+}
+
+/* 축소 상단에서도 두 offset을 나란히 두고 부호·최댓값을 읽을 폭을 남긴다. */
+@media (max-width: 900px) {
+  .youtube-group {
+    gap: 4px;
+  }
+
+  .youtube-switch,
+  .youtube-controls input,
+  .youtube-reload-button {
+    height: 28px;
+    min-height: 28px;
+    font-size: 12px;
+  }
+
+  .youtube-switch {
+    padding-inline: 6px;
+  }
+
+  .youtube-reload-button {
+    flex-basis: 28px;
+    width: 28px;
+  }
+
+  .youtube-controls .youtube-video-field {
+    flex: 0 1 96px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .youtube-controls .youtube-score-offset-field {
+    width: 68px;
+  }
+
+  .youtube-controls .youtube-local-offset-field {
+    width: 76px;
+  }
+
+  .youtube-controls input[type="number"] {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 3px;
+  }
+
+  .youtube-controls .compact-field {
+    gap: 1px;
+    font-size: 10px;
+  }
+
+  .youtube-controls .youtube-status {
+    min-width: 0;
+    margin-top: 3px;
+    padding-inline: 5px;
+    font-size: 10px;
+  }
+}
+

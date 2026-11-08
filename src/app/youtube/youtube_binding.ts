@@ -85,6 +85,13 @@ export function bindYoutubeControls(
     dom.youtubeStatus.textContent = text;
     dom.youtubeStatus.title = text;
     dom.youtubeStatus.dataset.level = inputError ? "error" : enabled ? modeState.kind : "off";
+    const pending = loadTimer !== null || modeState.kind === "loading";
+    const canSync = modeState.kind === "ready" && player !== null;
+    const actionLabel = pending ? "Loading YouTube video"
+      : canSync ? "Sync YouTube to current score position" : "Retry loading YouTube video";
+    dom.youtubeReloadButton.title = actionLabel;
+    dom.youtubeReloadButton.setAttribute("aria-label", actionLabel);
+    dom.youtubeReloadButton.disabled = !enabled || pending || (!canSync && modeState.kind !== "error");
   }
 
   /**
@@ -177,6 +184,7 @@ export function bindYoutubeControls(
     if (!enabled || disposed) return;
     cancelVideoRequest();
     loadTimer = setTimeout(() => { loadTimer = null; void loadSavedVideo(); }, 0);
+    syncYoutubePanel();
   }
 
   /**
@@ -282,15 +290,22 @@ export function bindYoutubeControls(
     else { cancelVideoRequest(); modeState = { kind: "idle" }; }
     syncYoutubePanel();
   }, eventOptions);
-  // 클릭 시 blur 확정과 Reload를 같은 이벤트 안에서 처리하여 이중 로드를 막는다.
+  // 활성 입력의 확정을 먼저 처리하며 변경된 영상 요청을 중복 생성하지 않는다.
   dom.youtubeReloadButton.addEventListener("pointerdown", (event) => {
     if (commits.some(([input]) => input === document.activeElement)) event.preventDefault();
   }, eventOptions);
   dom.youtubeReloadButton.addEventListener("click", () => {
-    if (!enabled) return;
+    if (!enabled || disposed || loadTimer !== null || modeState.kind === "loading") return;
+    const offsetBefore = effectiveOffsetMs();
     for (const [input, commit] of commits) if (input === document.activeElement) commit();
     dom.youtubeReloadButton.focus();
-    queueVideoLoad();
+    if (loadTimer !== null) return;
+    if (modeState.kind === "ready" && player !== null) {
+      // offset 확정이 이미 정렬했다면 같은 클릭에서 두 번째 seek를 보내지 않는다.
+      if (effectiveOffsetMs() === offsetBefore) alignReadyVideo();
+    } else if (modeState.kind === "error") {
+      queueVideoLoad();
+    }
   }, eventOptions);
   syncInputsFromScore();
 
