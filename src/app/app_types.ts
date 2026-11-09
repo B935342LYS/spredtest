@@ -190,7 +190,7 @@ export type AppDom = {
   defaultModeSelect: HTMLSelectElement;
   customTextInput: HTMLInputElement;
   holdTokenSelect: HTMLSelectElement;
-  glissKindSelect: HTMLSelectElement;
+  glissKindButtons: HTMLButtonElement[];
   glissIdSelect: HTMLSelectElement;
   tremDivisionSelect: HTMLSelectElement;
   absolutePitchSelect: HTMLSelectElement;

@@ -99,7 +99,17 @@ export function bindEditPanelControls(
   dom.defaultModeSelect.addEventListener("change", syncDefaultEditInput);
   dom.customTextInput.addEventListener("input", syncDefaultEditInput);
   dom.holdTokenSelect.addEventListener("change", syncDefaultEditInput);
-  dom.glissKindSelect.addEventListener("change", syncDefaultEditInput);
+  // Gliss는 하나만 선택하며 선택된 버튼을 다시 누르면 none으로 해제한다.
+  for (const button of dom.glissKindButtons) {
+    button.addEventListener("click", () => {
+      if (button.disabled) return;
+      const select = button.getAttribute("aria-pressed") !== "true";
+      for (const candidate of dom.glissKindButtons) {
+        candidate.setAttribute("aria-pressed", String(select && candidate === button));
+      }
+      syncDefaultEditInput();
+    });
+  }
   dom.glissIdSelect.addEventListener("change", syncDefaultEditInput);
   dom.tremDivisionSelect.addEventListener("change", syncDefaultEditInput);
   dom.absolutePitchSelect.addEventListener("change", syncDefaultEditInput);

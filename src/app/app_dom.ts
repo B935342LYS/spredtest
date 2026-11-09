@@ -93,7 +93,7 @@ export function collectAppDom(): AppDom {
     defaultModeSelect: queryElement(".default-mode-select", HTMLSelectElement),
     customTextInput: queryElement(".custom-text-input", HTMLInputElement),
     holdTokenSelect: queryElement(".hold-token-select", HTMLSelectElement),
-    glissKindSelect: queryElement(".gliss-kind-select", HTMLSelectElement),
+    glissKindButtons: Array.from(document.querySelectorAll<HTMLButtonElement>("[data-gliss-kind]")),
     glissIdSelect: queryElement(".gliss-id-select", HTMLSelectElement),
     tremDivisionSelect: queryElement(".trem-division-select", HTMLSelectElement),
     absolutePitchSelect: queryElement(".absolute-pitch-select", HTMLSelectElement),

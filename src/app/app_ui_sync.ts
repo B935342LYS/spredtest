@@ -297,8 +297,10 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
   dom.defaultModeSelect.disabled = isBusy || !isEditMode;
   dom.customTextInput.disabled = isBusy || !isEditMode || dom.defaultModeSelect.value === "eraser";
   dom.holdTokenSelect.disabled = isBusy || !isEditMode || !isNoteComposerMode;
-  dom.glissKindSelect.disabled = isBusy || !isEditMode || !isNoteComposerMode;
-  dom.glissIdSelect.disabled = dom.glissKindSelect.disabled || dom.glissKindSelect.value === "";
+  const glissDisabled = isBusy || !isEditMode || !isNoteComposerMode;
+  for (const button of dom.glissKindButtons) button.disabled = glissDisabled;
+  dom.glissIdSelect.disabled = glissDisabled ||
+    !dom.glissKindButtons.some((button) => button.getAttribute("aria-pressed") === "true");
   dom.tremDivisionSelect.disabled = isBusy || !isEditMode || !isNoteComposerMode;
   dom.absolutePitchSelect.disabled = isBusy || !isEditMode || dom.defaultModeSelect.value === "comment" || dom.defaultModeSelect.value === "eraser";
   dom.microPitchInput.disabled = isBusy || !isEditMode || dom.defaultModeSelect.value === "comment" || dom.defaultModeSelect.value === "eraser";

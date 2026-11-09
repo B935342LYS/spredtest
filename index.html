@@ -256,16 +256,9 @@
                     </div>
                 </section>
 
-                <section class="edit-card narrow-card" aria-label="Glissando tools">
-                    <div class="edit-card-title">Gliss.</div>
-                    <div class="edit-control-row">
-                        <select class="gliss-kind-select" disabled>
-                            <option value="">(none)</option>
-                            <option value="S">start</option>
-                            <option value="holdStart">- + start</option>
-                            <option value="M">curve</option>
-                            <option value="E">end</option>
-                        </select>
+                <section class="edit-card narrow-card gliss-card" aria-label="Glissando tools">
+                    <div class="edit-card-title-row gliss-header">
+                        <span class="edit-card-title">Gliss.</span>
                         <label class="stacked-field compact-stack">
                             <span>id</span>
                             <select class="gliss-id-select" disabled>
@@ -297,6 +290,12 @@
                                 <option value="z">z</option>
                             </select>
                         </label>
+                    </div>
+                    <div class="gliss-kind-buttons" role="group" aria-label="Gliss kind (click selected button again for none)">
+                        <button type="button" data-gliss-kind="S" aria-pressed="false" title="start — click again for none" disabled>start</button>
+                        <button type="button" data-gliss-kind="holdStart" aria-pressed="false" title="- + start — click again for none" disabled>-start</button>
+                        <button type="button" data-gliss-kind="M" aria-pressed="false" title="curve — click again for none" disabled>curve</button>
+                        <button type="button" data-gliss-kind="E" aria-pressed="false" title="end — click again for none" disabled>end</button>
                     </div>
                 </section>
 
@@ -367,8 +366,10 @@
                 </section>
 
                 <section class="edit-card actions-card" aria-label="Edit action tools">
-                    <div class="edit-card-title">Edit Actions</div>
-                    <span class="preview-pill pending-pill">Pending: 0</span>
+                    <div class="edit-card-title-row actions-header">
+                        <span class="edit-card-title">Edit Actions</span>
+                        <span class="preview-pill pending-pill">Pending: 0</span>
+                    </div>
                     <div class="edit-control-row">
                         <button type="button" class="undo-button" disabled>Undo</button>
                         <button type="button" class="redo-button" disabled>Redo</button>

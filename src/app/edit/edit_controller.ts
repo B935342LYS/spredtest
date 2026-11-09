@@ -39,7 +39,7 @@ export function readDefaultNoteEditInput(
     autoText,
     hold: dom.holdTokenSelect.value as HoldEditToken,
     gliss: {
-      kind: dom.glissKindSelect.value as GlissEditInput["kind"],
+      kind: (dom.glissKindButtons.find((button) => button.getAttribute("aria-pressed") === "true")?.dataset.glissKind ?? "") as GlissEditInput["kind"],
       id: dom.glissIdSelect.value,
     },
     tremDivision: dom.tremDivisionSelect.value as DefaultNoteEditInput["tremDivision"],
