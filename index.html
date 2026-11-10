@@ -247,12 +247,9 @@
 
                 <section class="edit-card narrow-card" aria-label="Long note tools">
                     <div class="edit-card-title">Long</div>
-                    <div class="edit-control-row">
-                        <select class="hold-token-select" disabled>
-                            <option value="">(none)</option>
-                            <option value="-">-</option>
-                            <option value="~">~</option>
-                        </select>
+                    <div class="modifier-kind-buttons" role="group" aria-label="Long (click selected button again for none)">
+                        <button type="button" data-hold-token="-" aria-pressed="false" aria-label="Long -" title="- — click again for none" disabled>-</button>
+                        <button type="button" data-hold-token="~" aria-pressed="false" aria-label="Long ~" title="~ — click again for none" disabled>~</button>
                     </div>
                 </section>
 
@@ -301,13 +298,10 @@
 
                 <section class="edit-card narrow-card" aria-label="Tremolo tools">
                     <div class="edit-card-title">Trem.</div>
-                    <div class="edit-control-row">
-                        <select class="trem-division-select" disabled>
-                            <option value="">(none)</option>
-                            <option value="2">trem 2</option>
-                            <option value="3">trem 3</option>
-                            <option value="4">trem 4</option>
-                        </select>
+                    <div class="modifier-kind-buttons" role="group" aria-label="Trem (click selected button again for none)">
+                        <button type="button" data-trem-division="2" aria-pressed="false" aria-label="trem 2" title="trem 2 — click again for none" disabled>2</button>
+                        <button type="button" data-trem-division="3" aria-pressed="false" aria-label="trem 3" title="trem 3 — click again for none" disabled>3</button>
+                        <button type="button" data-trem-division="4" aria-pressed="false" aria-label="trem 4" title="trem 4 — click again for none" disabled>4</button>
                     </div>
                 </section>
 

@@ -296,12 +296,12 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
   dom.editToggle.disabled = isBusy || isGameLocked;
   dom.defaultModeSelect.disabled = isBusy || !isEditMode;
   dom.customTextInput.disabled = isBusy || !isEditMode || dom.defaultModeSelect.value === "eraser";
-  dom.holdTokenSelect.disabled = isBusy || !isEditMode || !isNoteComposerMode;
+  for (const button of dom.holdTokenButtons) button.disabled = isBusy || !isEditMode || !isNoteComposerMode;
   const glissDisabled = isBusy || !isEditMode || !isNoteComposerMode;
   for (const button of dom.glissKindButtons) button.disabled = glissDisabled;
   dom.glissIdSelect.disabled = glissDisabled ||
     !dom.glissKindButtons.some((button) => button.getAttribute("aria-pressed") === "true");
-  dom.tremDivisionSelect.disabled = isBusy || !isEditMode || !isNoteComposerMode;
+  for (const button of dom.tremDivisionButtons) button.disabled = isBusy || !isEditMode || !isNoteComposerMode;
   dom.absolutePitchSelect.disabled = isBusy || !isEditMode || dom.defaultModeSelect.value === "comment" || dom.defaultModeSelect.value === "eraser";
   dom.microPitchInput.disabled = isBusy || !isEditMode || dom.defaultModeSelect.value === "comment" || dom.defaultModeSelect.value === "eraser";
   dom.tupletModeToggle.disabled = isBusy || !isEditMode;

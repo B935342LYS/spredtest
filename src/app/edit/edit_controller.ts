@@ -37,12 +37,12 @@ export function readDefaultNoteEditInput(
     mode: dom.defaultModeSelect.value as DefaultEditMode,
     customText: dom.customTextInput.value,
     autoText,
-    hold: dom.holdTokenSelect.value as HoldEditToken,
+    hold: (dom.holdTokenButtons.find((button) => button.getAttribute("aria-pressed") === "true")?.dataset.holdToken ?? "") as HoldEditToken,
     gliss: {
       kind: (dom.glissKindButtons.find((button) => button.getAttribute("aria-pressed") === "true")?.dataset.glissKind ?? "") as GlissEditInput["kind"],
       id: dom.glissIdSelect.value,
     },
-    tremDivision: dom.tremDivisionSelect.value as DefaultNoteEditInput["tremDivision"],
+    tremDivision: (dom.tremDivisionButtons.find((button) => button.getAttribute("aria-pressed") === "true")?.dataset.tremDivision ?? "") as DefaultNoteEditInput["tremDivision"],
     absolutePitch: dom.absolutePitchSelect.value,
     microPitch: dom.microPitchInput.value,
   };

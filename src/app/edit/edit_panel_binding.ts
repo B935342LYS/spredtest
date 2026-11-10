@@ -98,20 +98,20 @@ export function bindEditPanelControls(
   // edit panel 입력이 바뀔 때마다 현재 rawText preview와 click 적용 상태를 동기화한다.
   dom.defaultModeSelect.addEventListener("change", syncDefaultEditInput);
   dom.customTextInput.addEventListener("input", syncDefaultEditInput);
-  dom.holdTokenSelect.addEventListener("change", syncDefaultEditInput);
-  // Gliss는 하나만 선택하며 선택된 버튼을 다시 누르면 none으로 해제한다.
-  for (const button of dom.glissKindButtons) {
-    button.addEventListener("click", () => {
-      if (button.disabled) return;
-      const select = button.getAttribute("aria-pressed") !== "true";
-      for (const candidate of dom.glissKindButtons) {
-        candidate.setAttribute("aria-pressed", String(select && candidate === button));
-      }
-      syncDefaultEditInput();
-    });
+  // Long/Gliss/Trem은 그룹마다 하나만 선택하며, 재클릭하면 해당 그룹만 none으로 해제한다.
+  for (const buttons of [dom.holdTokenButtons, dom.glissKindButtons, dom.tremDivisionButtons]) {
+    for (const button of buttons) {
+      button.addEventListener("click", () => {
+        if (button.disabled) return;
+        const select = button.getAttribute("aria-pressed") !== "true";
+        for (const candidate of buttons) {
+          candidate.setAttribute("aria-pressed", String(select && candidate === button));
+        }
+        syncDefaultEditInput();
+      });
+    }
   }
   dom.glissIdSelect.addEventListener("change", syncDefaultEditInput);
-  dom.tremDivisionSelect.addEventListener("change", syncDefaultEditInput);
   dom.absolutePitchSelect.addEventListener("change", syncDefaultEditInput);
   dom.microPitchInput.addEventListener("input", () => {
     const normalizedValue = normalizeMicroPitchInput(dom.microPitchInput.value);

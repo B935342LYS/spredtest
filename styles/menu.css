@@ -219,6 +219,7 @@
   color: #b8c7cf;
 }
 
+.app-shell[data-menu-theme="dark"] .edit-panel .modifier-kind-buttons button[aria-pressed="true"],
 .app-shell[data-menu-theme="dark"] .edit-panel .gliss-kind-buttons button[aria-pressed="true"],
 .app-shell[data-menu-theme="dark"] .edit-panel .pill-toggle.on {
   border-color: #6f8796;

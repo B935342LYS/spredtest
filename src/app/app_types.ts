@@ -189,10 +189,10 @@ export type AppDom = {
   trackToggleButtons: HTMLButtonElement[];
   defaultModeSelect: HTMLSelectElement;
   customTextInput: HTMLInputElement;
-  holdTokenSelect: HTMLSelectElement;
+  holdTokenButtons: HTMLButtonElement[];
   glissKindButtons: HTMLButtonElement[];
   glissIdSelect: HTMLSelectElement;
-  tremDivisionSelect: HTMLSelectElement;
+  tremDivisionButtons: HTMLButtonElement[];
   absolutePitchSelect: HTMLSelectElement;
   microPitchInput: HTMLInputElement;
   tupletModeToggle: HTMLButtonElement;
