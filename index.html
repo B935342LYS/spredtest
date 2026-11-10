@@ -865,13 +865,13 @@
                 <section class="layout-section layout-add-row-section" aria-label="Add layout row">
                     <h3>Add Row</h3>
                     <div class="layout-field-row layout-add-row-controls">
-                        <label class="details-field compact">
-                            Type
-                            <select class="layout-row-type-select">
-                                <option value="note">note</option>
-                                <option value="gap">gap</option>
-                            </select>
-                        </label>
+                        <div class="details-field compact">
+                            <span>Type</span>
+                            <div class="layout-row-type-buttons" role="group" aria-label="Row type">
+                                <button type="button" data-layout-row-type="note" aria-pressed="true">note</button>
+                                <button type="button" data-layout-row-type="gap" aria-pressed="false">gap</button>
+                            </div>
+                        </div>
                         <label class="details-field compact">
                             Height (px)
                             <input class="layout-row-height-input" type="number" min="1" max="500" step="1" value="21">

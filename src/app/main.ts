@@ -572,9 +572,10 @@ async function boot(): Promise<void> {
    * 검증된 새 악보로 교체하고 화면·재생 연결 완료 여부를 반환한다.
    * - 인수 : jsonText : 입력 Score JSON
    * - 인수 : sourceLabel : 로드 출처 표시
+   * - 인수 : largeScoreApproved : 파일 읽기 전 받은 이번 로드의 대용량 동의
    * - 반환값 : 검증 거절은 false, 정상 완료는 true. 출력 예외는 기존대로 전파한다.
    */
-  const loadScoreJsonText = (jsonText: string, sourceLabel: string): boolean => {
+  const loadScoreJsonText = (jsonText: string, sourceLabel: string, largeScoreApproved = false): boolean => {
     if (!cancelTouchInteraction()) return false;
     const previousPracticeJudgeMode = state.practiceJudgeMode;
 
@@ -586,7 +587,10 @@ async function boot(): Promise<void> {
     syncUiControls(dom, state);
 
     // 활성 트랙 조합을 새 악보의 첫 renderer 입력과 편집·재생 상태에 함께 반영한다.
-    const nextLoadResult = loadScoreTextAsInitialState(jsonText, sourceLabel, "loaded", state.activeTrackIds);
+    const nextLoadResult = loadScoreTextAsInitialState(
+      jsonText, sourceLabel, "loaded", state.activeTrackIds,
+      (message) => largeScoreApproved || window.confirm(message),
+    );
 
     if (!nextLoadResult.ok) {
       state = {

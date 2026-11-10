@@ -196,7 +196,7 @@ export function collectAppDom(): AppDom {
     layoutPitchShiftLabel: queryElement(".layout-pitch-shift-label", HTMLElement),
     layoutRowList: queryElement(".layout-row-list", HTMLElement),
     layoutPreview: queryElement(".layout-preview", HTMLElement),
-    layoutRowTypeSelect: queryElement(".layout-row-type-select", HTMLSelectElement),
+    layoutRowTypeButtons: Array.from(document.querySelectorAll<HTMLButtonElement>("[data-layout-row-type]")),
     layoutRowHeightInput: queryElement(".layout-row-height-input", HTMLInputElement),
     layoutAddRowBelowButton: queryElement(".layout-add-row-below-button", HTMLButtonElement),
     layoutAddRowAboveButton: queryElement(".layout-add-row-above-button", HTMLButtonElement),

@@ -219,6 +219,22 @@
   white-space: nowrap;
 }
 
+.layout-row-type-buttons {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.layout-row-type-buttons button {
+  min-width: 40px;
+  padding: 0 6px;
+}
+
+.layout-row-type-buttons button[aria-pressed="true"] {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 .layout-open-field {
   min-height: 32px;
   padding: 0 8px;

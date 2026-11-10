@@ -121,10 +121,8 @@ assert(
   "Invalid expand count should produce a warning state.",
 );
 assert(
-  overLimitExpandState.statusMessage.level === "warning" &&
-    overLimitExpandState.document.score.globalLines.columnCount ===
-      initialState.document.score.globalLines.columnCount,
-  "Expand should still reject changes above the total score column limit.",
+  overLimitExpandState === initialState,
+  "Expand without large-score approval must preserve the entire state.",
 );
 assert(
   trimmedState.document.score.globalLines.columnCount === 10,

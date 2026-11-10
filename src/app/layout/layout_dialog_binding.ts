@@ -1342,7 +1342,7 @@ function addLayoutRowFromDialog(
   dom: AppDom,
   position: LayoutInsertPosition,
 ): void {
-  const rowType = dom.layoutRowTypeSelect.value === "gap" ? "gap" : "note";
+  const rowType = getLayoutAddRowType(dom);
 
   applyLayoutDraftChange(
     dom,
@@ -1362,9 +1362,20 @@ function addLayoutRowFromDialog(
  * - 반환값 : 없음
  */
 function syncLayoutAddRowHeightState(dom: AppDom): void {
-  const isGap = dom.layoutRowTypeSelect.value === "gap";
+  const isGap = getLayoutAddRowType(dom) === "gap";
 
   dom.layoutRowHeightInput.disabled = !isGap;
+}
+
+/**
+ * Add Row에서 선택된 종류를 읽는다.
+ * - 인수 : dom : 레이아웃 대화상자의 DOM 요소
+ * - 반환값 : note 또는 gap
+ */
+function getLayoutAddRowType(dom: AppDom): "note" | "gap" {
+  return dom.layoutRowTypeButtons.some((button) =>
+    button.dataset.layoutRowType === "gap" && button.getAttribute("aria-pressed") === "true"
+  ) ? "gap" : "note";
 }
 
 /**
@@ -1471,9 +1482,15 @@ export function bindLayoutDialogControls(
   dom.layoutAddRowAboveButton.addEventListener("click", () => {
     addLayoutRowFromDialog(dom, "above");
   });
-  dom.layoutRowTypeSelect.addEventListener("change", () => {
-    syncLayoutAddRowHeightState(dom);
-  });
+  for (const button of dom.layoutRowTypeButtons) {
+    button.addEventListener("click", () => {
+      // 행 추가에는 종류가 필수이므로 재클릭해도 현재 선택을 유지한다.
+      for (const candidate of dom.layoutRowTypeButtons) {
+        candidate.setAttribute("aria-pressed", String(candidate === button));
+      }
+      syncLayoutAddRowHeightState(dom);
+    });
+  }
   dom.layoutLocalSaveButton.addEventListener("click", () => {
     saveLayoutDraftToLocalPreset(dom);
   });

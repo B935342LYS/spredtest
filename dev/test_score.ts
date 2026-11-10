@@ -1,5 +1,6 @@
 import "./test_score_policy";
 import "./test_score_export";
+import "./test_large_score";
 import { readFileSync } from "node:fs";
 
 import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
@@ -10,8 +11,8 @@ import {
   MAX_SCORE_COMMENT_LENGTH,
   MAX_ROW_DEFINITIONS,
   MAX_ROW_HEIGHT,
-  MAX_SCORE_JSON_BYTES,
-  MAX_SCORE_COLUMN_COUNT,
+  SCORE_JSON_WARNING_BYTES,
+  SCORE_COLUMN_WARNING_THRESHOLD,
   MIN_YOUTUBE_OFFSET_MS,
 } from "../src/core/score/score_limits";
 import { validateScoreFile } from "../src/core/score/score_validate";
@@ -147,7 +148,7 @@ expectValidationError(
   "musicData.comment",
 );
 
-const oversizedJsonResult = loadScoreFile(" ".repeat(MAX_SCORE_JSON_BYTES + 1));
+const oversizedJsonResult = loadScoreFile(" ".repeat(SCORE_JSON_WARNING_BYTES + 1));
 if (oversizedJsonResult.ok) {
   console.error("Score JSON loader failed to reject oversized JSON text.");
   process.exitCode = 1;
@@ -167,13 +168,13 @@ expectValidationError(
 );
 
 const tooLargeColumnCount = cloneJson(fixtureValue);
-tooLargeColumnCount.globalLines.columnCount = MAX_SCORE_COLUMN_COUNT + 1;
-expectValidationError(
-  tooLargeColumnCount,
-  "invalid_shape",
-  "too large globalLines.columnCount",
-  "globalLines.columnCount",
-);
+tooLargeColumnCount.globalLines.columnCount = SCORE_COLUMN_WARNING_THRESHOLD + 1;
+if (!validateScoreFile(tooLargeColumnCount).ok) throw new Error("Large column counts are structurally valid.");
+if (loadScoreFile(JSON.stringify(tooLargeColumnCount)).ok) throw new Error("Large loads must require confirmation.");
+if (!loadScoreFile(JSON.stringify(tooLargeColumnCount), () => true).ok) throw new Error("Approved large loads must succeed.");
+const unsafeColumnCount = cloneJson(fixtureValue);
+unsafeColumnCount.globalLines.columnCount = Number.MAX_SAFE_INTEGER + 1;
+expectValidationError(unsafeColumnCount, "invalid_shape", "unsafe column count", "globalLines.columnCount");
 
 const tooManyRows = cloneJson(fixtureValue);
 tooManyRows.layout.rowDefinitions = Array.from(

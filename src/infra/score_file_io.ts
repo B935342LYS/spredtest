@@ -3,7 +3,7 @@
  */
 
 import type { ScoreFile } from "../core/score/types";
-import { MAX_SCORE_JSON_BYTES, formatByteSize, getUtf8ByteLength } from "../core/score/score_limits";
+import { SCORE_JSON_WARNING_BYTES, getUtf8ByteLength, allowLargeScoreOperation, type ConfirmLargeScore } from "../core/score/score_limits";
 
 /** 다운로드할 JSON 본문 준비 결과. 용량 초과 시 악보 내용은 수정하지 않는다. */
 export type ScoreJsonExportResult =
@@ -20,24 +20,21 @@ export function serializeScoreFile(score: ScoreFile): string {
 }
 
 /**
- * 파일 로드 상한 안에서 악보를 다시 읽을 수 있는 JSON 본문을 준비한다.
+ * 일반 악보는 바로, 대용량 악보는 동의를 받아 다운로드 본문을 준비한다.
  * - 인수 : score : 저장 시각까지 반영된 최종 악보
- * - 반환값 : 들여쓰기 JSON, 필요 시 공백 없는 JSON, 둘 다 초과하면 실패
+ * - 인수 : confirm : 대용량 다운로드 동의 함수
+ * - 반환값 : 들여쓰기 JSON 또는 공백 없는 JSON. 대용량 동의가 없으면 실패
  */
-export function prepareScoreJsonExport(score: ScoreFile): ScoreJsonExportResult {
+export function prepareScoreJsonExport(score: ScoreFile, confirm?: ConfirmLargeScore): ScoreJsonExportResult {
   const pretty = serializeScoreFile(score);
-  if (getUtf8ByteLength(pretty) <= MAX_SCORE_JSON_BYTES) {
-    return { ok: true, jsonText: pretty };
-  }
-
   // JSON 구조의 들여쓰기만 생략한다. rawText 등 문자열 내부 공백은 보존한다.
-  const compact = JSON.stringify(score);
-  if (getUtf8ByteLength(compact) <= MAX_SCORE_JSON_BYTES) {
-    return { ok: true, jsonText: compact };
+  const jsonText = getUtf8ByteLength(pretty) <= SCORE_JSON_WARNING_BYTES ? pretty : JSON.stringify(score);
+  if (allowLargeScoreOperation(getUtf8ByteLength(jsonText), score.globalLines.columnCount, confirm)) {
+    return { ok: true, jsonText };
   }
   return {
     ok: false,
-    message: `Cannot download: score JSON exceeds ${formatByteSize(MAX_SCORE_JSON_BYTES)} even without indentation. Reduce the score size and try again.`,
+    message: "Download cancelled: large scores require confirmation.",
   };
 }
 
@@ -59,10 +56,11 @@ export function createScoreJsonFileName(score: ScoreFile): string {
 /**
  * ScoreFile JSON 문자열을 브라우저 다운로드로 내보낸다.
  * - 인수 : score : 저장할 score JSON 객체
- * - 반환값 : JSON 준비 결과. 용량 초과 시 다운로드를 시작하지 않는다.
+ * - 인수 : confirm : 대용량 다운로드 동의 함수
+ * - 반환값 : JSON 준비 결과. 대용량 동의가 없으면 다운로드를 시작하지 않는다.
  */
-export function downloadScoreJson(score: ScoreFile): ScoreJsonExportResult {
-  const result = prepareScoreJsonExport(score);
+export function downloadScoreJson(score: ScoreFile, confirm?: ConfirmLargeScore): ScoreJsonExportResult {
+  const result = prepareScoreJsonExport(score, confirm);
   if (!result.ok) return result;
   downloadTextFile(
     createScoreJsonFileName(score),

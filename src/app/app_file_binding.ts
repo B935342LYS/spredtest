@@ -18,12 +18,13 @@ import { isValidScoreTimestamp } from "../core/score/score_warnings";
 import { touchScoreTimestampsForSave } from "./score_timestamp";
 import { isGameModeLocked } from "./game/game_types";
 import { syncLeftStatus, syncUiControls } from "./app_ui_sync";
+import { allowLargeScoreOperation, SCORE_JSON_WARNING_BYTES } from "../core/score/score_limits";
 
 /** file/local storage binding이 app 상태를 읽고 갱신하기 위한 session 입력. */
 export type FileBindingSession = {
   getState(): AppState;
   setState(nextState: AppState): void;
-  loadScoreJsonText(jsonText: string, sourceLabel: string): boolean;
+  loadScoreJsonText(jsonText: string, sourceLabel: string, largeScoreApproved?: boolean): boolean;
 };
 
 /**
@@ -48,7 +49,7 @@ export function bindFileControls(
       state.scoreOrigin,
     );
 
-    const downloadResult = downloadScoreJson(nextScore);
+    const downloadResult = downloadScoreJson(nextScore, (message) => window.confirm(message));
     if (!downloadResult.ok) {
       // 저장 후보의 timestamp와 origin을 확정하지 않고 현재 악보를 유지한다.
       session.setState({
@@ -93,6 +94,13 @@ export function bindFileControls(
       return;
     }
 
+    // 큰 파일은 텍스트를 메모리에 읽기 전에 확인하고 이번 로드에만 승인을 전달한다.
+    if (!allowLargeScoreOperation(file.size, 0, (message) => window.confirm(message))) {
+      dom.jsonLoadInput.value = "";
+      return;
+    }
+    const largeScoreApproved = file.size > SCORE_JSON_WARNING_BYTES;
+
     // 파일 내용 읽기부터 검증·교체 완료까지 기존 busy 정책으로 다른 입력을 잠근다.
     session.setState({
       ...session.getState(),
@@ -103,7 +111,7 @@ export function bindFileControls(
 
     Promise.resolve().then(() => readTextFile(file))
       .then((jsonText) => {
-        session.loadScoreJsonText(jsonText, file.name);
+        session.loadScoreJsonText(jsonText, file.name, largeScoreApproved);
       })
       .catch((error: unknown) => {
         const state = session.getState();

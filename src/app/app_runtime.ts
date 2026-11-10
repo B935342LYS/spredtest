@@ -52,7 +52,8 @@ import { loadGameSyncOffsetMsFromLocalStorage, loadGameDisplayOffsetMsFromLocalS
 import { touchScoreUpdatedAt } from "./score_timestamp";
 import {
   clampYoutubeOffsetMs,
-  MAX_SCORE_COLUMN_COUNT,
+  allowLargeScoreOperation,
+  type ConfirmLargeScore,
 } from "../core/score/score_limits";
 
 const CLEAR_ALL_COLUMN_COUNT = 1000;
@@ -317,13 +318,15 @@ export function applyMenuThemeToState(
  * score 오른쪽에 column을 추가하고 full rebuild 산출물을 만든다.
  * - 인수 : state : 현재 앱 상태
  * - 인수 : additionalColumns : 오른쪽에 추가할 column 수
+ * - 인수 : confirm : 대용량 확장 확인 함수
  * - 반환값 : columnCount와 runtime artifact가 갱신된 앱 상태
  */
 export function applyExpandColumnsToState(
   state: AppState,
   additionalColumns: number,
+  confirm?: ConfirmLargeScore,
 ): AppState {
-  if (!Number.isInteger(additionalColumns) || additionalColumns <= 0) {
+  if (!Number.isSafeInteger(additionalColumns) || additionalColumns <= 0) {
     return {
       ...state,
       statusMessage: {
@@ -335,15 +338,18 @@ export function applyExpandColumnsToState(
 
   const nextColumnCount = state.document.score.globalLines.columnCount + additionalColumns;
 
-  if (nextColumnCount > MAX_SCORE_COLUMN_COUNT) {
+  if (!Number.isSafeInteger(nextColumnCount)) {
     return {
       ...state,
       statusMessage: {
         level: "warning",
-        text: `Score can have at most ${MAX_SCORE_COLUMN_COUNT} columns.`,
+        text: "Column count must remain a positive safe integer.",
       },
     };
   }
+
+  // 취소 시 악보·이력·재생 상태를 교체하지 않는다.
+  if (!allowLargeScoreOperation(0, nextColumnCount, confirm)) return state;
 
   const nextScore: ScoreFile = {
     ...state.document.score,
@@ -517,6 +523,7 @@ export function applyClearAllScoreToState(
  * - 인수 : sourceLabel : 사용자 상태 메시지에 표시할 로드 출처
  * - 인수 : scoreOrigin : 현재 score가 앱에 들어온 출처
  * - 인수 : activeTrackIds : 악보 교체 후 유지할 활성 트랙 목록. 생략 시 최초 실행 기본값
+ * - 인수 : confirm : 이번 로드의 대용량 확인 함수
  * - 반환값 : 로드 성공 시 새 AppState, 실패 시 기존 상태에 표시할 오류 메시지
  */
 export function loadScoreTextAsInitialState(
@@ -524,6 +531,7 @@ export function loadScoreTextAsInitialState(
   sourceLabel: string,
   scoreOrigin: ScoreOrigin = "loaded",
   activeTrackIds: readonly TrackId[] = DEFAULT_ACTIVE_TRACK_IDS,
+  confirm?: ConfirmLargeScore,
 ):
   | {
       ok: true;
@@ -533,7 +541,7 @@ export function loadScoreTextAsInitialState(
       ok: false;
       message: string;
     } {
-  const loadResult = loadRuntimeDocument(jsonText);
+  const loadResult = loadRuntimeDocument(jsonText, confirm);
 
   if (!loadResult.ok) {
     return {

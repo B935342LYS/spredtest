@@ -1,0 +1,37 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { loadScoreFile } from "../src/core/score/json_load";
+import { createRuntimeDocument } from "../src/core/score/create_runtime_document";
+import { SCORE_JSON_WARNING_BYTES, allowLargeScoreOperation } from "../src/core/score/score_limits";
+import { prepareScoreJsonExport } from "../src/infra/score_file_io";
+import { applyExpandColumnsToState, createInitialState } from "../src/app/app_runtime";
+import { createLayoutDraftBundle } from "../src/app/layout/layout_draft";
+import { applyLayoutDraftToScore } from "../src/app/layout/layout_apply";
+import type { ScoreFile } from "../src/core/score/types";
+
+const score: ScoreFile = JSON.parse(readFileSync(new URL("./test_cases/minimal-valid-score.json", import.meta.url), "utf8"));
+score.globalLines.columnCount = 10001;
+const json = JSON.stringify(score);
+const padded = json + " ".repeat(SCORE_JSON_WARNING_BYTES + 1 - json.length);
+let prompts = 0;
+assert(allowLargeScoreOperation(SCORE_JSON_WARNING_BYTES, 10000, () => { throw new Error("Boundary must not prompt."); }));
+assert(!loadScoreFile(json, () => false).ok);
+assert(!loadScoreFile(padded, () => false).ok);
+assert(loadScoreFile(padded, () => { prompts++; return true; }).ok);
+assert.equal(prompts, 1, "One approval covers both size thresholds for this load.");
+assert(!loadScoreFile(padded).ok, "Approval must not carry over to another load.");
+const invalid = structuredClone(score);
+invalid.tracks[0].cells[0].rowId = "missing-row";
+assert(!loadScoreFile(JSON.stringify(invalid), () => true).ok, "Approval must not bypass structural validation.");
+const exportResult = prepareScoreJsonExport(score, () => true);
+assert(exportResult.ok);
+assert(loadScoreFile(exportResult.jsonText, () => true).ok);
+assert(!prepareScoreJsonExport(score, () => false).ok);
+
+const state = createInitialState(createRuntimeDocument(score));
+assert.equal(applyExpandColumnsToState(state, 1, () => false), state);
+assert.equal(applyExpandColumnsToState(state, 1, () => true).document.score.globalLines.columnCount, 10002);
+assert.equal(applyExpandColumnsToState(state, Number.MAX_SAFE_INTEGER, () => true).document, state.document);
+const draft = createLayoutDraftBundle(score);
+assert(applyLayoutDraftToScore(score, draft).ok, "Layout application must keep working for an approved large score.");
+console.log("Large-score approval, cancellation, round-trip and edit tests passed.");

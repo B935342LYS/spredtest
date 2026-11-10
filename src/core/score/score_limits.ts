@@ -8,8 +8,8 @@ export const MAX_CELL_RAW_TEXT_LENGTH = 200;
 /** ScoreFile musicData.comment 최대 글자 수. */
 export const MAX_SCORE_COMMENT_LENGTH = 500;
 
-/** ScoreFile 전체 columnCount 최대값. */
-export const MAX_SCORE_COLUMN_COUNT = 10000;
+/** ScoreFile 전체 columnCount 대용량 경고 기준. */
+export const SCORE_COLUMN_WARNING_THRESHOLD = 10000;
 
 /** ScoreFile layout.rowDefinitions 최대 행 수. */
 export const MAX_ROW_DEFINITIONS = 4096;
@@ -17,8 +17,27 @@ export const MAX_ROW_DEFINITIONS = 4096;
 /** layout row height 최대 px 값. */
 export const MAX_ROW_HEIGHT = 500;
 
-/** Score JSON 파일 로드 최대 UTF-8 byte 수. */
-export const MAX_SCORE_JSON_BYTES = 8 * 1024 * 1024;
+/** Score JSON 파일 로드·다운로드 대용량 경고 기준 UTF-8 byte 수. */
+export const SCORE_JSON_WARNING_BYTES = 8 * 1024 * 1024;
+
+/** 대용량 작업 경고를 표시하고 이번 작업에 대한 사용자 동의를 반환한다. */
+export type ConfirmLargeScore = (message: string) => boolean;
+
+/**
+ * 크기 기준을 초과한 작업에만 동의를 요청한다. 확인 수단이 없으면 거부한다.
+ * - 인수 : bytes : JSON UTF-8 크기. 아직 모르면 0
+ * - 인수 : columns : 악보 열 수. 아직 모르면 0
+ * - 인수 : confirm : UI가 제공하는 이번 작업의 확인 함수
+ * - 반환값 : 기준 이하이거나 명시적으로 동의하면 true
+ */
+export function allowLargeScoreOperation(bytes: number, columns: number, confirm?: ConfirmLargeScore): boolean {
+  if (bytes <= SCORE_JSON_WARNING_BYTES && columns <= SCORE_COLUMN_WARNING_THRESHOLD) return true;
+  return confirm?.(
+    `Large score: ${[bytes > 0 ? formatByteSize(bytes) : "", columns > 0 ? `${columns.toLocaleString("en-US")} columns` : ""].filter(Boolean).join(", ")}.\n` +
+    "Scores over 8 MiB or 10,000 columns may make the browser unresponsive or run out of memory. " +
+    "Unsaved changes may be lost. Continue with this operation?",
+  ) === true;
+}
 
 /** localStorage에 저장할 Score JSON 최대 UTF-8 byte 수. */
 export const MAX_LOCAL_SCORE_JSON_BYTES = 3 * 1024 * 1024;

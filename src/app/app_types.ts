@@ -358,7 +358,7 @@ export type AppDom = {
   layoutPitchShiftLabel: HTMLElement;
   layoutRowList: HTMLElement;
   layoutPreview: HTMLElement;
-  layoutRowTypeSelect: HTMLSelectElement;
+  layoutRowTypeButtons: HTMLButtonElement[];
   layoutRowHeightInput: HTMLInputElement;
   layoutAddRowBelowButton: HTMLButtonElement;
   layoutAddRowAboveButton: HTMLButtonElement;

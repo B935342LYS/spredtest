@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { prepareScoreJsonExport, serializeScoreFile, downloadScoreJson } from "../src/infra/score_file_io";
-import { MAX_SCORE_JSON_BYTES, getUtf8ByteLength } from "../src/core/score/score_limits";
+import { SCORE_JSON_WARNING_BYTES, getUtf8ByteLength } from "../src/core/score/score_limits";
 import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
 import { createInitialState } from "../src/app/app_runtime";
 import { bindFileControls } from "../src/app/app_file_binding";
@@ -35,10 +35,10 @@ assert.equal(normal.jsonText, serializeScoreFile(base));
 const large = createLargeScore(28000);
 const before = JSON.stringify(large);
 assert.ok(loadRuntimeDocument(before).ok);
-assert.ok(getUtf8ByteLength(serializeScoreFile(large)) > MAX_SCORE_JSON_BYTES);
+assert.ok(getUtf8ByteLength(serializeScoreFile(large)) > SCORE_JSON_WARNING_BYTES);
 const compact = prepareScoreJsonExport(large);
 assert.ok(compact.ok);
-assert.ok(getUtf8ByteLength(compact.jsonText) <= MAX_SCORE_JSON_BYTES);
+assert.ok(getUtf8ByteLength(compact.jsonText) <= SCORE_JSON_WARNING_BYTES);
 const reloaded = loadRuntimeDocument(compact.jsonText);
 assert.ok(reloaded.ok);
 assert.deepEqual(reloaded.document.score, large);
@@ -46,7 +46,7 @@ assert.equal(JSON.stringify(large), before);
 
 // 정확한 바이트 경계까지 셀 내부 공백을 조절하여 <= 비교와 +1 바이트 실패를 확인한다.
 const boundary = createLargeScore(35000);
-let excess = getUtf8ByteLength(JSON.stringify(boundary)) - MAX_SCORE_JSON_BYTES;
+let excess = getUtf8ByteLength(JSON.stringify(boundary)) - SCORE_JSON_WARNING_BYTES;
 assert.ok(excess > 0);
 for (const cell of boundary.tracks[0].cells) {
   const remove = Math.min(excess, cell.rawText.length - 1);
@@ -57,7 +57,7 @@ for (const cell of boundary.tracks[0].cells) {
 assert.equal(excess, 0);
 const exact = prepareScoreJsonExport(boundary);
 assert.ok(exact.ok);
-assert.equal(getUtf8ByteLength(exact.jsonText), MAX_SCORE_JSON_BYTES);
+assert.equal(getUtf8ByteLength(exact.jsonText), SCORE_JSON_WARNING_BYTES);
 assert.ok(loadRuntimeDocument(exact.jsonText).ok);
 boundary.tracks[0].cells[0].rawText += " ";
 assert.equal(prepareScoreJsonExport(boundary).ok, false);
@@ -66,8 +66,12 @@ assert.equal(downloadScoreJson(boundary).ok, false);
 
 const unicode = createLargeScore(18000);
 for (const cell of unicode.tracks[0].cells) cell.rawText = "도".repeat(200);
-assert.ok(JSON.stringify(unicode).length < MAX_SCORE_JSON_BYTES);
+assert.ok(JSON.stringify(unicode).length < SCORE_JSON_WARNING_BYTES);
 assert.equal(prepareScoreJsonExport(unicode).ok, false, "UTF-8 bytes, not JS string length, govern the limit.");
+const approvedExport = prepareScoreJsonExport(unicode, () => true);
+assert(approvedExport.ok, "Approval must allow files over 8 MiB.");
+assert(getUtf8ByteLength(approvedExport.jsonText) > SCORE_JSON_WARNING_BYTES);
+assert(loadRuntimeDocument(approvedExport.jsonText, () => true).ok, "Approved large exports must load again.");
 
 // 실제 버튼 바인딩을 실행하되 초과 악보의 렌더링 없이 실패 전후 상태 참조를 확인한다.
 const button = new EventTarget();
@@ -80,7 +84,10 @@ const initial = createInitialState(loaded.document);
 let state: typeof initial = { ...initial, document: { ...initial.document, score: unicode }, scoreOrigin: "template" };
 const original = state;
 bindFileControls(dom, { getState: () => state, setState: (next) => { state = next; }, loadScoreJsonText: () => false });
+const originalWindow = globalThis.window;
+Object.assign(globalThis, { window: { confirm: () => false } });
 button.dispatchEvent(new Event("click"));
+Object.assign(globalThis, { window: originalWindow });
 assert.equal(state.statusMessage.level, "error");
 assert.equal(state.document, original.document);
 assert.equal(state.scoreOrigin, original.scoreOrigin);

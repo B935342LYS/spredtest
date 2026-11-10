@@ -19,7 +19,6 @@ import {
   MAX_YOUTUBE_OFFSET_MS,
   MAX_ROW_DEFINITIONS,
   MAX_ROW_HEIGHT,
-  MAX_SCORE_COLUMN_COUNT,
   MIN_YOUTUBE_OFFSET_MS,
 } from "./score_limits";
 
@@ -299,19 +298,18 @@ function validateBasicShapes(
   }
 
   // columnCount는 모든 셀 col 범위 검사의 상한으로 사용된다.
-  if (!Number.isInteger(score.globalLines.columnCount)) {
+  if (!Number.isSafeInteger(score.globalLines.columnCount)) {
     return invalidShape(
-      "globalLines.columnCount must be an integer.",
+      "globalLines.columnCount must be a safe integer.",
       "globalLines.columnCount",
     );
   }
 
   if (
-    score.globalLines.columnCount < 1 ||
-    score.globalLines.columnCount > MAX_SCORE_COLUMN_COUNT
+    score.globalLines.columnCount < 1
   ) {
     return invalidShape(
-      `globalLines.columnCount must be an integer from 1 to ${MAX_SCORE_COLUMN_COUNT}.`,
+      "globalLines.columnCount must be a positive safe integer.",
       "globalLines.columnCount",
     );
   }

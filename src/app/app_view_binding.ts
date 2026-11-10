@@ -541,10 +541,13 @@ export function bindViewControls(
       return;
     }
 
-    session.setState(applyExpandColumnsToState(
+    const nextState = applyExpandColumnsToState(
       state,
       readIntegerInput(dom.expandColumnInput, 0),
-    ));
+      (message) => window.confirm(message),
+    );
+    if (nextState === state) return;
+    session.setState(nextState);
     session.render();
     session.resetPlaybackForCurrentStatePreservingPosition();
   });

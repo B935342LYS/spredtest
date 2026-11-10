@@ -12,9 +12,11 @@ import {
   type ScoreValidationError,
 } from "./score_validate";
 import {
-  MAX_SCORE_JSON_BYTES,
+  SCORE_JSON_WARNING_BYTES,
   formatByteSize,
   getUtf8ByteLength,
+  allowLargeScoreOperation,
+  type ConfirmLargeScore,
 } from "./score_limits";
 
 /**
@@ -33,13 +35,14 @@ export type LoadScoreJsonResult =
     };
 
 /**
- * json 파싱 단계에서 두 종류의 오류가 있을 수 있다.
- * - json_too_large : JSON 문자열이 허용 용량을 초과함
+ * JSON 로드에서 발생할 수 있는 오류 또는 대용량 확인 거부.
+ * - json_too_large : JSON 용량 경고 기준을 초과했지만 동의하지 않음
+ * - columns_too_large : 열 수 경고 기준을 초과했지만 동의하지 않음
  * - parse_error : JSON 작성 형식을 지키지 않아 발생하는 오류
  * - not_object : 파싱 결과가 올바른 객체가 아님
  */
 export type JsonLoadError = {
-  code: "json_too_large" | "parse_error" | "not_object";
+  code: "json_too_large" | "columns_too_large" | "parse_error" | "not_object";
   message: string;
 };
 
@@ -61,17 +64,18 @@ export type LoadScoreFileResult =
 /**
  * JSON 문자열을 ScoreFile 후보 값으로 파싱한다. 이 함수는 JSON 문법과 최상위 object 여부만 확인한다.
  * - 인수 : jsonText : 입력된 json 원본 문자열
+ * - 인수 : confirm : 대용량 로드 동의 함수. 생략하면 초과 입력 거부
  * - 반환값 : LoadScoreJsonResult : 로드 결과물
  */
-export function loadScoreJson(jsonText: string): LoadScoreJsonResult {
+export function loadScoreJson(jsonText: string, confirm?: ConfirmLargeScore): LoadScoreJsonResult {
   let parsed: unknown;
 
-  if (getUtf8ByteLength(jsonText) > MAX_SCORE_JSON_BYTES) {
+  if (!allowLargeScoreOperation(getUtf8ByteLength(jsonText), 0, confirm)) {
     return {
       ok: false,
       error: {
         code: "json_too_large",
-        message: `Score JSON must be ${formatByteSize(MAX_SCORE_JSON_BYTES)} or smaller.`,
+        message: `Loading cancelled: score JSON exceeds ${formatByteSize(SCORE_JSON_WARNING_BYTES)} and requires confirmation.`,
       },
     };
   }
@@ -112,11 +116,15 @@ export function loadScoreJson(jsonText: string): LoadScoreJsonResult {
 /**
  * JSON 문자열을 파싱한 뒤 ScoreFile 최소 구조 검증까지 수행한다.
  * - 인수 : jsonText : 입력된 JSON 원본 문자열
+ * - 인수 : confirm : 이번 로드의 대용량 확인 함수
  * - 반환값 : LoadScoreFileResult : JSON 파싱과 ScoreFile 검증 결과
  */
-export function loadScoreFile(jsonText: string): LoadScoreFileResult {
+export function loadScoreFile(jsonText: string, confirm?: ConfirmLargeScore): LoadScoreFileResult {
+  let approved = false;
+  // 같은 로드에서 용량과 열 수를 모두 초과해도 확인은 한 번만 한다.
+  const confirmOnce: ConfirmLargeScore = (message) => approved || (approved = confirm?.(message) === true);
   // JSON 문법과 최상위 object 여부를 먼저 확인한 뒤 ScoreFile 구조 검증으로 넘긴다.
-  const loadResult = loadScoreJson(jsonText);
+  const loadResult = loadScoreJson(jsonText, confirmOnce);
 
   // loadResult.ok === false이면 JSON 로드 실패 상황이므로 에러 정보를 그대로 반환한다.
   // 이 분기에서 loadResult는 실패 케이스로 타입이 좁혀지며, LoadScoreFileResult의 실패 반환형과 호환된다.
@@ -125,5 +133,10 @@ export function loadScoreFile(jsonText: string): LoadScoreFileResult {
   }
 
   // JSON 파싱이 정상 처리되었다면 validateScoreFile()로 ScoreFile 구조를 검증한다.
-  return validateScoreFile(loadResult.value);
+  const validation = validateScoreFile(loadResult.value);
+  if (!validation.ok) return validation;
+  if (!allowLargeScoreOperation(0, validation.score.globalLines.columnCount, confirmOnce)) {
+    return { ok: false, error: { code: "columns_too_large", message: "Loading cancelled: scores over 10,000 columns require confirmation." } };
+  }
+  return validation;
 }

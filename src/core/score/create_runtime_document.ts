@@ -14,6 +14,7 @@ import type {
   ScoreFile,
 } from "./types";
 import type { ScoreValidationError } from "./score_validate";
+import type { ConfirmLargeScore } from "./score_limits";
 
 /**
  * JSON 문자열에서 RuntimeDocument까지 생성한 결과.
@@ -46,13 +47,15 @@ export function createRuntimeDocument(score: ScoreFile): RuntimeDocument {
 /**
  * JSON 문자열을 파싱, 검증, 인덱스 생성까지 수행해 RuntimeDocument로 로드한다.
  * - 인수 : jsonText : 입력된 JSON 원본 문자열
+ * - 인수 : confirm : 이번 로드의 대용량 확인 함수
  * - 반환값 : LoadRuntimeDocumentResult : 런타임 문서 로드 성공 또는 실패 결과
  */
 export function loadRuntimeDocument(
   jsonText: string,
+  confirm?: ConfirmLargeScore,
 ): LoadRuntimeDocumentResult {
   // RuntimeDocument 생성 전에는 JSON 파싱과 ScoreFile 검증이 먼저 끝나야 한다.
-  const loadResult = loadScoreFile(jsonText);
+  const loadResult = loadScoreFile(jsonText, confirm);
 
   // JSON 파싱 또는 ScoreFile 검증 실패는 인덱스 생성 전 단계의 오류이므로 그대로 전달한다.
   if (!loadResult.ok) {
