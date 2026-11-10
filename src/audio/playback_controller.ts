@@ -34,6 +34,7 @@ export type PlaybackController = {
   pauseAtSeconds(scoreSeconds: number, loop?: PlaybackLoopState): void;
   resume(): Promise<void>;
   seekToSeconds(scoreSeconds: number, loop?: PlaybackLoopState): Promise<void>;
+  setLoop(loop: PlaybackLoopState): void;
   stop(): void;
   getState(): PlaybackState;
   getCurrentScoreSeconds(): number;
@@ -191,6 +192,35 @@ export function createPlaybackController(
             seekScoreSeconds: nextScoreSeconds,
             loop: normalizedLoop,
           };
+    },
+    /**
+     * 현재 위치와 재생 상태를 보존하며 loop 예약을 즉시 갱신한다.
+     * - 인수 : loop : 적용할 반복 구간 또는 off 상태
+     * - 반환값 : 없음
+     */
+    setLoop(loop: PlaybackLoopState): void {
+      if (disposed) return;
+      const normalizedLoop = normalizeLoop(loop, input.schedule.durationSeconds);
+      const scoreSeconds = normalizeStartScoreSeconds(
+        this.getCurrentScoreSeconds(), normalizedLoop, input.schedule.durationSeconds,
+      );
+
+      // 이전 cycle의 선행 예약을 취소하고 현재 위치에서 새 조건으로 예약한다.
+      input.backend.stopAll();
+      input.scheduler.resetScheduledEvents();
+      if (state.kind === "playing") {
+        state = {
+          kind: "playing",
+          audioStartedAt: input.backend.getCurrentTime(),
+          scoreStartedAt: scoreSeconds,
+          loop: normalizedLoop,
+        };
+        scheduleCurrentLookahead();
+      } else if (state.kind === "paused") {
+        state = { kind: "paused", pausedAtScoreSeconds: scoreSeconds, loop: normalizedLoop };
+      } else {
+        state = { kind: "stopped", seekScoreSeconds: scoreSeconds, loop: normalizedLoop };
+      }
     },
     stop(): void {
       playGeneration += 1;

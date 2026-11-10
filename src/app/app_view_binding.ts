@@ -55,6 +55,7 @@ export type FitScoreHeightOptions = {
 
 /** view control 전체 binding이 layout 적용 후 playback 재생성을 요청하기 위한 session 입력. */
 type ViewControlsBindingSession = ViewBindingSession & {
+  syncPlaybackLoop(): void;
   resetPlaybackForCurrentState(): void;
   resetPlaybackForCurrentStatePreservingPosition(): void;
 };
@@ -266,7 +267,7 @@ function applyTextOff(
  */
 function toggleLoop(
   dom: AppDom,
-  session: ViewBindingSession,
+  session: ViewControlsBindingSession,
 ): void {
   const state = session.getState();
 
@@ -291,6 +292,8 @@ function toggleLoop(
         : enabled ? "Loop enabled." : "Loop disabled.",
     },
   });
+  // 게임의 단회 연습 범위는 오디오 반복으로 전달하지 않는다.
+  if (!isPracticeRangeMode) session.syncPlaybackLoop();
   session.setState(renderDynamicViewportLayers(dom, session.getState()));
   syncLeftStatus(dom, session.getState());
   syncUiControls(dom, session.getState());

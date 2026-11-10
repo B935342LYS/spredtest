@@ -639,6 +639,14 @@ async function boot(): Promise<void> {
     render,
     loadScoreJsonText,
     getPlaybackRuntime: () => playbackRuntime,
+    /**
+     * UI의 loop 설정을 현재 재생 제어기에 즉시 전달한다.
+     * - 인수 : 없음
+     * - 반환값 : 없음
+     */
+    syncPlaybackLoop: (): void => {
+      playbackRuntime.controller.setLoop(createPlaybackLoopStateFromApp(state, playbackRuntime));
+    },
     getNotePreviewRuntime: () => notePreviewRuntime,
     resetPlaybackForCurrentState,
     resetPlaybackForCurrentStatePausedAt,

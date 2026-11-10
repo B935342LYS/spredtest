@@ -1582,6 +1582,28 @@ if (loadResult.ok) {
   fakeAudioTime = 0.2;
   assertNear(controller.getCurrentScoreSeconds(), 0.3, "Loop playback should wrap at loop end.");
 
+  // 여러 cycle 후에도 Off는 현재 위치를 보존하고 이전 loop 끝을 넘어 진행한다.
+  fakeAudioTime = 1.1;
+  const positionBeforeLoopOff = controller.getCurrentScoreSeconds();
+  const oldReservations = [...controllerScheduledEvents];
+  controller.setLoop({ enabled: false });
+  assert(controller.isPlaying(), "Loop Off must keep playback running.");
+  assert(!controller.getState().loop.enabled, "Loop Off must immediately reach the controller.");
+  assertNear(controller.getCurrentScoreSeconds(), positionBeforeLoopOff, "Loop Off must preserve wrapped position.");
+  assert(controllerScheduledEvents.every((event) => !oldReservations.includes(event)), "Loop Off must discard old cycle reservations.");
+  fakeAudioTime += 0.6;
+  assertNear(controller.getCurrentScoreSeconds(), positionBeforeLoopOff + 0.6, "Loop Off must advance past the old loop end without pause/resume.");
+
+  controller.setLoop({ enabled: true, startSeconds: 0.25, endSeconds: 0.75 });
+  assertNear(controller.getCurrentScoreSeconds(), 0.25, "Loop On outside the range must start at loop start.");
+  fakeAudioTime += 0.6;
+  assertNear(controller.getCurrentScoreSeconds(), 0.35, "Loop On must immediately wrap again.");
+  controller.pause();
+  controller.setLoop({ enabled: false });
+  assert(controller.getState().kind === "paused", "Loop change must preserve paused state.");
+  await controller.resume();
+  assert(!controller.getState().loop.enabled, "Resume must retain the updated loop setting.");
+
   await controller.seekToSeconds(
     1.25,
     {
