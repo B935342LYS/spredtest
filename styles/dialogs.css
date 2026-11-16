@@ -221,3 +221,39 @@
   background: rgb(23 32 38 / 52%);
 }
 
+
+/* 첫 사용 안내는 작은 화면에서 내부 스크롤로 모든 내용을 읽을 수 있게 한다. */
+.getting-started-dialog {
+  box-sizing: border-box;
+  width: min(820px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 24px;
+  border: 1px solid #c8cdd5;
+  border-radius: 12px;
+  background: #fff;
+  color: #222;
+  overflow-y: auto;
+}
+.getting-started-dialog::backdrop { background: rgb(0 0 0 / 45%); }
+.getting-started-dialog h2 { margin: 20px 0 16px; font-size: 22px; }
+.getting-started-dialog p, .getting-started-dialog li { line-height: 1.65; }
+.getting-started-dialog li + li { margin-top: 8px; }
+.getting-started-dialog ul { padding-left: 24px; }
+.getting-started-dialog a { color: #1858a8; text-decoration: underline; }
+.getting-started-languages { display: flex; gap: 8px; }
+.getting-started-dialog button {
+  min-height: 36px;
+  padding: 7px 14px;
+  border: 1px solid #a8b2c0;
+  border-radius: 6px;
+  background: #fff;
+  color: #222;
+  cursor: pointer;
+}
+.getting-started-dialog button[aria-pressed="true"],
+.getting-started-dialog .getting-started-close { background: #215bb5; color: #fff; }
+.getting-started-dialog .getting-started-close { display: block; margin: 20px 0 0 auto; }
+.getting-started-dialog button:focus-visible, .getting-started-dialog a:focus-visible {
+  outline: 3px solid #d88600;
+  outline-offset: 3px;
+}

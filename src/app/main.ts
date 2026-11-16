@@ -5,6 +5,7 @@
 
 import { applyEditEffects, type EditEffectsResult } from "./edit/edit_commit_effects";
 import { collectAppDom } from "./app_dom";
+import { bindGettingStarted } from "./getting_started";
 import {
   applyRawTextBatchEditToState,
   loadScoreTextAsInitialState,
@@ -767,6 +768,7 @@ async function boot(): Promise<void> {
       resetRepeatedClickCycle();
     },
   });
+  bindGettingStarted();
 }
 
 /**
