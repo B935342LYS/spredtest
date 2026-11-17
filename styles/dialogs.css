@@ -34,6 +34,24 @@
   border-top: 1px solid var(--line);
 }
 
+.info-use-notice {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 2px solid var(--text);
+  border-radius: 6px;
+}
+
+.info-use-notice h3 {
+  margin-top: 0;
+}
+
+#examples-beta-disabled-notice {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .info-section:first-of-type {
   border-top: 0;
 }

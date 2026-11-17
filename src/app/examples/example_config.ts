@@ -5,6 +5,11 @@
 const DEFAULT_EXAMPLE_MANIFEST_FUNCTION_URL =
   "https://nflcoszlsiddxjvydjwu.supabase.co/functions/v1/get-example-manifest";
 
+/** 베타 목록 제공 중단 정책. 공개 예제와 DB 구조는 유지한다. */
+export const BETA_EXAMPLES_ENABLED: boolean = false;
+/** 잠긴 베타 목록 입력 또는 요청에 표시할 안내. */
+export const BETA_EXAMPLES_DISABLED_MESSAGE = "Beta test list access is disabled.";
+
 type ViteImportMeta = ImportMeta & {
   env?: Record<string, string | undefined>;
 };

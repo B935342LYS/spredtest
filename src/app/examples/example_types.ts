@@ -47,6 +47,7 @@ export type ExampleError = {
   code:
     | "CONFIG_MISSING"
     | "INVALID_ACCESS_WORD"
+    | "BETA_ACCESS_DISABLED"
     | "INVALID_REQUEST"
     | "INVALID_RESPONSE"
     | "MANIFEST_UNAVAILABLE"

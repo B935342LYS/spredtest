@@ -1,0 +1,149 @@
+// Supabase Edge Function source for: get-example-manifest
+// This file is kept as .txt so the app TypeScript build does not compile Deno-only imports.
+// Paste the TypeScript source below into the Supabase Dashboard Edge Function editor.
+
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
+
+type ExampleScoreRow = {
+  id: string;
+  title: string;
+  artist: string;
+  genre: string;
+  difficulty_basic: number | null;
+  difficulty_optional: number | null;
+  difficulty_extra: number | null;
+  supported_tracks: string[];
+  duration_seconds: number | null;
+  size_bytes: number | null;
+  score_url: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type RequestPayload = {
+  accessWord?: string;
+};
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+// 베타 목록 제공 중단. 테이블·Storage 구조와 공개 예제 조회는 유지한다.
+// 이 소스 변경은 Dashboard에 반영하기 전까지 실제 서버에 적용되지 않는다.
+const BETA_EXAMPLES_ENABLED = false;
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return jsonError("METHOD_NOT_ALLOWED", "POST request is required.", 405);
+  }
+
+  let payload: RequestPayload;
+  try {
+    payload = await req.json();
+  } catch {
+    return jsonError("INVALID_REQUEST", "Request body must be JSON.", 400);
+  }
+
+  const accessWord = payload.accessWord?.trim() ?? "";
+  const expectedAccessWord = Deno.env.get("EXAMPLE_ACCESS_WORD")?.trim() ?? "";
+  const isPublicRequest = accessWord.length === 0;
+
+  if (!BETA_EXAMPLES_ENABLED && !isPublicRequest) {
+    return jsonError("BETA_ACCESS_DISABLED", "Beta test list access is disabled.", 403);
+  }
+
+  if (!isPublicRequest && (expectedAccessWord.length === 0 || accessWord !== expectedAccessWord)) {
+    return jsonError("INVALID_ACCESS_WORD", "Access word is invalid.", 401);
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+  if (supabaseUrl.length === 0 || serviceRoleKey.length === 0) {
+    return jsonError("INTERNAL_ERROR", "Supabase server configuration is missing.", 500);
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+  const accessGroups = isPublicRequest ? ["public"] : ["public", "tester"];
+
+  const { data, error } = await supabase
+    .from("example_scores")
+    .select([
+      "id",
+      "title",
+      "artist",
+      "genre",
+      "difficulty_basic",
+      "difficulty_optional",
+      "difficulty_extra",
+      "supported_tracks",
+      "duration_seconds",
+      "size_bytes",
+      "score_url",
+      "created_at",
+      "updated_at",
+    ].join(","))
+    .eq("is_published", true)
+    .in("access_group", accessGroups)
+    .order("display_order", { ascending: true })
+    .order("title", { ascending: true });
+
+  if (error) {
+    return jsonError("MANIFEST_UNAVAILABLE", "Example manifest is unavailable.", 500);
+  }
+
+  return Response.json(
+    {
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      examples: (data as ExampleScoreRow[]).map((row) => ({
+        id: row.id,
+        title: row.title,
+        artist: row.artist,
+        genre: row.genre,
+        difficulty: buildDifficulty(row),
+        supportedTracks: row.supported_tracks,
+        durationSeconds: row.duration_seconds ?? undefined,
+        sizeBytes: row.size_bytes ?? undefined,
+        scoreUrl: row.score_url,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      })),
+    },
+    { headers: corsHeaders },
+  );
+});
+
+function buildDifficulty(row: ExampleScoreRow): Record<string, number> | undefined {
+  const difficulty: Record<string, number> = {};
+
+  if (row.difficulty_basic !== null) difficulty.basic = row.difficulty_basic;
+  if (row.difficulty_optional !== null) difficulty.optional = row.difficulty_optional;
+  if (row.difficulty_extra !== null) difficulty.extra = row.difficulty_extra;
+
+  return Object.keys(difficulty).length > 0 ? difficulty : undefined;
+}
+
+function jsonError(code: string, message: string, status: number): Response {
+  return Response.json(
+    {
+      error: { code, message },
+    },
+    {
+      status,
+      headers: corsHeaders,
+    },
+  );
+}

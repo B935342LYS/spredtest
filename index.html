@@ -447,6 +447,13 @@
     <dialog id="legal-info" class="info-dialog">
         <form method="dialog">
             <h2>Info</h2>
+            <section class="info-use-notice" aria-label="Personal use and no sharing notice">
+                <h3>개인적 용도로만 사용 / Personal use only</h3>
+                <p lang="ko"><strong>저작권이 있는 곡의 악보 및 악보 데이터를 공유·게시·배포하지 마십시오. 허용되는 범위에서 개인적인 연습 용도로만 사용해 주세요.</strong></p>
+                <p lang="en"><strong>Do not share, publish, or distribute scores or score data for copyrighted songs. Use them only for personal practice to the extent permitted.</strong></p>
+                <p lang="ko">이 안내는 저작물의 이용 허락을 부여하지 않습니다. 개인적 이용이라도 필요한 권리와 이용 조건을 확인해 주세요.</p>
+                <p lang="en">This notice does not grant permission to use copyrighted works. Check the applicable rights and conditions even for personal use.</p>
+            </section>
             <section class="info-section" aria-label="Copyright and distribution notice in English">
                 <h3>Copyright and Distribution Notice</h3>
                 <p>SPRED is a practice aid for creating, viewing, and playing score data.</p>
@@ -480,12 +487,13 @@
             </div>
             <label class="examples-access-field">
                 Access word
-                <input class="examples-access-word-input" type="password" autocomplete="off" spellcheck="false">
+                <input class="examples-access-word-input" type="password" autocomplete="off" spellcheck="false" disabled aria-describedby="examples-beta-disabled-notice">
             </label>
             <div class="examples-toolbar">
-                <button type="button" class="examples-load-list-button">Load Beta Test List</button>
+                <button type="button" class="examples-load-list-button" disabled aria-describedby="examples-beta-disabled-notice">Load Beta Test List</button>
                 <button type="button" class="examples-load-button" disabled>Load Example</button>
             </div>
+            <p id="examples-beta-disabled-notice">Beta test list access is disabled. 베타 테스트 목록 제공이 중단되었습니다.</p>
             <div class="examples-controls" aria-label="Example list controls">
                 <label>
                     Name

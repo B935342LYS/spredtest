@@ -13,6 +13,7 @@ import type {
   ExampleScoreManifestItem,
 } from "./example_types";
 import type { ExampleProviderConfig } from "./example_config";
+import { BETA_EXAMPLES_ENABLED, BETA_EXAMPLES_DISABLED_MESSAGE } from "./example_config";
 
 /**
  * Supabase Edge Function provider를 생성한다.
@@ -44,6 +45,10 @@ async function loadManifestFromSupabase(
   accessWord: string,
   signal?: AbortSignal,
 ): Promise<ExampleScoreManifest> {
+  // UI를 거치지 않은 호출도 비어 있지 않은 접근 단어를 서버에 전송하지 않는다.
+  if (!BETA_EXAMPLES_ENABLED && accessWord.trim().length > 0) {
+    throw createExampleError("BETA_ACCESS_DISABLED", BETA_EXAMPLES_DISABLED_MESSAGE);
+  }
   if (config.manifestFunctionUrl.length === 0) {
     throw createExampleError("CONFIG_MISSING", "Examples endpoint is not configured.");
   }
@@ -149,6 +154,7 @@ function normalizeErrorResponse(value: unknown, status: number): ExampleError {
 function normalizeErrorCode(code: string, status: number): ExampleError["code"] {
   if (
     code === "INVALID_ACCESS_WORD" ||
+    code === "BETA_ACCESS_DISABLED" ||
     code === "INVALID_REQUEST" ||
     code === "INVALID_RESPONSE" ||
     code === "MANIFEST_UNAVAILABLE" ||

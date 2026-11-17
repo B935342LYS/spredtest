@@ -6,7 +6,7 @@ import type {
   AppDom,
   UiStatusLevel,
 } from "../app_types";
-import { readExampleProviderConfig } from "./example_config";
+import { BETA_EXAMPLES_ENABLED, BETA_EXAMPLES_DISABLED_MESSAGE, readExampleProviderConfig } from "./example_config";
 import {
   bindExampleDialog,
   openExampleDialog,
@@ -80,6 +80,8 @@ export function bindExampleControls(
       return;
     }
 
+    // 베타 제공 중단 중에는 보관된 접근 단어로 자동 재요청하지 않는다.
+    if (!BETA_EXAMPLES_ENABLED) accessSession.rememberedAccessWord = "";
     openExampleDialog(dom, accessSession.rememberedAccessWord);
     void loadManifest(dom, session, provider, accessSession.rememberedAccessWord, accessSession);
   });
@@ -104,6 +106,10 @@ export function bindExampleControls(
       }
 
       if (action.kind === "loadList") {
+        if (!BETA_EXAMPLES_ENABLED) {
+          setExampleDialogNotice(dom, BETA_EXAMPLES_DISABLED_MESSAGE, "warning");
+          return;
+        }
         if (action.accessWord.trim().length === 0) {
           setExampleDialogNotice(dom, "Enter access word to load extra examples.", "warning");
           return;

@@ -6,6 +6,7 @@ import type {
   AppDom,
   UiStatusLevel,
 } from "../app_types";
+import { BETA_EXAMPLES_ENABLED } from "./example_config";
 import type {
   ExampleScoreManifest,
   ExampleScoreManifestItem,
@@ -63,6 +64,8 @@ export function bindExampleDialog(
   });
 
   dom.examplesLoadListButton.addEventListener("click", () => {
+    // disabled 속성이 외부에서 바뀌어도 베타 목록 action은 생성하지 않는다.
+    if (!BETA_EXAMPLES_ENABLED || dom.examplesLoadListButton.disabled) return;
     handlers.onAction({
       kind: "loadList",
       accessWord: dom.examplesAccessWordInput.value,
@@ -72,7 +75,7 @@ export function bindExampleDialog(
   dom.examplesForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
-    if (dom.examplesLoadListButton.disabled) {
+    if (!BETA_EXAMPLES_ENABLED || dom.examplesLoadListButton.disabled) {
       return;
     }
 
@@ -115,17 +118,18 @@ export function bindExampleDialog(
 }
 
 /**
- * Examples dialog의 목록 상태를 초기화하고 검증된 접근 단어를 복원해 연다.
+ * Examples 목록을 초기화하고 베타 허용 시에만 검증된 접근 단어를 복원해 연다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
  * - 인수 : accessWord : 현재 페이지 메모리에 보관한 검증된 접근 단어
  * - 반환값 : 없음
  */
 export function openExampleDialog(dom: AppDom, accessWord = ""): void {
-  // 목록·검색·선택 상태는 재설정하고 접근 단어만 binding의 메모리 값으로 복원한다.
+  // 목록·검색·선택 상태를 재설정하고 베타 중단 중에는 접근 단어를 비운다.
   resetExampleDialog(dom);
-  dom.examplesAccessWordInput.value = accessWord;
+  dom.examplesAccessWordInput.value = BETA_EXAMPLES_ENABLED ? accessWord : "";
   dom.examplesDialog.showModal();
-  dom.examplesAccessWordInput.focus();
+  if (BETA_EXAMPLES_ENABLED) dom.examplesAccessWordInput.focus();
+  else dom.examplesNameSearchInput.focus();
 }
 
 /**
@@ -213,8 +217,8 @@ export function setExampleDialogNotice(
  * - 반환값 : 없음
  */
 export function setExampleDialogBusy(dom: AppDom, busy: boolean): void {
-  dom.examplesAccessWordInput.disabled = busy;
-  dom.examplesLoadListButton.disabled = busy;
+  dom.examplesAccessWordInput.disabled = !BETA_EXAMPLES_ENABLED || busy;
+  dom.examplesLoadListButton.disabled = !BETA_EXAMPLES_ENABLED || busy;
   dom.examplesLoadButton.disabled = busy || (dom.examplesList.dataset.selectedExampleId ?? "") === "";
   dom.examplesCloseButton.disabled = busy;
   dom.examplesDialog.classList.toggle("busy", busy);

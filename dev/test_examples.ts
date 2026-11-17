@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import { validateExampleManifest } from "../src/app/examples/example_manifest_validate";
+import { createSupabaseExampleProvider } from "../src/app/examples/example_supabase_provider";
 
 const validManifest = {
   version: 1,
@@ -70,5 +71,23 @@ expectInvalid(badGeneratedAt, "generatedAt");
 const duplicateId = cloneJson(validManifest);
 duplicateId.examples.push(cloneJson(validManifest).examples[0]);
 expectInvalid(duplicateId, "examples[1].id");
+
+// 직접 provider 호출도 베타 요청을 전송하지 않으며 공개 목록 경로는 유지한다.
+const originalFetch = globalThis.fetch;
+const requestedWords: string[] = [];
+try {
+  globalThis.fetch = async (_input, init) => {
+    requestedWords.push(JSON.parse(String(init?.body)).accessWord);
+    return Response.json(validManifest);
+  };
+  const provider = createSupabaseExampleProvider({ manifestFunctionUrl: "https://example.com/manifest", publishableKey: "" });
+  await assert.rejects(provider.loadManifest("previously-valid-beta-word"), { code: "BETA_ACCESS_DISABLED" });
+  assert.equal(requestedWords.length, 0, "Blocked beta requests must not reach fetch");
+  const publicManifest = await provider.loadManifest("");
+  assert.equal(publicManifest.examples.length, 1);
+  assert.deepEqual(requestedWords, [""]);
+} finally {
+  globalThis.fetch = originalFetch;
+}
 
 console.log("test_examples passed");
