@@ -2,6 +2,7 @@
   "name": "regression-code",
   "private": true,
   "type": "module",
+  "engines": { "node": ">=24.22.3 <25" },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "node scripts/check-licenses.mjs && tsc --noEmit && vite build && node scripts/check-licenses.mjs --bundle",
@@ -26,9 +27,9 @@
   },
   "devDependencies": {
     "@types/node": "^20.12.0",
-    "tsx": "^4.19.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.4.0",
-    "vite": "^8.0.14"
+    "vite": "^8.3.8"
   },
   "dependencies": {
     "pitchy": "^4.1.0"
