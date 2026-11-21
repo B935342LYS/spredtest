@@ -1333,9 +1333,9 @@ function loadLayoutDraftFromPresetFile(
 }
 
 /**
- * layout row 추가 입력을 읽어 draft에 반영한다.
+ * layout row 추가 입력을 읽어 선택 string의 최상단 또는 최하단에 추가한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
- * - 인수 : position : 선택 row 위/아래 삽입 위치
+ * - 인수 : position : above는 최상단, below는 최하단에 삽입
  * - 반환값 : 없음
  */
 function addLayoutRowFromDialog(
@@ -1346,13 +1346,22 @@ function addLayoutRowFromDialog(
 
   applyLayoutDraftChange(
     dom,
-    (currentDraft) => addLayoutDraftRow(currentDraft, {
-      rowType,
-      height: rowType === "note"
-        ? Number(dom.layoutNoteHeightInput.value)
-        : Number(dom.layoutRowHeightInput.value),
-      position,
-    }),
+    (currentDraft) => {
+      // 현재 string의 양끝 행을 기준으로 추가하며, 실패하면 기존 선택과 draft를 유지한다.
+      const rows = getRowsForSelectedString(currentDraft);
+      const boundaryRow = position === "above" ? rows[0] : rows[rows.length - 1];
+
+      return addLayoutDraftRow({
+        ...currentDraft,
+        selectedRowId: boundaryRow?.rowId ?? null,
+      }, {
+        rowType,
+        height: rowType === "note"
+          ? Number(dom.layoutNoteHeightInput.value)
+          : Number(dom.layoutRowHeightInput.value),
+        position,
+      });
+    },
   );
 }
 
